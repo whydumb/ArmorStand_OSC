@@ -1,23 +1,26 @@
 package top.fifthlight.armorstand.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.gl.BufferManager;
 import net.minecraft.client.gl.GlGpuBuffer;
 import net.minecraft.client.gl.GlResourceManager;
 import net.minecraft.client.gl.RenderPassImpl;
-import net.minecraft.client.texture.NativeImage;
+import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
-import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 import top.fifthlight.armorstand.helper.RenderPassWithVertexBuffer;
 import top.fifthlight.armorstand.render.gl.GlVertexBuffer;
+
+import java.util.Collection;
 
 @Mixin(GlResourceManager.class)
 public class GlResourceManagerMixin {
@@ -71,5 +74,44 @@ public class GlResourceManagerMixin {
             return 1;
         }
         return param;
+    }
+
+    @Unique
+    private void checkRenderPassBuffers(RenderPassImpl pass, boolean checkIndexBuffer) {
+        if (checkIndexBuffer) {
+            if (pass.indexBuffer == null) {
+                throw new IllegalStateException("Missing index buffer");
+            }
+
+            if (pass.indexBuffer.isClosed()) {
+                throw new IllegalStateException("Index buffer has been closed!");
+            }
+        }
+
+        var blaze3DVertexBuffer = pass.vertexBuffers[0];
+        var armorStandVertexBuffer = ((RenderPassWithVertexBuffer) pass).armorStand$getVertexBuffer();
+        if (blaze3DVertexBuffer == null && armorStandVertexBuffer == null) {
+            throw new IllegalStateException("Missing vertex buffer");
+        }
+
+        if ((blaze3DVertexBuffer != null && blaze3DVertexBuffer.isClosed()) || (armorStandVertexBuffer != null && armorStandVertexBuffer.getClosed())) {
+            throw new IllegalStateException("Vertex buffer has been closed!");
+        }
+    }
+
+    @ModifyExpressionValue(method = "drawBoundObjectWithRenderPass", at = @At(value = "FIELD", target = "Lnet/minecraft/client/gl/RenderPassImpl;IS_DEVELOPMENT:Z"))
+    public boolean onCheckSingleRenderPass(boolean original, RenderPassImpl pass, int first, int count, @Nullable VertexFormat.IndexType indexType) {
+        if (original) {
+            checkRenderPassBuffers(pass, indexType != null);
+        }
+        return false;
+    }
+
+    @ModifyExpressionValue(method = "drawObjectsWithRenderPass", at = @At(value = "FIELD", target = "Lnet/minecraft/client/gl/RenderPassImpl;IS_DEVELOPMENT:Z"))
+    public boolean onCheckMultipleRenderPass(boolean original, RenderPassImpl pass, Collection<RenderPass.RenderObject> objects, @Nullable GpuBuffer indexBuffer, @Nullable VertexFormat.IndexType indexType) {
+        if (original) {
+            checkRenderPassBuffers(pass, true);
+        }
+        return false;
     }
 }

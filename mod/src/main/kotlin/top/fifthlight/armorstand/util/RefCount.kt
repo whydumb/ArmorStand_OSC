@@ -8,13 +8,15 @@ class InvalidReferenceCountException(
 ) : Exception("Bad reference count $count for object $obj")
 
 interface RefCount {
+    val closed: Boolean
     val referenceCount: Int
     fun increaseReferenceCount()
     fun decreaseReferenceCount()
 }
 
 abstract class AbstractRefCount : RefCount {
-    protected var closed: Boolean = false
+    override var closed: Boolean = false
+        protected set
     private val referenceCountAtomic = atomic(0)
     final override var referenceCount by referenceCountAtomic
 

@@ -8,12 +8,6 @@ import top.fifthlight.armorstand.helper.RenderPipelineWithVertexType
 import top.fifthlight.armorstand.model.VertexType
 import top.fifthlight.armorstand.render.VertexBuffer
 
-fun RenderPass.setVertexBuffer(vertexBuffer: VertexBuffer) =
-    ((this as RenderPassImpl) as RenderPassWithVertexBuffer).`armorStand$setVertexBuffer`(vertexBuffer)
-
-fun RenderPass.getVertexBuffer() =
-    ((this as RenderPassImpl) as RenderPassWithVertexBuffer).`armorStand$getVertexBuffer`()
-
 fun RenderPipeline.Builder.withVertexType(type: VertexType) = also {
     (this as RenderPipelineWithVertexType).`armorStand$setVertexType`(type)
 }

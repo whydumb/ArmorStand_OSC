@@ -21,7 +21,10 @@ loom {
 		useLegacyMixinAp = false
 	}
 	localProperties["minecraft.vm-args"]?.toString()?.split(":")?.let { jvmArgs ->
-		runs.configureEach { vmArgs(jvmArgs) }
+		runs.configureEach {
+			vmArgs(jvmArgs)
+			vmArg("-Darmorstand.debug=true")
+		}
 	}
 }
 
