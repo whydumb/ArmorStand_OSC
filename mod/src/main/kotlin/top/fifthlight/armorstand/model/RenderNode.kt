@@ -1,95 +1,67 @@
 package top.fifthlight.armorstand.model
 
+import com.mojang.blaze3d.systems.CommandEncoder
+import com.mojang.blaze3d.systems.GpuDevice
 import net.minecraft.client.util.math.MatrixStack
-import org.joml.Vector3f
-import org.joml.Vector4f
 import top.fifthlight.armorstand.util.AbstractRefCount
+import top.fifthlight.armorstand.util.iteratorOf
 import top.fifthlight.renderer.model.NodeTransform
-import kotlin.math.max
-import kotlin.math.min
 
-class RenderNode(
-    val children: List<RenderNode> = listOf(),
-    val transform: NodeTransform? = null,
-    val mesh: RenderMesh? = null,
-) : AbstractRefCount() {
-    init {
-        mesh?.increaseReferenceCount()
-        children.forEach { it.increaseReferenceCount() }
+sealed class RenderNode: AbstractRefCount(), Iterable<RenderNode> {
+    var parent: RenderNode? = null
+
+    open fun render(matrixStack: MatrixStack, light: Int) = Unit
+
+    interface Updatable {
+        fun update(device: GpuDevice, commandEncoder: CommandEncoder)
     }
 
-    val positionMin: Vector3f? = run {
-        var x = Float.POSITIVE_INFINITY
-        var y = Float.POSITIVE_INFINITY
-        var z = Float.POSITIVE_INFINITY
-        var havePoint = false
-        fun point(vec: Vector3f) {
-            havePoint = true
-            x = min(vec.x(), x)
-            y = min(vec.y(), y)
-            z = min(vec.z(), z)
+    class Group(val children: List<RenderNode>): RenderNode() {
+        init {
+            children.forEach { it.increaseReferenceCount() }
         }
-        for (child in children) {
-            child.positionMin?.let { point(it) }
+
+        override fun onClosed() {
+            children.forEach { it.decreaseReferenceCount() }
         }
-        mesh?.positionMin?.let { point(it) }
-        if (havePoint) {
-            transform?.matrix?.let { matrix ->
-                Vector4f(x, y, z, 0f).mul(matrix).xyz(Vector3f())
-            } ?: run {
-                Vector3f(x, y, z)
-            }
-        } else {
-            null
-        }
+
+        override fun render(matrixStack: MatrixStack, light: Int) = children.forEach { it.render(matrixStack, light) }
+
+        override fun iterator(): Iterator<RenderNode> = children.iterator()
     }
 
-    val positionMax: Vector3f? = run {
-        var x = Float.NEGATIVE_INFINITY
-        var y = Float.NEGATIVE_INFINITY
-        var z = Float.NEGATIVE_INFINITY
-        var havePoint = false
-        fun point(vec: Vector3f) {
-            havePoint = true
-            x = max(vec.x(), x)
-            y = max(vec.y(), y)
-            z = max(vec.z(), z)
+    class Mesh(val mesh: RenderMesh): RenderNode() {
+        init {
+            mesh.increaseReferenceCount()
         }
-        for (child in children) {
-            child.positionMax?.let { point(it) }
+
+        override fun onClosed() {
+            mesh.decreaseReferenceCount()
         }
-        mesh?.positionMax?.let { point(it) }
-        if (havePoint) {
-            transform?.matrix?.let { matrix ->
-                Vector4f(x, y, z, 0f).mul(matrix).xyz(Vector3f())
-            } ?: run {
-                Vector3f(x, y, z)
-            }
-        } else {
-            null
-        }
+
+        override fun render(matrixStack: MatrixStack, light: Int) = mesh.render(matrixStack, light)
+
+        override fun iterator() = iteratorOf<RenderNode>()
     }
 
-    private fun renderMeshAndChildren(matrixStack: MatrixStack, light: Int) {
-        mesh?.render(matrixStack, light)
-        for (node in children) {
-            node.render(matrixStack, light)
-        }
-    }
-
-    fun render(matrixStack: MatrixStack, light: Int) {
-        transform?.let {
+    class Transform(
+        val transform: NodeTransform,
+        val child: RenderNode,
+    ): RenderNode() {
+        override fun render(matrixStack: MatrixStack, light: Int) {
             matrixStack.push()
             matrixStack.multiplyPositionMatrix(transform.matrix)
-        }
-        renderMeshAndChildren(matrixStack, light)
-        transform?.let {
+            child.render(matrixStack, light)
             matrixStack.pop()
         }
+
+        override fun iterator() = iteratorOf<RenderNode>(child)
     }
 
-    override fun onClosed() {
-        mesh?.decreaseReferenceCount()
-        children.forEach { it.decreaseReferenceCount() }
+    class Joint(
+        val skin: RenderSkin,
+        val jointIndex: Int,
+    ): RenderNode() {
+        override fun iterator() = iteratorOf<RenderNode>()
     }
 }

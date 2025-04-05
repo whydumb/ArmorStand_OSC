@@ -15,6 +15,9 @@ object PlayerRenderer {
         if (model == null) {
             return false
         }
+
+        model.update()
+
         val backupItem = matrixStack.peek().copy()
         matrixStack.pop()
 

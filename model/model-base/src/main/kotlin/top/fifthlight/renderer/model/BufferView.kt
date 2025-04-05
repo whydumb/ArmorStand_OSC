@@ -1,6 +1,6 @@
 package top.fifthlight.renderer.model
 
-class BufferView(
+data class BufferView(
     val buffer: Buffer,
     val byteLength: Int,
     val byteOffset: Int,

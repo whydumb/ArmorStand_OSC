@@ -8,9 +8,10 @@ data class Texture(
 ) {
     enum class TextureType(
         val mimeType: String,
+        val magic: ByteArray,
     ) {
-        PNG("image/png"),
-        JPEG("image/jpeg"),
+        PNG("image/png", byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)),
+        JPEG("image/jpeg", byteArrayOf(0xFF.toByte(), 0xD8.toByte())),
     }
 
     data class Sampler(

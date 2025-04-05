@@ -1,5 +1,8 @@
 package top.fifthlight.renderer.model
 
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+
 data class Accessor(
     val bufferView: BufferView?,
     val byteOffset: Int = 0,
@@ -12,7 +15,40 @@ data class Accessor(
     val name: String? = null,
 ) {
     val length
-        get() = count * componentType.byteLength * type.components
+        get() = bufferView?.byteStride?.takeIf { it > 0 }?.let { stride ->
+            (count - 1) * stride + componentType.byteLength * type.components
+        } ?: run {
+            count * componentType.byteLength * type.components
+        }
+
+    init {
+        require(count >= 1) { "Bad count of accessor: $count" }
+        require(byteOffset >= 0) { "Invalid byte offset for accessor: $byteOffset" }
+        bufferView?.let { bufferView ->
+            if (bufferView.byteStride > 0) {
+                require(bufferView.byteStride % componentType.byteLength == 0) { "Invalid byte stride: ${bufferView.byteStride} (${bufferView.byteStride} % ${componentType.byteLength} != 0)" }
+            }
+            require(length <= bufferView.byteLength - byteOffset) { "Bad accessor size: $length, bufferView: ${bufferView.byteLength}, accessor offset: $byteOffset" }
+        }
+    }
+
+    inline fun read(crossinline func: (ByteBuffer) -> Unit) {
+        val bufferView = bufferView
+        val elementLength = componentType.byteLength * type.components
+        if (bufferView == null) {
+            val buffer = ByteBuffer.allocate(elementLength)
+            repeat(count) { func(buffer) }
+            return
+        }
+        val buffer = bufferView.buffer.buffer.slice(byteOffset + bufferView.byteOffset, length)
+        buffer.order(ByteOrder.nativeOrder())
+        val stride = bufferView.byteStride.takeIf { it > 0 } ?: elementLength
+        repeat(count) {
+            val position = buffer.position()
+            func(buffer)
+            buffer.position(position + stride)
+        }
+    }
 
     enum class ComponentType(val byteLength: Int) {
         BYTE(1),

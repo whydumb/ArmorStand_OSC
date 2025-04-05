@@ -14,8 +14,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.TextureFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.gl.*;
-import net.minecraft.client.texture.GlTexture;
-import net.minecraft.client.util.TextureAllocationException;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

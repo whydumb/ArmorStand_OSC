@@ -68,7 +68,7 @@ object FilledVertexElementProvider {
                 when (fillType) {
                     FillType.ZERO_FILLED -> ARBClearBufferObject.glClearBufferData(
                         GL32C.GL_ARRAY_BUFFER,
-                        GL32C.GL_R8,
+                        GL32C.GL_R8UI,
                         GL32C.GL_RED_INTEGER,
                         GL32C.GL_UNSIGNED_BYTE,
                         null as ByteBuffer?,
@@ -76,7 +76,7 @@ object FilledVertexElementProvider {
 
                     FillType.BYTE_ONE_FILLED -> ARBClearBufferObject.glClearBufferData(
                         GL32C.GL_ARRAY_BUFFER,
-                        GL32C.GL_R8,
+                        GL32C.GL_R8UI,
                         GL32C.GL_RED_INTEGER,
                         GL32C.GL_UNSIGNED_BYTE,
                         ByteBuffer.allocateDirect(1).apply {

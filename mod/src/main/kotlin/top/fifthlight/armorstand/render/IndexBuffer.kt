@@ -11,6 +11,7 @@ class IndexBuffer(
 ) : AbstractRefCount() {
     init {
         buffer.increaseReferenceCount()
+        buffer.inner.size == length * type.size
     }
 
     override fun onClosed() {

@@ -23,7 +23,10 @@ class RenderTexture(
 
     companion object {
         val WHITE_RGBA_TEXTURE by lazy {
-            val buffer = ByteBuffer.allocateDirect(4).asIntBuffer().apply { repeat(4) { put(0xFF) } }
+            val buffer = ByteBuffer.allocateDirect(16).asIntBuffer().apply {
+                repeat(4) { put(0xFFFFFFFFu.toInt()) }
+                flip()
+            }
             val texture = RenderSystem.getDevice().run {
                 createTexture("White RGBA texture", TextureFormat.RGBA8, 1, 1, 1).also {
                     createCommandEncoder().writeToTexture(it, buffer, NativeImage.Format.RGBA, 0, 0, 0, 1, 1)

@@ -327,9 +327,9 @@ internal data class GltfNormalTextureInfo(
 @Serializable
 internal data class GltfTextureSampler(
     @Serializable(with = MagFilterSerializer::class)
-    val magFilter: CommonTexture.Sampler.MagFilter,
+    val magFilter: CommonTexture.Sampler.MagFilter = CommonTexture.Sampler.MagFilter.LINEAR,
     @Serializable(with = MinFilterSerializer::class)
-    val minFilter: CommonTexture.Sampler.MinFilter,
+    val minFilter: CommonTexture.Sampler.MinFilter = CommonTexture.Sampler.MinFilter.LINEAR_MIPMAP_NEAREST,
     @Serializable(with = WrapModeSerializer::class)
     val wrapS: CommonTexture.Sampler.WrapMode = CommonTexture.Sampler.WrapMode.REPEAT,
     @Serializable(with = WrapModeSerializer::class)
@@ -361,9 +361,10 @@ internal data class GltfTextureSampler(
 
 @Serializable
 internal data class GltfSkin(
+    val name: String? = null,
     val inverseBindMatrices: Int? = null,
     val skeleton: Int? = null,
-    val joints: List<Int>
+    val joints: List<Int>,
 ) {
     init {
         require(joints.isNotEmpty()) { "Skin must have at least one joint" }

@@ -16,8 +16,6 @@ class RenderPrimitive(
     private val vertexBuffer: VertexBuffer,
     private val indexBuffer: IndexBuffer?,
     private val material: RenderMaterial,
-    val positionMin: Vector3fc,
-    val positionMax: Vector3fc,
 ) : AbstractRefCount() {
     init {
         vertexBuffer.increaseReferenceCount()

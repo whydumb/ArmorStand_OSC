@@ -5,21 +5,15 @@ import com.mojang.blaze3d.buffers.BufferUsage
 import com.mojang.blaze3d.textures.TextureFormat
 import com.mojang.blaze3d.vertex.VertexFormat
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import net.minecraft.client.texture.NativeImage
-import org.joml.Vector3f
 import top.fifthlight.armorstand.helper.GpuDeviceExt
 import top.fifthlight.armorstand.render.IndexBuffer
 import top.fifthlight.armorstand.render.RefCountedGpuBuffer
 import top.fifthlight.armorstand.render.RefCountedGpuTexture
 import top.fifthlight.armorstand.render.VertexBuffer
-import top.fifthlight.armorstand.util.CacheMap
-import top.fifthlight.armorstand.util.blaze3d
-import top.fifthlight.armorstand.util.createBuffer
-import top.fifthlight.armorstand.util.createVertexBuffer
-import top.fifthlight.armorstand.util.withRenderDevice
+import top.fifthlight.armorstand.util.*
 import top.fifthlight.renderer.model.*
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class ModelLoader {
     private val textureCache = CacheMap<Texture, RefCountedGpuTexture>()
@@ -31,7 +25,7 @@ class ModelLoader {
                 textureCache.compute(texture) {
                     val byteBuffer = bufferView.buffer.buffer.slice(bufferView.byteOffset, bufferView.byteLength)
                     val nativeImage = withContext(Dispatchers.Default) {
-                        val image = NativeImage.read(null, byteBuffer)
+                        val image = NativeImageExt.read(null, texture.type, byteBuffer)
                         image
                     }
                     withRenderDevice { device ->
@@ -197,19 +191,50 @@ class ModelLoader {
         }
     }
 
-    private suspend fun loadPrimitive(primitive: Primitive): RenderPrimitive? {
-        val hasSkinElements =
-            false // primitive.attributes.joints.isNotEmpty() && primitive.attributes.weights.isNotEmpty()
+    private suspend fun loadIndexBuffer(accessor: Accessor): IndexBuffer {
+        check(accessor.type == Accessor.AccessorType.SCALAR)
+        if (accessor.componentType == Accessor.ComponentType.UNSIGNED_BYTE) {
+            // We need some workaround, because there is just no index type of BYTE
+            val byteBuffer = ByteBuffer.allocateDirect(2 * accessor.count)
+            byteBuffer.order(ByteOrder.nativeOrder())
+            accessor.read { input ->
+                val index = input.get().toUByte()
+                byteBuffer.putShort(index.toShort())
+            }
+            byteBuffer.flip()
+            val gpuBuffer = withRenderDevice { device ->
+                RefCountedGpuBuffer(
+                    device.createBuffer(
+                        { "Transformed index buffer ${accessor.name}" },
+                        BufferType.INDICES,
+                        BufferUsage.STATIC_WRITE,
+                        byteBuffer
+                    )
+                )
+            }
+            return IndexBuffer(
+                buffer = gpuBuffer,
+                length = accessor.count,
+                type = VertexFormat.IndexType.SHORT,
+            )
+        }
+        val buffer = loadGenericBuffer(accessor, BufferType.INDICES)
+        return IndexBuffer(
+            buffer = buffer,
+            length = accessor.count,
+            type = when (accessor.componentType) {
+                Accessor.ComponentType.UNSIGNED_SHORT -> VertexFormat.IndexType.SHORT
+                Accessor.ComponentType.UNSIGNED_INT -> VertexFormat.IndexType.INT
+                else -> error("Bad index type: ${accessor.componentType}")
+            }
+        )
+    }
+
+    private suspend fun loadPrimitive(primitive: Primitive, skin: Skin?): RenderPrimitive? {
+        val hasSkinElements = false
+        // skin != null && primitive.attributes.joints.isNotEmpty() && primitive.attributes.weights.isNotEmpty()
         val material = loadMaterial(primitive.material, hasSkinElements) ?: RenderMaterial.Default
         val vertexElements = loadVertexElements(primitive.attributes, material)
-        val positionMin = requireNotNull(primitive.attributes.position.min) { "Position attribute without min" }.let {
-            require(it.size == 3) { "Bad min of position attribute" }
-            Vector3f(it[0], it[1], it[2])
-        }
-        val positionMax = requireNotNull(primitive.attributes.position.max) { "Position attribute without max" }.let {
-            require(it.size == 3) { "Bad max of position attribute" }
-            Vector3f(it[0], it[1], it[2])
-        }
         val vertexBuffer = withRenderDevice { device ->
             device.createVertexBuffer(
                 mode = when (primitive.mode) {
@@ -225,41 +250,53 @@ class ModelLoader {
                 verticesCount = primitive.attributes.position.count,
             )
         } ?: return null
-        val indexBuffer = primitive.indices?.let { indices ->
-            check(indices.type == Accessor.AccessorType.SCALAR)
-            val buffer = loadGenericBuffer(indices, BufferType.INDICES)
-            IndexBuffer(
-                buffer = buffer,
-                length = indices.count,
-                type = when (indices.componentType) {
-                    Accessor.ComponentType.UNSIGNED_SHORT -> VertexFormat.IndexType.SHORT
-                    Accessor.ComponentType.UNSIGNED_INT -> VertexFormat.IndexType.INT
-                    else -> error("Bad index type: ${indices.componentType}")
-                }
-            )
-        }
+        val indexBuffer = primitive.indices?.let { loadIndexBuffer(it) }
         return RenderPrimitive(
             vertexBuffer = vertexBuffer,
             indexBuffer = indexBuffer,
             material = material,
-            positionMin = positionMin,
-            positionMax = positionMax,
         )
     }
 
-    private suspend fun loadMesh(mesh: Mesh) = coroutineScope {
-        RenderMesh(primitives = mesh.primitives.map { async { loadPrimitive(it) } }.awaitAll().filterNotNull())
+    private suspend fun loadMesh(mesh: Mesh, skin: Skin?) = coroutineScope {
+        RenderMesh(primitives = mesh.primitives.map { async { loadPrimitive(it, skin) } }.awaitAll().filterNotNull())
     }
 
-    private suspend fun loadNode(node: Node): RenderNode = coroutineScope {
-        RenderNode(
-            children = node.children.map { async { loadNode(it) } }.awaitAll(),
-            transform = node.transform,
-            mesh = node.mesh?.let { loadMesh(it) },
+    private suspend fun loadSkin(skin: Skin): RenderSkin {
+        TODO()
+    }
+
+    private suspend fun loadNode(node: Node): RenderNode? = coroutineScope {
+        val children = buildList {
+            node.mesh?.let { add(RenderNode.Mesh(loadMesh(it, node.skin))) }
+            node.children.forEach { loadNode(it)?.let { add(it) } }
+        }
+        if (children.isEmpty()) {
+            return@coroutineScope null
+        }
+        var currentNode: RenderNode = if (children.size == 1) {
+            children.first()
+        } else {
+            RenderNode.Group(children).also { group ->
+                children.forEach { it.parent = group }
+            }
+        }
+        node.transform?.let { transform ->
+            RenderNode.Transform(
+                transform = transform,
+                child = currentNode,
+            ).also {
+                currentNode.parent = it
+                currentNode = it
+            }
+        }
+        currentNode
+    }
+
+    suspend fun loadScene(scene: Scene): RenderScene {
+        val rootNode = RenderNode.Group(scene.nodes.mapNotNull { loadNode(it) })
+        return RenderScene(
+            rootNode = rootNode,
         )
-    }
-
-    suspend fun load(scene: Scene): RenderNode = coroutineScope {
-        RenderNode(children = scene.nodes.map { async { loadNode(it) } }.awaitAll())
     }
 }

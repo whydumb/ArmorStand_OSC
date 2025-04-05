@@ -5,14 +5,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.model.ModelLoader
-import top.fifthlight.armorstand.model.RenderNode
+import top.fifthlight.armorstand.model.RenderScene
 import top.fifthlight.renderer.model.gltf.GltfLoader
 import kotlin.time.measureTimedValue
 
 object ModelHolder {
     private val LOGGER = LogUtils.getLogger()
     private var initialized: Boolean = false
-    var model: RenderNode? = null
+    var model: RenderScene? = null
         private set
 
     fun initialize(scope: CoroutineScope) {
@@ -28,7 +28,7 @@ object ModelHolder {
                     val (value, duration) = measureTimedValue {
                         it.modelPath
                             ?.let { path -> GltfLoader.loadBinary(path) }
-                            ?.let { ModelLoader().load(it) }
+                            ?.let { ModelLoader().loadScene(it) }
                             ?.also { it.increaseReferenceCount() }
                     }
                     LOGGER.info("Model loaded, duration: $duration")

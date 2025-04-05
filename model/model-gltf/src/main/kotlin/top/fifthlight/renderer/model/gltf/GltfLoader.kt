@@ -1,6 +1,7 @@
 package top.fifthlight.renderer.model.gltf
 
 import kotlinx.serialization.json.Json
+import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import top.fifthlight.renderer.model.Accessor
@@ -9,9 +10,11 @@ import top.fifthlight.renderer.model.BufferView
 import top.fifthlight.renderer.model.Material
 import top.fifthlight.renderer.model.Mesh
 import top.fifthlight.renderer.model.Node
+import top.fifthlight.renderer.model.NodeId
 import top.fifthlight.renderer.model.NodeTransform
 import top.fifthlight.renderer.model.Primitive
 import top.fifthlight.renderer.model.Scene
+import top.fifthlight.renderer.model.Skin
 import top.fifthlight.renderer.model.Texture
 import top.fifthlight.renderer.model.gltf.format.Gltf
 import top.fifthlight.renderer.model.gltf.format.GltfAttributeKey
@@ -25,6 +28,7 @@ import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import java.util.UUID
 
 class GltfLoadException(message: String) : Exception(message)
 
@@ -44,6 +48,7 @@ object GltfLoader {
         private val filePath: Path,
         private val basePath: Path,
     ) {
+        private val uuid = UUID.randomUUID()
         private var loaded = false
         private lateinit var gltf: Gltf
         private val externalBuffers = mutableMapOf<URI, ByteBuffer>()
@@ -54,6 +59,7 @@ object GltfLoader {
         private lateinit var textures: List<Texture>
         private lateinit var materials: List<Material>
         private lateinit var meshes: List<Mesh>
+        private lateinit var skins: List<Skin>
         private val nodes = mutableMapOf<Int, Node>()
         private lateinit var scenes: List<Scene>
 
@@ -166,22 +172,22 @@ object GltfLoader {
             materials = gltf.materials?.map {
                 val unlit = it.extensions.unlit
                 when {
-                    unlit != null -> Material.Pbr(
+                    unlit != null -> Material.Unlit(
+                        name = it.name,
+                        baseColor = it.pbrMetallicRoughness.baseColorFactor,
+                        baseColorTexture = loadTextureInfo(it.pbrMetallicRoughness.baseColorTexture),
+                        alphaMode = it.alphaMode,
+                        alphaCutoff = it.alphaCutoff,
+                        doubleSided = it.doubleSided,
+                    )
+
+                    else -> Material.Pbr(
                         name = it.name,
                         baseColor = it.pbrMetallicRoughness.baseColorFactor,
                         baseColorTexture = loadTextureInfo(it.pbrMetallicRoughness.baseColorTexture),
                         metallicFactor = it.pbrMetallicRoughness.metallicFactor,
                         metallicRoughnessTexture = loadTextureInfo(it.pbrMetallicRoughness.metallicRoughnessTexture),
                         // TODO more attributes
-                        alphaMode = it.alphaMode,
-                        alphaCutoff = it.alphaCutoff,
-                        doubleSided = it.doubleSided,
-                    )
-
-                    else -> Material.Unlit(
-                        name = it.name,
-                        baseColor = it.pbrMetallicRoughness.baseColorFactor,
-                        baseColorTexture = loadTextureInfo(it.pbrMetallicRoughness.baseColorTexture),
                         alphaMode = it.alphaMode,
                         alphaCutoff = it.alphaCutoff,
                         doubleSided = it.doubleSided,
@@ -249,6 +255,39 @@ object GltfLoader {
             } ?: listOf()
         }
 
+        private fun loadSkins() {
+            skins = gltf.skins?.map { skin ->
+                if (skin.joints.isEmpty()) {
+                    throw GltfLoadException("Bad skin: no joints")
+                }
+                val inverseBindMatrices = run {
+                    val accessor = skin.inverseBindMatrices?.let {
+                        accessors.getOrNull(it) ?: throw GltfLoadException("Bad skin: no accessor at index $it")
+                    } ?: return@run null
+                    if (accessor.componentType != Accessor.ComponentType.FLOAT) {
+                        throw GltfLoadException("Bad component type in skin's inverseBindMatrices: ${accessor.componentType}, should be FLOAT")
+                    }
+                    if (accessor.type != Accessor.AccessorType.MAT4) {
+                        throw GltfLoadException("Bad type in skin's inverseBindMatrices: ${accessor.type}, should be MAT4")
+                    }
+                    if (accessor.count != skin.joints.size) {
+                        throw GltfLoadException("Bad size of inverseBindMatrices: get ${accessor.count}, should be ${skin.joints.size}")
+                    }
+                    buildList<Matrix4f>(accessor.count) {
+                        accessor.read { buffer ->
+                            add(Matrix4f().set(buffer))
+                        }
+                    }
+                }
+                Skin(
+                    name = skin.name,
+                    joints = skin.joints.map { NodeId(uuid, it) },
+                    skeleton = skin.skeleton?.let { NodeId(uuid, it) },
+                    inverseBindMatrices = inverseBindMatrices,
+                )
+            } ?: listOf()
+        }
+
         private fun loadNode(index: Int): Node = nodes.getOrPut(index) {
             // TODO avoid stack overflow on bad models
             val node = gltf.nodes?.getOrNull(index) ?: throw GltfLoadException("No node at index $index")
@@ -264,9 +303,14 @@ object GltfLoader {
             }
             Node(
                 name = node.name,
+                id = NodeId(
+                    modelId = uuid,
+                    index = index,
+                ),
                 children = (node.children ?: listOf()).map(::loadNode),
                 mesh = node.mesh?.let { meshes.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown mesh $it") },
                 transform = transform,
+                skin = node.skin?.let { skins.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown skin $it") },
             )
         }
 
@@ -294,6 +338,7 @@ object GltfLoader {
             loadTextures()
             loadMaterials()
             loadMeshes()
+            loadSkins()
             loadScenes()
 
             val sceneIndex = gltf.scene ?: 0

@@ -1,6 +1,6 @@
 package top.fifthlight.renderer.model
 
-class Primitive(
+data class Primitive(
     val mode: Mode,
     val material: Material,
     val attributes: Attributes,
