@@ -126,7 +126,6 @@ sealed class RenderMaterial : AbstractRefCount() {
                 .buildSnippet()
 
             private val SKIN_SNIPPET = RenderPipeline.builder(RenderMaterial.SKIN_SNIPPET)
-                .withVertexShader(Identifier.of("armorstand", "core/unlit_skinned"))
                 .withVertexType(VertexType.POSITION_TEXTURE_COLOR_JOINT_WEIGHT)
                 .buildSnippet()
 
@@ -192,6 +191,7 @@ sealed class RenderMaterial : AbstractRefCount() {
     companion object {
         private val SKIN_SNIPPET = RenderPipeline.builder()
             .withSampler("Joints")
+            .withShaderDefine("SKINNED")
             .buildSnippet()
 
         val PIPELINES = Unlit.PIPELINES + Default.pipeline

@@ -14,6 +14,9 @@ mat4 getJointMatrix(int index) {
 }
 
 mat4 getSkinMatrix(vec4 weight, ivec4 jointIndices) {
+    if (weight == vec4(0.0)) {
+        return mat4(1.0);
+    }
     return weight.x * getJointMatrix(jointIndices.x) +
         weight.y * getJointMatrix(jointIndices.y) +
         weight.z * getJointMatrix(jointIndices.z) +
