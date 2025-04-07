@@ -4,7 +4,6 @@ import com.mojang.logging.LogUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.zip
 import kotlinx.coroutines.launch
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
 import net.minecraft.client.MinecraftClient
@@ -15,6 +14,7 @@ import top.fifthlight.armorstand.model.ModelInstance
 import top.fifthlight.armorstand.model.ModelLoader
 import top.fifthlight.armorstand.model.RenderNode
 import top.fifthlight.armorstand.model.RenderScene
+import top.fifthlight.armorstand.util.AbstractRefCount
 import top.fifthlight.renderer.model.gltf.GltfLoader
 import java.util.*
 import kotlin.time.measureTimedValue
@@ -25,7 +25,21 @@ object PlayerModelManager {
     private val client = MinecraftClient.getInstance()
     private val selfModel = MutableStateFlow<RenderScene?>(null)
     private val inGame = MutableStateFlow(false)
-    private val selfInstance = MutableStateFlow<ModelInstance?>(null)
+
+    data class ModelEntry(
+        val instance: ModelInstance,
+        val controller: ModelController,
+    ) : AbstractRefCount() {
+        init {
+            instance.increaseReferenceCount()
+        }
+
+        override fun onClosed() {
+            instance.decreaseReferenceCount()
+        }
+    }
+
+    private val selfEntry = MutableStateFlow<ModelEntry?>(null)
 
     fun dumpSelfModel() {
         fun RenderNode.getNodeDescription(): String = when (this) {
@@ -98,23 +112,27 @@ object PlayerModelManager {
                     } else if (model == null) {
                         null
                     } else {
-                        ModelInstance(model)
+                        val instance = ModelInstance(model)
+                        ModelEntry(
+                            instance = instance,
+                            controller = ModelController.LiveUpdated(instance.scene),
+                        )
                     }
-                    newInstance?.increaseReferenceCount()
-                    val currentInstance = selfInstance.value
-                    currentInstance?.decreaseReferenceCount()
-                    selfInstance.value = newInstance
+                    val newEntry = newInstance?.also { it.increaseReferenceCount() }
+                    val currentEntry = selfEntry.value
+                    currentEntry?.decreaseReferenceCount()
+                    selfEntry.value = newEntry
                 }
             }
         }
     }
 
-    operator fun get(playerUuid: UUID): ModelInstance? {
+    operator fun get(playerUuid: UUID): ModelEntry? {
         if (!inGame.value) {
             return null
         }
         if (playerUuid == client.player?.uuid) {
-            return selfInstance.value
+            return selfEntry.value
         }
         return null
     }

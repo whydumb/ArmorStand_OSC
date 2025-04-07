@@ -1,20 +1,18 @@
 package top.fifthlight.armorstand.model
 
 import net.minecraft.client.util.math.MatrixStack
+import org.joml.Matrix4f
 import org.joml.Matrix4fc
 import top.fifthlight.armorstand.util.AbstractRefCount
 import top.fifthlight.armorstand.util.iteratorOf
 
-sealed class RenderNode: AbstractRefCount(), Iterable<RenderNode> {
+sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
     var parent: RenderNode? = null
 
     open fun render(instance: ModelInstance, matrixStack: MatrixStack, globalMatrix: Matrix4fc, light: Int) = Unit
+    open fun update(instance: ModelInstance, matrixStack: MatrixStack, updateTransform: Boolean) = Unit
 
-    interface Updatable {
-        fun update(instance: ModelInstance, matrixStack: MatrixStack)
-    }
-
-    class Group(val children: List<RenderNode>): RenderNode() {
+    class Group(val children: List<RenderNode>) : RenderNode() {
         init {
             children.forEach { it.increaseReferenceCount() }
         }
@@ -23,7 +21,11 @@ sealed class RenderNode: AbstractRefCount(), Iterable<RenderNode> {
             children.forEach { it.decreaseReferenceCount() }
         }
 
-        override fun render(instance: ModelInstance, matrixStack: MatrixStack, globalMatrix: Matrix4fc, light: Int) = children.forEach { it.render(instance, matrixStack, globalMatrix, light) }
+        override fun render(instance: ModelInstance, matrixStack: MatrixStack, globalMatrix: Matrix4fc, light: Int) =
+            children.forEach { it.render(instance, matrixStack, globalMatrix, light) }
+
+        override fun update(instance: ModelInstance, matrixStack: MatrixStack, updateTransform: Boolean) =
+            children.forEach { it.update(instance, matrixStack, updateTransform) }
 
         override fun iterator(): Iterator<RenderNode> = children.iterator()
     }
@@ -32,7 +34,7 @@ sealed class RenderNode: AbstractRefCount(), Iterable<RenderNode> {
         val mesh: RenderMesh,
         val skinIndex: Int?,
         val ignoreGlobalTransform: Boolean,
-    ): RenderNode() {
+    ) : RenderNode() {
         init {
             mesh.increaseReferenceCount()
         }
@@ -56,17 +58,26 @@ sealed class RenderNode: AbstractRefCount(), Iterable<RenderNode> {
     class Transform(
         val transformIndex: Int,
         val child: RenderNode,
-    ): RenderNode() {
+    ) : RenderNode() {
         override fun render(instance: ModelInstance, matrixStack: MatrixStack, globalMatrix: Matrix4fc, light: Int) {
             val transform = instance.transforms[transformIndex]
-            transform?.let { transform ->
-                matrixStack.push()
-                matrixStack.multiplyPositionMatrix(transform.matrix)
-                child.render(instance, matrixStack, globalMatrix, light)
-                matrixStack.pop()
-            } ?: run {
-                child.render(instance, matrixStack, globalMatrix, light)
+            matrixStack.push()
+            matrixStack.multiplyPositionMatrix(transform)
+            child.render(instance, matrixStack, globalMatrix, light)
+            matrixStack.pop()
+        }
+
+        override fun update(instance: ModelInstance, matrixStack: MatrixStack, updateTransform: Boolean) {
+            val transformsDirty = instance.transformsDirty[transformIndex]
+            if (transformsDirty) {
+                instance.transformsDirty[transformIndex] = false
             }
+            val updateTransform = updateTransform || transformsDirty
+            val transform = instance.transforms[transformIndex]
+            matrixStack.push()
+            matrixStack.multiplyPositionMatrix(transform)
+            child.update(instance, matrixStack, updateTransform)
+            matrixStack.pop()
         }
 
         override fun iterator() = iteratorOf<RenderNode>(child)
@@ -75,11 +86,21 @@ sealed class RenderNode: AbstractRefCount(), Iterable<RenderNode> {
     class Joint(
         val skinIndex: Int,
         val jointIndex: Int,
-    ): RenderNode(), Updatable {
-        override fun update(instance: ModelInstance, matrixStack: MatrixStack) {
-            val matrix = matrixStack.peek().positionMatrix
+    ) : RenderNode() {
+        private val cacheMatrix = Matrix4f()
 
+        override fun update(instance: ModelInstance, matrixStack: MatrixStack, updateTransform: Boolean) {
+            if (!updateTransform) {
+                return
+            }
 
+            val matrix = cacheMatrix
+            matrix.set(matrixStack.peek().positionMatrix)
+            val skinData = instance.skinData[skinIndex]
+
+            val inverseMatrix = skinData.skin.inverseBindMatrices?.get(jointIndex)
+            inverseMatrix?.let { matrix.mul(it) }
+            skinData.setMatrix(jointIndex, matrix)
         }
 
         override fun iterator() = iteratorOf<RenderNode>()

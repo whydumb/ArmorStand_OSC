@@ -4,6 +4,7 @@ import com.mojang.blaze3d.buffers.BufferType
 import com.mojang.blaze3d.buffers.BufferUsage
 import com.mojang.blaze3d.textures.TextureFormat
 import com.mojang.blaze3d.vertex.VertexFormat
+import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap
 import kotlinx.coroutines.*
 import top.fifthlight.armorstand.helper.GpuDeviceExt
 import top.fifthlight.armorstand.render.IndexBuffer
@@ -22,6 +23,7 @@ class ModelLoader {
     data class JointSkinData(
         val skinIndex: Int,
         val jointIndex: Int,
+        val humanoidTag: HumanoidTag?,
     )
 
     private lateinit var jointSkins: Map<NodeId, List<JointSkinData>>
@@ -41,6 +43,7 @@ class ModelLoader {
                     JointSkinData(
                         skinIndex = index,
                         jointIndex = jointIndex,
+                        humanoidTag = skin.jointHumanoidTags[jointIndex],
                     )
                 )
             }
@@ -53,7 +56,7 @@ class ModelLoader {
     }
 
     private val defaultTransforms = mutableListOf<NodeTransform?>()
-    private val updatableNodes = mutableListOf<RenderNode.Updatable>()
+    private val humanoidJointTransformIndices = Reference2IntOpenHashMap<HumanoidTag>()
     private val textureCache = CacheMap<Texture, RefCountedGpuTexture>()
     private val vertexBufferCache = CacheMap<Buffer, RefCountedGpuBuffer>()
 
@@ -331,6 +334,11 @@ class ModelLoader {
 
         val transformIndex = defaultTransforms.size
         defaultTransforms += node.transform
+        jointSkin?.let {
+            for (skinItem in jointSkin) {
+                skinItem.humanoidTag?.let { tag -> humanoidJointTransformIndices.put(tag, transformIndex) }
+            }
+        }
         RenderNode.Transform(
             transformIndex = transformIndex,
             child = currentNode,
@@ -344,9 +352,9 @@ class ModelLoader {
         val rootNode = RenderNode.Group(scene.nodes.mapNotNull { loadNode(it) })
         return RenderScene(
             rootNode = rootNode,
-            updatableNodes = updatableNodes,
             defaultTransforms = defaultTransforms.toTypedArray(),
             skins = skinsList,
+            humanoidJointTransformIndices = humanoidJointTransformIndices,
         )
     }
 }

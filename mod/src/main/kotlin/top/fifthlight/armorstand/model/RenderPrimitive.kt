@@ -32,16 +32,14 @@ class RenderPrimitive(
         val viewStack = RenderSystem.getModelViewStack()
         viewStack.pushMatrix()
         viewStack.mul(matrix)
-        val gpuDevice = RenderSystem.getDevice()
-        val commandEncoder = gpuDevice.createCommandEncoder()
-        val skinBuffer = skin?.getBuffer(gpuDevice, commandEncoder)
-        commandEncoder
+        RenderSystem.getDevice()
+            .createCommandEncoder()
             .createRenderPass(mainColorTexture, OptionalInt.empty(), mainDepthTexture, OptionalDouble.empty())
             .use { renderPass ->
                 material.setup(renderPass, light)
-                if (skinBuffer != null) {
+                skin?.getBuffer()?.let { skinBuffer ->
                     if (RenderPassImpl.IS_DEVELOPMENT) {
-                        require(material.skinned) { "Material is skinned, but no skin data given" }
+                        require(material.skinned) { "Primitive has skin data, but material is not skinned" }
                     }
                     renderPass.bindSampler("Joints", skinBuffer)
                 }

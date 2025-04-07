@@ -7,6 +7,7 @@ import org.joml.Vector3f
 import top.fifthlight.renderer.model.Accessor
 import top.fifthlight.renderer.model.Buffer
 import top.fifthlight.renderer.model.BufferView
+import top.fifthlight.renderer.model.HumanoidTag
 import top.fifthlight.renderer.model.Material
 import top.fifthlight.renderer.model.Mesh
 import top.fifthlight.renderer.model.Node
@@ -256,6 +257,22 @@ object GltfLoader {
         }
 
         private fun loadSkins() {
+            val boneMapping = run {
+                val vrmV0 = gltf.extensions?.vrmV0?.humanoid?.humanBones
+                if (vrmV0 != null) {
+                    return@run vrmV0
+                        .asSequence()
+                        .mapNotNull { HumanoidTag.fromVrmName(it.bone)?.let { tag -> Pair(it.node, tag) } }
+                        .associate { it }
+                }
+                val vrmV1 = gltf.extensions?.vrmV1?.humanoid?.humanBones
+                if (vrmV1 != null) {
+                    return@run vrmV1.entries.asSequence()
+                        .mapNotNull { (boneName, boneItem) -> HumanoidTag.fromVrmName(boneName)?.let { tag -> Pair(tag, boneItem.node) } }
+                        .associate { (tag, index) -> Pair(index, tag) }
+                }
+                null
+            }
             skins = gltf.skins?.map { skin ->
                 if (skin.joints.isEmpty()) {
                     throw GltfLoadException("Bad skin: no joints")
@@ -285,6 +302,7 @@ object GltfLoader {
                     skeleton = skin.skeleton?.let { NodeId(uuid, it) },
                     inverseBindMatrices = inverseBindMatrices,
                     ignoreGlobalTransform = true,
+                    jointHumanoidTags = skin.joints.map { boneMapping?.get(it) },
                 )
             } ?: listOf()
         }

@@ -31,35 +31,45 @@ class RenderSkinData(
         flip()
     }
 
-    private var dirty = false
+    private var dirty = true
 
     private var gpuBuffer: GpuBuffer? = null
     private var textureBuffer: GpuTextureBuffer? = null
 
     fun setMatrix(index: Int, matrix4f: Matrix4f) {
+        dirty = true
         matricesBuffer.position(index * 16 * 4)
         matrix4f.get(matricesBuffer)
     }
 
-    fun getBuffer(device: GpuDevice, commandEncoder: CommandEncoder): GpuTextureBuffer = textureBuffer?.let {
-        matricesBuffer.position(0)
-        if (dirty) {
-            commandEncoder.writeToBuffer(gpuBuffer!!, matricesBuffer, 0)
-            dirty = false
+    fun upload(device: GpuDevice, commandEncoder: CommandEncoder) {
+        if (!dirty) {
+            return
         }
-        textureBuffer
-    } ?: run {
         dirty = false
         matricesBuffer.position(0)
-        val buffer = device.createBuffer(
-            { "Skin matrix buffer for ${skin.name}" },
-            BufferTypeExt.TEXTURE_BUFFER,
-            BufferUsage.DYNAMIC_WRITE,
-            matricesBuffer,
-        )
-        gpuBuffer = buffer
-        device.createTextureBuffer("Skin matrix texture buffer for ${skin.name}", TextureBufferFormat.RGBA32F, buffer).also {
-            textureBuffer = it
+        if (textureBuffer == null) {
+            val buffer = device.createBuffer(
+                { "Skin matrix buffer for ${skin.name}" },
+                BufferTypeExt.TEXTURE_BUFFER,
+                BufferUsage.DYNAMIC_WRITE,
+                matricesBuffer,
+            )
+            gpuBuffer = buffer
+            device.createTextureBuffer(
+                "Skin matrix texture buffer for ${skin.name}",
+                TextureBufferFormat.RGBA32F,
+                buffer
+            ).also {
+                textureBuffer = it
+            }
+        } else {
+            commandEncoder.writeToBuffer(gpuBuffer!!, matricesBuffer, 0)
         }
+    }
+
+    fun getBuffer(): GpuTextureBuffer {
+        require(!dirty) { "Skin data is dirty, please upload before getting buffer!" }
+        return requireNotNull(textureBuffer) { "Texture buffer is null, did you upload it?" }
     }
 }

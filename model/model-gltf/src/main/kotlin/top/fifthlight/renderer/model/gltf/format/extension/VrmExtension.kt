@@ -5,10 +5,11 @@ import kotlinx.serialization.Serializable
 import org.joml.Vector3f
 
 @Serializable
-data class VrmV0Extension(
+internal data class VrmV0Extension(
     val exporterVersion: String? = null,
     val meta: Meta? = null,
     val firstPerson: FirstPerson? = null,
+    val humanoid: Humanoid? = null,
 ) {
     @Serializable
     data class Meta(
@@ -95,11 +96,23 @@ data class VrmV0Extension(
             val yRange: Float? = null
         )
     }
+
+    @Serializable
+    data class Humanoid(
+        val humanBones: List<HumanBone>? = null,
+    ) {
+        @Serializable
+        data class HumanBone(
+            val bone: String,
+            val node: Int,
+        )
+    }
 }
 
 @Serializable
 data class VrmV1Extension(
     val meta: Meta? = null,
+    val humanoid: Humanoid? = null,
 ) {
     @Serializable
     data class Meta(
@@ -160,5 +173,15 @@ data class VrmV1Extension(
             @SerialName("allowModificationRedistribution")
             ALLOW_MODIFICATION_REDISTRIBUTION,
         }
+    }
+
+    @Serializable
+    data class Humanoid(
+        val humanBones: Map<String, HumanBone>? = null,
+    ) {
+        @Serializable
+        data class HumanBone(
+            val node: Int,
+        )
     }
 }

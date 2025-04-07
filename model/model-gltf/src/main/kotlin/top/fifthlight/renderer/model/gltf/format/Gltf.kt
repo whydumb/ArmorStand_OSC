@@ -17,12 +17,15 @@ import org.joml.Vector3f
 import org.joml.Vector4f
 import top.fifthlight.renderer.model.Accessor
 import top.fifthlight.renderer.model.BufferView
+import top.fifthlight.renderer.model.HumanoidTag
 import top.fifthlight.renderer.model.Material
 import top.fifthlight.renderer.model.Primitive
 import top.fifthlight.renderer.model.RgbaColor
 import top.fifthlight.renderer.model.gltf.format.extension.VrmV0Extension
 import top.fifthlight.renderer.model.gltf.format.extension.VrmV1Extension
 import top.fifthlight.renderer.model.Texture as CommonTexture
+
+internal typealias BoneMapping = Map<Int, HumanoidTag>
 
 private abstract class EnumSerializer<T : Enum<T>>(
     serialName: String,
