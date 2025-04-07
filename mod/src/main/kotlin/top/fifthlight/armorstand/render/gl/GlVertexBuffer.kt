@@ -27,7 +27,24 @@ class GlVertexBuffer(
         elements.forEachIndexed { index, element ->
             val bufferId = (element.buffer.inner as GlGpuBuffer).id
             GlStateManager._glBindBuffer(GlConst.GL_ARRAY_BUFFER, bufferId)
-            GlStateManager._vertexAttribPointer(index, element.componentType.components, GlConst.toGl(element.type), element.normalized, element.stride, element.offset.toLong())
+            if (element.usage.useAsInteger) {
+                GlStateManager._vertexAttribIPointer(
+                    index,
+                    element.componentType.components,
+                    GlConst.toGl(element.type),
+                    element.stride,
+                    element.offset.toLong()
+                )
+            } else {
+                GlStateManager._vertexAttribPointer(
+                    index,
+                    element.componentType.components,
+                    GlConst.toGl(element.type),
+                    element.normalized,
+                    element.stride,
+                    element.offset.toLong()
+                )
+            }
             GlStateManager._enableVertexAttribArray(index)
         }
         GlStateManager._glBindVertexArray(0)

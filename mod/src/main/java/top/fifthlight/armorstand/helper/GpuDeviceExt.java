@@ -8,6 +8,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import top.fifthlight.armorstand.render.GpuTextureBuffer;
+import top.fifthlight.armorstand.render.TextureBufferFormat;
 import top.fifthlight.armorstand.render.VertexBuffer;
 
 import java.util.List;
@@ -27,5 +28,5 @@ public interface GpuDeviceExt {
     VertexBuffer armorStand$createVertexBuffer(VertexFormat.DrawMode mode, List<VertexBuffer.VertexElement> elements, int verticesCount);
 
     @NotNull
-    GpuTextureBuffer armorStand$createTextureBuffer(@Nullable String label, TextureFormat format, GpuBuffer buffer);
+    GpuTextureBuffer armorStand$createTextureBuffer(@Nullable String label, TextureBufferFormat format, GpuBuffer buffer);
 }

@@ -1,10 +1,7 @@
 package top.fifthlight.armorstand.model
 
-import net.minecraft.client.util.math.MatrixStack
-import org.joml.Vector3f
+import org.joml.Matrix4fc
 import top.fifthlight.armorstand.util.AbstractRefCount
-import kotlin.math.max
-import kotlin.math.min
 
 class RenderMesh(
     val primitives: List<RenderPrimitive>,
@@ -13,9 +10,9 @@ class RenderMesh(
         primitives.forEach { it.increaseReferenceCount() }
     }
 
-    fun render(matrixStack: MatrixStack, light: Int) {
+    fun render(matrix: Matrix4fc, light: Int, skin: RenderSkinData?) {
         for (primitive in primitives) {
-            primitive.render(matrixStack, light)
+            primitive.render(matrix, light, skin)
         }
     }
 

@@ -11,20 +11,30 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import top.fifthlight.armorstand.helper.RenderPassWithTextureBuffer;
 import top.fifthlight.armorstand.helper.RenderPassWithVertexBuffer;
+import top.fifthlight.armorstand.render.GpuTextureBuffer;
 import top.fifthlight.armorstand.render.VertexBuffer;
 
+import java.util.HashMap;
+import java.util.Set;
+
 @Mixin(RenderPassImpl.class)
-public abstract class RenderPassImplMixin implements RenderPassWithVertexBuffer {
+public abstract class RenderPassImplMixin implements RenderPassWithVertexBuffer, RenderPassWithTextureBuffer {
     @Shadow
     @Final
-    protected GpuBuffer[] vertexBuffers;
+    public GpuBuffer[] vertexBuffers;
 
+    @Shadow @Final protected Set<String> setSamplers;
     @Unique
     VertexBuffer vertexBuffer;
 
+    @Unique
+    HashMap<String, GpuTextureBuffer> bufferSamplerUniforms = new HashMap<>();
+
     @Override
-    public @Nullable VertexBuffer armorStand$getVertexBuffer() {
+    @Nullable
+    public VertexBuffer armorStand$getVertexBuffer() {
         return vertexBuffer;
     }
 
@@ -41,5 +51,16 @@ public abstract class RenderPassImplMixin implements RenderPassWithVertexBuffer 
         if (this.vertexBuffer != null) {
             throw new IllegalStateException("Can't set Blaze3d VertexBuffer to a RenderPass already having an ArmorStand vertex buffer");
         }
+    }
+
+    @Override
+    public HashMap<String, GpuTextureBuffer> armorStand$getBufferSamplerUniforms() {
+        return bufferSamplerUniforms;
+    }
+
+    @Override
+    public void armorStand$bindSampler(String name, GpuTextureBuffer textureBuffer) {
+        this.bufferSamplerUniforms.put(name, textureBuffer);
+        this.setSamplers.add(name);
     }
 }

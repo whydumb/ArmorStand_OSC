@@ -6,10 +6,15 @@
     "defaultRequire": 1
   },
   "client": [
+    "BufferTypeMixin",
     "CameraMixin",
     "GlBackendMixin",
+    "GlConstExt",
     "GlResourceManagerMixin",
+    "PlayerEntityRendererMixin",
+    "PlayerEntityRenderStateMixin",
     "PlayerModelMixin",
+    "RenderObjectMixin",
     "RenderPassImplMixin",
     "RenderPipelineBuilderMixin",
     "RenderPipelineMixin",

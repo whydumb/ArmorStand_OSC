@@ -8,6 +8,7 @@ import net.minecraft.client.gl.RenderPassImpl
 import net.minecraft.client.gl.RenderPipelines
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.model.RenderMaterial
+import top.fifthlight.armorstand.state.PlayerModelManager
 import top.fifthlight.armorstand.util.ClientThreadDispatcher
 import kotlin.coroutines.CoroutineContext
 
@@ -23,7 +24,7 @@ object ArmorStand : ClientModInitializer {
 
         ConfigHolder.read()
         ClientLifecycleEvents.CLIENT_STARTED.register { client ->
-            ModelHolder.initialize(scope)
+            PlayerModelManager.initialize()
         }
     }
 }

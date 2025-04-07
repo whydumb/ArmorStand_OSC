@@ -16,6 +16,7 @@ fun <T> iteratorOf(item: T) = object : Iterator<T> {
         if (finished) {
             throw NoSuchElementException()
         }
+        finished = true
         return item
     }
 

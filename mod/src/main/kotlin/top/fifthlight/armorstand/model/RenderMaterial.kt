@@ -8,6 +8,7 @@ import net.minecraft.client.gl.UniformType
 import net.minecraft.client.render.LightmapTextureManager
 import net.minecraft.util.Identifier
 import top.fifthlight.armorstand.util.AbstractRefCount
+import top.fifthlight.armorstand.util.getVertexType
 import top.fifthlight.armorstand.util.withVertexType
 import top.fifthlight.renderer.model.Material.AlphaMode
 import top.fifthlight.renderer.model.Material.AlphaMode.OPAQUE
@@ -24,7 +25,8 @@ sealed class RenderMaterial : AbstractRefCount() {
     abstract val skinned: Boolean
 
     abstract val pipeline: RenderPipeline
-    abstract val vertexType: VertexType
+    val vertexType
+        get() = pipeline.getVertexType()!!
 
     open fun setup(renderPass: RenderPass, light: Int) {
         renderPass.setPipeline(pipeline)
@@ -57,8 +59,6 @@ sealed class RenderMaterial : AbstractRefCount() {
         }
 
         override val pipeline = TODO()
-
-        override val vertexType = TODO()
 
         override fun setup(renderPass: RenderPass, light: Int) = TODO()
 
@@ -98,15 +98,10 @@ sealed class RenderMaterial : AbstractRefCount() {
             }
         }
 
-        override val vertexType = VertexType.POSITION_TEXTURE_COLOR
-
         override fun setup(renderPass: RenderPass, light: Int) {
             super.setup(renderPass, light)
             renderPass.bindSampler("Sampler0", baseColorTexture.texture.inner)
             renderPass.bindSampler("Sampler2", MinecraftClient.getInstance().gameRenderer.lightmapTextureManager.glTexture)
-            if (skinned) {
-                // renderPass.bindSampler()
-            }
             renderPass.setUniform(
                 "LightMapUv",
                 light and (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE or 0xFF0F),
@@ -188,8 +183,6 @@ sealed class RenderMaterial : AbstractRefCount() {
             .withoutBlend()
             .withCull(false)
             .build()
-
-        override val vertexType = VertexType.POSITION
 
         override fun onClosed() = Unit
     }

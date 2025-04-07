@@ -7,10 +7,13 @@ import java.util.UUID
 
 sealed class NodeTransform {
     abstract val matrix: Matrix4f
+    abstract fun clone(): NodeTransform
 
     data class Matrix(
         override val matrix: Matrix4f
-    ) : NodeTransform()
+    ) : NodeTransform() {
+        override fun clone(): NodeTransform = copy()
+    }
 
     data class Decomposed(
         val translation: Vector3f,
@@ -18,6 +21,7 @@ sealed class NodeTransform {
         val scale: Vector3f,
     ) : NodeTransform() {
         override val matrix: Matrix4f = Matrix4f().translationRotateScale(translation, rotation, scale)
+        override fun clone(): NodeTransform = copy()
     }
 }
 

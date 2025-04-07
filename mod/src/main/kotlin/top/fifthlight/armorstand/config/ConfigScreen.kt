@@ -11,16 +11,18 @@ import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.gui.widget.AlwaysSelectedEntryListWidget
 import net.minecraft.client.gui.widget.ButtonWidget
+import net.minecraft.client.gui.widget.DirectionalLayoutWidget
 import net.minecraft.client.gui.widget.ThreePartsLayoutWidget
 import net.minecraft.client.input.KeyCodes
 import net.minecraft.screen.ScreenTexts
 import net.minecraft.text.Text
-import top.fifthlight.armorstand.ArmorStand
+import top.fifthlight.armorstand.state.PlayerModelManager
 import top.fifthlight.armorstand.util.ClientThreadDispatcher
 import java.nio.file.Path
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
+
 
 class ConfigScreen(private val parent: Screen? = null) : Screen(Text.translatable("armorstand.screen.config")) {
     private val modelDir = FabricLoader.getInstance().gameDir.resolve("models")
@@ -46,7 +48,11 @@ class ConfigScreen(private val parent: Screen? = null) : Screen(Text.translatabl
         val list = list ?: ModelList(MinecraftClient.getInstance()).also { list = it }
         layout.addHeader(this.title, this.textRenderer)
         layout.addBody(list)
-        layout.addFooter(ButtonWidget.builder(ScreenTexts.DONE) { close() }.width(200).build())
+        val directionalLayoutWidget = layout.addFooter<DirectionalLayoutWidget?>(DirectionalLayoutWidget.horizontal().spacing(8))
+        directionalLayoutWidget.add(ButtonWidget.builder(ScreenTexts.DONE) { close() }.width(100).build())
+        directionalLayoutWidget.add(ButtonWidget.builder(Text.literal("DUMP MODEL")) {
+            PlayerModelManager.dumpSelfModel()
+        }.width(100).build())
         layout.forEachChild { widget -> addDrawableChild(widget) }
         refreshWidgetPositions()
     }

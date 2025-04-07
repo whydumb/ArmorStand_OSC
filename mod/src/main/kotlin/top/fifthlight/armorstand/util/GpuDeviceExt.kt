@@ -9,6 +9,7 @@ import com.mojang.blaze3d.vertex.VertexFormat.DrawMode
 import top.fifthlight.armorstand.helper.GpuDeviceExt
 import top.fifthlight.armorstand.helper.GpuDeviceExt.FillType
 import top.fifthlight.armorstand.render.GpuTextureBuffer
+import top.fifthlight.armorstand.render.TextureBufferFormat
 import top.fifthlight.armorstand.render.VertexBuffer
 import top.fifthlight.armorstand.render.VertexBuffer.VertexElement
 import java.util.function.Supplier
@@ -29,5 +30,5 @@ fun GpuDevice.createVertexBuffer(
 ): VertexBuffer =
     (this as GpuDeviceExt).`armorStand$createVertexBuffer`(mode, elements, verticesCount)
 
-fun GpuDevice.createTextureBuffer(label: String?, format: TextureFormat, buffer: GpuBuffer): GpuTextureBuffer =
+fun GpuDevice.createTextureBuffer(label: String?, format: TextureBufferFormat, buffer: GpuBuffer): GpuTextureBuffer =
     (this as GpuDeviceExt).`armorStand$createTextureBuffer`(label, format, buffer)

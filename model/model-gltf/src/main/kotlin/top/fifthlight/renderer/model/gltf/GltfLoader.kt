@@ -284,6 +284,7 @@ object GltfLoader {
                     joints = skin.joints.map { NodeId(uuid, it) },
                     skeleton = skin.skeleton?.let { NodeId(uuid, it) },
                     inverseBindMatrices = inverseBindMatrices,
+                    ignoreGlobalTransform = true,
                 )
             } ?: listOf()
         }
@@ -319,6 +320,7 @@ object GltfLoader {
                 Scene(
                     name = it.name,
                     nodes = it.nodes?.map(::loadNode) ?: listOf(),
+                    skins = skins,
                 )
             } ?: listOf()
         }

@@ -30,8 +30,10 @@ import top.fifthlight.armorstand.helper.GlStateManagerHelper;
 import top.fifthlight.armorstand.helper.GpuDeviceExt;
 import top.fifthlight.armorstand.helper.RenderPipelineWithVertexType;
 import top.fifthlight.armorstand.render.GpuTextureBuffer;
+import top.fifthlight.armorstand.render.TextureBufferFormat;
 import top.fifthlight.armorstand.render.VertexBuffer;
 import top.fifthlight.armorstand.render.gl.FilledVertexElementProvider;
+import top.fifthlight.armorstand.render.gl.GlConstKt;
 import top.fifthlight.armorstand.render.gl.GlTextureBuffer;
 import top.fifthlight.armorstand.render.gl.GlVertexBuffer;
 import top.fifthlight.armorstand.util.ShaderProgramExt;
@@ -106,20 +108,20 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
 
     @Override
     @NotNull
-    public GpuTextureBuffer armorStand$createTextureBuffer(@Nullable String label, TextureFormat format, GpuBuffer buffer) {
+    public GpuTextureBuffer armorStand$createTextureBuffer(@Nullable String label, TextureBufferFormat format, GpuBuffer buffer) {
         RenderSystem.assertOnRenderThread();
         if (buffer.isClosed()) {
             throw new IllegalStateException("Source buffer is closed");
         }
-        if (buffer.size % format.pixelSize() != 0) {
-            throw new IllegalArgumentException("Bad byte size " + buffer.size + " for format " + format + " (" + buffer.size + " % " + format.pixelSize() + " != 0)");
+        if (buffer.size % format.getPixelSize() != 0) {
+            throw new IllegalArgumentException("Bad byte size " + buffer.size + " for format " + format + " (" + buffer.size + " % " + format.getPixelSize() + " != 0)");
         }
         int textureId = GlStateManager._genTexture();
         if (label == null) {
             label = String.valueOf(textureId);
         }
         GlStateManagerHelper._bindTexture(GL32C.GL_TEXTURE_BUFFER, textureId);
-        GlStateManagerHelper._glTexBuffer(GL32C.GL_TEXTURE_BUFFER, GlConst.toGlInternalId(format), ((GlGpuBuffer) buffer).id);
+        GlStateManagerHelper._glTexBuffer(GL32C.GL_TEXTURE_BUFFER, GlConstKt.toGlInternal(format), ((GlGpuBuffer) buffer).id);
         return new GlTextureBuffer(textureId, label, format);
     }
 }

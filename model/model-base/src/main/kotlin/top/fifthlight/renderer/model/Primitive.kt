@@ -42,6 +42,7 @@ data class Primitive(
         enum class Key(
             val allowedComponentTypes: List<ComponentTypeItem>,
             val allowedAccessorTypes: List<Accessor.AccessorType>,
+            val useAsInteger: Boolean = false,
             // FIXME: tangent should be calculated from position.
             val defaultOne: Boolean = false,
         ) {
@@ -80,7 +81,7 @@ data class Primitive(
                     ComponentTypeItem(Accessor.ComponentType.SHORT),
                 ),
                 allowedAccessorTypes = listOf(Accessor.AccessorType.VEC4),
-                defaultOne = true,
+                useAsInteger = true,
             ),
             WEIGHTS(
                 allowedComponentTypes = listOf(
@@ -89,7 +90,6 @@ data class Primitive(
                     ComponentTypeItem(Accessor.ComponentType.UNSIGNED_SHORT, normalized = true),
                 ),
                 allowedAccessorTypes = listOf(Accessor.AccessorType.VEC4),
-                defaultOne = true,
             );
 
             data class ComponentTypeItem(

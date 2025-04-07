@@ -9,3 +9,7 @@ accessible method net/minecraft/client/texture/NativeImage$Format fromChannelCou
 mutable field net/minecraft/client/gl/RenderPassImpl IS_DEVELOPMENT Z
 accessible field net/minecraft/client/gl/RenderPassImpl indexBuffer Lcom/mojang/blaze3d/buffers/GpuBuffer;
 accessible field net/minecraft/client/gl/RenderPassImpl vertexBuffers [Lcom/mojang/blaze3d/buffers/GpuBuffer;
+accessible field net/minecraft/client/gl/RenderPassImpl pipeline Lnet/minecraft/client/gl/CompiledShaderPipeline;
+accessible field net/minecraft/client/gl/RenderPassImpl samplerUniforms Ljava/util/HashMap;
+accessible field net/minecraft/client/gl/RenderPassImpl simpleUniforms Ljava/util/HashMap;
+accessible field net/minecraft/client/gl/RenderPassImpl setSamplers Ljava/util/Set;

@@ -3,19 +3,22 @@ package top.fifthlight.armorstand.model
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.textures.GpuTexture
 import net.minecraft.client.MinecraftClient
+import net.minecraft.client.gl.RenderPassImpl
 import net.minecraft.client.util.math.MatrixStack
+import org.joml.Matrix4fc
 import org.joml.Vector3fc
 import top.fifthlight.armorstand.render.IndexBuffer
 import top.fifthlight.armorstand.render.VertexBuffer
 import top.fifthlight.armorstand.render.setIndexBuffer
 import top.fifthlight.armorstand.util.AbstractRefCount
+import top.fifthlight.armorstand.util.bindSampler
 import top.fifthlight.armorstand.util.setVertexBuffer
 import java.util.*
 
 class RenderPrimitive(
-    private val vertexBuffer: VertexBuffer,
-    private val indexBuffer: IndexBuffer?,
-    private val material: RenderMaterial,
+    val vertexBuffer: VertexBuffer,
+    val indexBuffer: IndexBuffer?,
+    val material: RenderMaterial,
 ) : AbstractRefCount() {
     init {
         vertexBuffer.increaseReferenceCount()
@@ -23,19 +26,25 @@ class RenderPrimitive(
         material.increaseReferenceCount()
     }
 
-    private val mainColorTexture: GpuTexture
-        get() = MinecraftClient.getInstance().framebuffer.colorAttachment!!
-    private val mainDepthTexture: GpuTexture?
-        get() = MinecraftClient.getInstance().framebuffer.depthAttachment
-
-    fun render(matrixStack: MatrixStack, light: Int) {
+    fun render(matrix: Matrix4fc, light: Int, skin: RenderSkinData?) {
+        val mainColorTexture: GpuTexture = MinecraftClient.getInstance().framebuffer.colorAttachment!!
+        val mainDepthTexture: GpuTexture? = MinecraftClient.getInstance().framebuffer.depthAttachment
         val viewStack = RenderSystem.getModelViewStack()
         viewStack.pushMatrix()
-        viewStack.mul(matrixStack.peek().positionMatrix)
-        RenderSystem.getDevice().createCommandEncoder()
+        viewStack.mul(matrix)
+        val gpuDevice = RenderSystem.getDevice()
+        val commandEncoder = gpuDevice.createCommandEncoder()
+        val skinBuffer = skin?.getBuffer(gpuDevice, commandEncoder)
+        commandEncoder
             .createRenderPass(mainColorTexture, OptionalInt.empty(), mainDepthTexture, OptionalDouble.empty())
             .use { renderPass ->
                 material.setup(renderPass, light)
+                if (skinBuffer != null) {
+                    if (RenderPassImpl.IS_DEVELOPMENT) {
+                        require(material.skinned) { "Material is skinned, but no skin data given" }
+                    }
+                    renderPass.bindSampler("Joints", skinBuffer)
+                }
                 renderPass.setVertexBuffer(vertexBuffer)
                 indexBuffer?.let { indices ->
                     renderPass.setIndexBuffer(indices)

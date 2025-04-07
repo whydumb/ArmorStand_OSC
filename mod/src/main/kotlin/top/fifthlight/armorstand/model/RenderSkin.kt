@@ -1,11 +1,10 @@
 package top.fifthlight.armorstand.model
 
 import org.joml.Matrix4f
-import top.fifthlight.armorstand.util.AbstractRefCount
 
 class RenderSkin(
+    val name: String?,
     val inverseBindMatrices: List<Matrix4f>?,
-
-): AbstractRefCount() {
-
-}
+    val jointSize: Int,
+    val ignoreGlobalTransform: Boolean,
+)

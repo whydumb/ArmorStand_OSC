@@ -16,6 +16,44 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 class ModelLoader {
+    private lateinit var skinsMap: Map<Skin, Pair<Int, RenderSkin>>
+    private lateinit var skinsList: List<RenderSkin>
+
+    data class JointSkinData(
+        val skinIndex: Int,
+        val jointIndex: Int,
+    )
+
+    private lateinit var jointSkins: Map<NodeId, List<JointSkinData>>
+    private fun loadSkins(scene: Scene) {
+        val jointSkinMap = mutableMapOf<NodeId, MutableList<JointSkinData>>()
+        val skinsMap = mutableMapOf<Skin, Pair<Int, RenderSkin>>()
+        val skinsList = mutableListOf<RenderSkin>()
+        for ((index, skin) in scene.skins.withIndex()) {
+            val renderSkin = RenderSkin(
+                name = skin.name,
+                inverseBindMatrices = skin.inverseBindMatrices,
+                jointSize = skin.joints.size,
+                ignoreGlobalTransform = skin.ignoreGlobalTransform,
+            )
+            for ((jointIndex, joint) in skin.joints.withIndex()) {
+                jointSkinMap.getOrPut(joint) { mutableListOf() }.add(
+                    JointSkinData(
+                        skinIndex = index,
+                        jointIndex = jointIndex,
+                    )
+                )
+            }
+            skinsMap[skin] = Pair(index, renderSkin)
+            skinsList.add(renderSkin)
+        }
+        this.skinsList = skinsList
+        this.skinsMap = skinsMap
+        jointSkins = jointSkinMap
+    }
+
+    private val defaultTransforms = mutableListOf<NodeTransform?>()
+    private val updatableNodes = mutableListOf<RenderNode.Updatable>()
     private val textureCache = CacheMap<Texture, RefCountedGpuTexture>()
     private val vertexBufferCache = CacheMap<Buffer, RefCountedGpuBuffer>()
 
@@ -230,9 +268,9 @@ class ModelLoader {
         )
     }
 
-    private suspend fun loadPrimitive(primitive: Primitive, skin: Skin?): RenderPrimitive? {
-        val hasSkinElements = false
-        // skin != null && primitive.attributes.joints.isNotEmpty() && primitive.attributes.weights.isNotEmpty()
+    private suspend fun loadPrimitive(primitive: Primitive, skin: RenderSkin?): RenderPrimitive? {
+        val hasSkinElements =
+            skin != null && primitive.attributes.joints.isNotEmpty() && primitive.attributes.weights.isNotEmpty()
         val material = loadMaterial(primitive.material, hasSkinElements) ?: RenderMaterial.Default
         val vertexElements = loadVertexElements(primitive.attributes, material)
         val vertexBuffer = withRenderDevice { device ->
@@ -258,22 +296,31 @@ class ModelLoader {
         )
     }
 
-    private suspend fun loadMesh(mesh: Mesh, skin: Skin?) = coroutineScope {
+    private suspend fun loadMesh(mesh: Mesh, skin: RenderSkin?) = coroutineScope {
         RenderMesh(primitives = mesh.primitives.map { async { loadPrimitive(it, skin) } }.awaitAll().filterNotNull())
     }
 
-    private suspend fun loadSkin(skin: Skin): RenderSkin {
-        TODO()
-    }
-
     private suspend fun loadNode(node: Node): RenderNode? = coroutineScope {
+        val skinItem = skinsMap[node.skin]
+        val jointSkin = jointSkins[node.id]
+
         val children = buildList {
-            node.mesh?.let { add(RenderNode.Mesh(loadMesh(it, node.skin))) }
+            jointSkin?.forEach { (skinIndex, jointIndex) -> add(RenderNode.Joint(skinIndex, jointIndex)) }
+            node.mesh?.let {
+                add(
+                    RenderNode.Mesh(
+                        mesh = loadMesh(it, skinItem?.second),
+                        skinIndex = skinItem?.first,
+                        ignoreGlobalTransform = skinItem?.second?.ignoreGlobalTransform == true,
+                    )
+                )
+            }
             node.children.forEach { loadNode(it)?.let { add(it) } }
         }
         if (children.isEmpty()) {
             return@coroutineScope null
         }
+
         var currentNode: RenderNode = if (children.size == 1) {
             children.first()
         } else {
@@ -281,22 +328,25 @@ class ModelLoader {
                 children.forEach { it.parent = group }
             }
         }
-        node.transform?.let { transform ->
-            RenderNode.Transform(
-                transform = transform,
-                child = currentNode,
-            ).also {
-                currentNode.parent = it
-                currentNode = it
-            }
+
+        val transformIndex = defaultTransforms.size
+        defaultTransforms += node.transform
+        RenderNode.Transform(
+            transformIndex = transformIndex,
+            child = currentNode,
+        ).also {
+            currentNode.parent = it
         }
-        currentNode
     }
 
     suspend fun loadScene(scene: Scene): RenderScene {
+        loadSkins(scene)
         val rootNode = RenderNode.Group(scene.nodes.mapNotNull { loadNode(it) })
         return RenderScene(
             rootNode = rootNode,
+            updatableNodes = updatableNodes,
+            defaultTransforms = defaultTransforms.toTypedArray(),
+            skins = skinsList,
         )
     }
 }
