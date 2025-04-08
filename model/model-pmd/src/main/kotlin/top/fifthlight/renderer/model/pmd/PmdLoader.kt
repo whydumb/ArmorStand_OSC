@@ -331,7 +331,10 @@ object PmdLoader {
             }
 
             return Scene(
-                name = header.name,
+                metadata = Metadata(
+                    title = header.name,
+                    comment = header.comment,
+                ),
                 nodes = nodes,
                 skins = listOf() // TODO skin support
             )

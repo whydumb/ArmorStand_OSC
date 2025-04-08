@@ -3,6 +3,8 @@ package top.fifthlight.renderer.model.gltf.format.extension
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.joml.Vector3f
+import top.fifthlight.renderer.model.Metadata
+import top.fifthlight.renderer.model.Texture
 
 @Serializable
 internal data class VrmV0Extension(
@@ -16,9 +18,9 @@ internal data class VrmV0Extension(
         val title: String? = null,
         val author: String? = null,
         val allowedUserName: AllowedUserName? = null,
-        val violentUssageName: ViolentUsage? = null,
-        val sexualUssageName: SexualUsage? = null,
-        val commercialUssageName: CommercialUsage? = null,
+        val violentUssageName: UsageIdentifier? = null,
+        val sexualUssageName: UsageIdentifier? = null,
+        val commercialUssageName: UsageIdentifier? = null,
         val licenseName: String? = null,
         val version: String? = null,
         val contactInformation: String? = null,
@@ -27,38 +29,50 @@ internal data class VrmV0Extension(
         val otherPermissionUrl: String? = null,
         val otherLicenseUrl: String? = null
     ) {
+        fun toMetadata(thumbnailGetter: (Int) -> Texture?) = Metadata(
+            title = title,
+            authors = author?.let { listOf(it) },
+            allowedUser = when (allowedUserName) {
+                AllowedUserName.ONLY_AUTHOR -> Metadata.AllowedUser.ONLY_AUTHOR
+                AllowedUserName.EXPLICITLY_LICENSED_PERSON -> Metadata.AllowedUser.EXPLICITLY_LICENSED_PERSON
+                AllowedUserName.EVERYONE -> Metadata.AllowedUser.EVERYONE
+                null -> TODO()
+            },
+            allowViolentUsage = violentUssageName?.usable,
+            allowSexualUsage = sexualUssageName?.usable,
+            commercialUsage = when (commercialUssageName) {
+                null -> null
+                UsageIdentifier.ALLOW -> Metadata.CommercialUsage.ALLOW
+                UsageIdentifier.DISALLOW -> Metadata.CommercialUsage.DISALLOW
+            },
+            licenseType = licenseName,
+            version = version,
+            contactInformation = contactInformation,
+            references = reference?.let { listOf(it) },
+            thumbnail = texture?.let { thumbnailGetter(it) },
+            licenseUrl = otherLicenseUrl,
+            permissionUrl = otherPermissionUrl,
+        )
+
         @Serializable
         enum class AllowedUserName {
             @SerialName("OnlyAuthor")
             ONLY_AUTHOR,
+
             @SerialName("ExplicitlyLicensedPerson")
             EXPLICITLY_LICENSED_PERSON,
+
             @SerialName("Everyone")
             EVERYONE
         }
 
         @Serializable
-        enum class ViolentUsage {
+        enum class UsageIdentifier(val usable: Boolean) {
             @SerialName("Disallow")
-            DISALLOW,
-            @SerialName("Allow")
-            ALLOW,
-        }
+            DISALLOW(false),
 
-        @Serializable
-        enum class SexualUsage {
-            @SerialName("Disallow")
-            DISALLOW,
             @SerialName("Allow")
-            ALLOW,
-        }
-
-        @Serializable
-        enum class CommercialUsage {
-            @SerialName("Disallow")
-            DISALLOW,
-            @SerialName("Allow")
-            ALLOW,
+            ALLOW(true),
         }
     }
 
@@ -136,12 +150,55 @@ data class VrmV1Extension(
         val modification: Modification? = null,
         val otherLicenseUrl: String? = null
     ) {
+        fun toMetadata(thumbnailGetter: (Int) -> Texture?) = Metadata(
+            title = name,
+            authors = authors,
+            licenseUrl = licenseUrl,
+            version = version,
+            copyrightInformation = copyrightInformation,
+            contactInformation = contactInformation,
+            references = references,
+            thirdPartyLicenses = thirdPartyLicenses,
+            thumbnail = thumbnailImage?.let { thumbnailGetter(it) },
+            allowedUser = when (avatarPermission) {
+                AvatarPermission.ONLY_AUTHOR -> Metadata.AllowedUser.ONLY_AUTHOR
+                AvatarPermission.ONLY_SEPARATELY_LICENSED_PERSON -> Metadata.AllowedUser.EXPLICITLY_LICENSED_PERSON
+                AvatarPermission.EVERYONE -> Metadata.AllowedUser.EVERYONE
+                null -> null
+            },
+            allowViolentUsage = allowExcessivelyViolentUsage,
+            allowSexualUsage = allowExcessivelySexualUsage,
+            commercialUsage = when (commercialUsage) {
+                CommercialUsage.PERSONAL_NON_PROFIT -> Metadata.CommercialUsage.PERSONAL_NON_PROFIT
+                CommercialUsage.PERSONAL_PROFIT -> Metadata.CommercialUsage.PERSONAL_PROFIT
+                CommercialUsage.CORPORATION -> Metadata.CommercialUsage.CORPORATION
+                null -> null
+            },
+            allowPoliticalOrReligiousUsage = allowPoliticalOrReligiousUsage,
+            allowAntisocialOrHateUsage = allowAntisocialOrHateUsage,
+            creditNotation = when (creditNotation) {
+                CreditNotation.REQUIRED -> Metadata.CreditNotation.REQUIRED
+                CreditNotation.UNNECESSARY -> Metadata.CreditNotation.UNNECESSARY
+                null -> null
+            },
+            allowRedistribution = allowRedistribution,
+            modificationPermission = when (modification) {
+                Modification.PROHIBITED -> Metadata.ModificationPermission.PROHIBITED
+                Modification.ALLOW_MODIFICATION -> Metadata.ModificationPermission.ALLOW_MODIFICATION
+                Modification.ALLOW_MODIFICATION_REDISTRIBUTION -> Metadata.ModificationPermission.ALLOW_MODIFICATION_REDISTRIBUTION
+                null -> null
+            },
+            specLicenseUrl = licenseUrl,
+        )
+
         @Serializable
         enum class AvatarPermission {
             @SerialName("onlyAuthor")
             ONLY_AUTHOR,
+
             @SerialName("onlySeparatelyLicensedPerson")
             ONLY_SEPARATELY_LICENSED_PERSON,
+
             @SerialName("everyone")
             EVERYONE,
         }
@@ -150,8 +207,10 @@ data class VrmV1Extension(
         enum class CommercialUsage {
             @SerialName("personalNonProfit")
             PERSONAL_NON_PROFIT,
+
             @SerialName("personalProfit")
             PERSONAL_PROFIT,
+
             @SerialName("corporation")
             CORPORATION,
         }
@@ -160,6 +219,7 @@ data class VrmV1Extension(
         enum class CreditNotation {
             @SerialName("required")
             REQUIRED,
+
             @SerialName("unnecessary")
             UNNECESSARY,
         }
@@ -168,8 +228,10 @@ data class VrmV1Extension(
         enum class Modification {
             @SerialName("prohibited")
             PROHIBITED,
+
             @SerialName("allowModification")
             ALLOW_MODIFICATION,
+
             @SerialName("allowModificationRedistribution")
             ALLOW_MODIFICATION_REDISTRIBUTION,
         }

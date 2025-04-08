@@ -104,6 +104,7 @@ object PlayerModelManager {
                                         ModelFormatProber.Result.UNKNOWN -> error("Unknown file format")
                                     }
                                 }
+                                ?.also { LOGGER.info("Model metadata: ${it.metadata}") }
                                 ?.let { ModelLoader().loadScene(it) }
                                 ?.also { it.increaseReferenceCount() }
                         }

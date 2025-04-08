@@ -1,7 +1,7 @@
 package top.fifthlight.renderer.model
 
 data class Scene(
-    val name: String?,
+    val metadata: Metadata? = null,
     val nodes: List<Node>,
     val skins: List<Skin>,
 )

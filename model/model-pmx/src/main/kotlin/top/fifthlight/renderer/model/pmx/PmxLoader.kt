@@ -6,6 +6,7 @@ import top.fifthlight.renderer.model.Buffer
 import top.fifthlight.renderer.model.BufferView
 import top.fifthlight.renderer.model.Material
 import top.fifthlight.renderer.model.Mesh
+import top.fifthlight.renderer.model.Metadata
 import top.fifthlight.renderer.model.Node
 import top.fifthlight.renderer.model.NodeId
 import top.fifthlight.renderer.model.NodeTransform
@@ -566,7 +567,12 @@ object PmxLoader {
             }
 
             return Scene(
-                name = header.modelNameLocal,
+                metadata = Metadata(
+                    title = header.modelNameLocal,
+                    titleUniversal = header.modelNameUniversal,
+                    comment = header.commentLocal,
+                    commentUniversal = header.commentUniversal,
+                ),
                 nodes = nodes,
                 skins = listOf() // TODO skin support
             )

@@ -269,7 +269,9 @@ object GltfLoader {
                 val vrmV1 = gltf.extensions?.vrmV1?.humanoid?.humanBones
                 if (vrmV1 != null) {
                     return@run vrmV1.entries.asSequence()
-                        .mapNotNull { (boneName, boneItem) -> HumanoidTag.fromVrmName(boneName)?.let { tag -> Pair(tag, boneItem.node) } }
+                        .mapNotNull { (boneName, boneItem) ->
+                            HumanoidTag.fromVrmName(boneName)?.let { tag -> Pair(tag, boneItem.node) }
+                        }
                         .associate { (tag, index) -> Pair(index, tag) }
                 }
                 null
@@ -336,8 +338,10 @@ object GltfLoader {
 
         private fun loadScenes() {
             scenes = gltf.scenes?.map {
+                val metadata = gltf.extensions?.vrmV0?.meta?.toMetadata { textures.getOrNull(it) }
+                    ?: gltf.extensions?.vrmV1?.meta?.toMetadata { textures.getOrNull(it) }
                 Scene(
-                    name = it.name,
+                    metadata = metadata,
                     nodes = it.nodes?.map(::loadNode) ?: listOf(),
                     skins = skins,
                 )
