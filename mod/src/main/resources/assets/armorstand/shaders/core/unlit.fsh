@@ -9,6 +9,8 @@ uniform float FogStart;
 uniform float FogEnd;
 uniform vec4 FogColor;
 
+uniform vec4 BaseColor;
+
 in float vertexDistance;
 in vec4 vertexColor;
 in vec4 lightMapColor;
@@ -26,7 +28,7 @@ void main() {
         discard;
     }
 #endif
-    color *= vertexColor * ColorModulator;
+    color *= vertexColor * BaseColor * ColorModulator;
     color *= lightMapColor;
     fragColor = linear_fog(color, vertexDistance, FogStart, FogEnd, FogColor);
 }

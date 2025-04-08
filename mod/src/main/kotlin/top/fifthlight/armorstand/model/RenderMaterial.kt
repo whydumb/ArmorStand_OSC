@@ -2,6 +2,7 @@ package top.fifthlight.armorstand.model
 
 import com.mojang.blaze3d.pipeline.RenderPipeline
 import com.mojang.blaze3d.systems.RenderPass
+import com.mojang.blaze3d.systems.RenderSystem
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gl.RenderPipelines
 import net.minecraft.client.gl.UniformType
@@ -100,6 +101,7 @@ sealed class RenderMaterial : AbstractRefCount() {
 
         override fun setup(renderPass: RenderPass, light: Int) {
             super.setup(renderPass, light)
+            renderPass.setUniform("BaseColor", baseColor.r, baseColor.g, baseColor.b, baseColor.a)
             renderPass.bindSampler("Sampler0", baseColorTexture.texture.inner)
             renderPass.bindSampler("Sampler2", MinecraftClient.getInstance().gameRenderer.lightmapTextureManager.glTexture)
             renderPass.setUniform(
@@ -120,6 +122,7 @@ sealed class RenderMaterial : AbstractRefCount() {
                 .withFragmentShader(Identifier.of("armorstand", "core/unlit"))
                 .withSampler("Sampler0")
                 .withSampler("Sampler2")
+                .withUniform("BaseColor", UniformType.VEC4)
                 .withUniform("LightMapUv", UniformType.IVEC3)
                 .withVertexType(VertexType.POSITION_TEXTURE_COLOR)
                 .withoutBlend()

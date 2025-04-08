@@ -482,7 +482,7 @@ object PmxLoader {
             val nodes = materials.mapIndexed { index, pmxMaterial ->
                 val material = Material.Unlit(
                     name = pmxMaterial.nameLocal,
-                    baseColor = RgbaColor(pmxMaterial.ambientColor),
+                    baseColor = pmxMaterial.diffuseColor,
                     baseColorTexture = pmxMaterial.textureIndex.takeIf { it >= 0 }?.let {
                         textures.getOrNull(it) ?: throw PmxLoadException("Bad texture index: $it")
                     }?.let {
@@ -491,7 +491,7 @@ object PmxLoader {
                     doubleSided = pmxMaterial.drawingFlags.noCull,
                 )
                 Node(
-                    name = "Node for material $pmxMaterial",
+                    name = "Node for material ${pmxMaterial.nameLocal}",
                     id = NodeId(modelId, index),
                     transform = NodeTransform.Decomposed(
                         scale = Vector3f(0.1f),

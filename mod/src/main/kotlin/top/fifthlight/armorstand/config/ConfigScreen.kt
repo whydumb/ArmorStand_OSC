@@ -21,13 +21,11 @@ import top.fifthlight.armorstand.util.ClientThreadDispatcher
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
 import kotlin.io.path.extension
-import kotlin.io.path.isRegularFile
-import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.visitFileTree
 
 class ConfigScreen(private val parent: Screen? = null) : Screen(Text.translatable("armorstand.screen.config")) {
     private val modelDir = FabricLoader.getInstance().gameDir.resolve("models")
-    private val allowedExtensions = listOf("vrm", "glb", "gltf", "pmx")
+    private val allowedExtensions = listOf("vrm", "glb", "gltf", "pmx", "pmd")
     private val items = MutableStateFlow(listOf<Path>())
     private val scope = CoroutineScope(ClientThreadDispatcher)
 

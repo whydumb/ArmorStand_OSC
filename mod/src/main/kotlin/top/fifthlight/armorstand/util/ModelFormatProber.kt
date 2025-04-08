@@ -1,4 +1,4 @@
-package top.fifthlight.armorstand.state
+package top.fifthlight.armorstand.util
 
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -10,12 +10,14 @@ object ModelFormatProber {
     enum class Result {
         GLTF_BINARY,
         PMX,
+        PMD,
         LIKELY_GLTF_TEXT, // JSON
         UNKNOWN
     }
 
     private val GLTF_BINARY_MAGIC = byteArrayOf(0x67, 0x6C, 0x54, 0x46)
     private val PMX_SIGNATURE = byteArrayOf(0x50, 0x4D, 0x58, 0x20)
+    private val PMD_SIGNATURE = byteArrayOf(0x50, 0x6D, 0x64)
 
     fun probe(path: Path): Result {
         return FileChannel.open(path, StandardOpenOption.READ).use { channel ->
@@ -27,6 +29,7 @@ object ModelFormatProber {
             when {
                 isGltfBinary(buffer) -> Result.GLTF_BINARY
                 isPmx(buffer) -> Result.PMX
+                isPmd(buffer) -> Result.PMD
                 isLikelyJson(buffer) -> Result.LIKELY_GLTF_TEXT
                 else -> Result.UNKNOWN
             }
@@ -47,6 +50,14 @@ object ModelFormatProber {
         val signatureBytes = ByteArray(4)
         buffer.get(signatureBytes, 0, 4)
         return signatureBytes.contentEquals(PMX_SIGNATURE)
+    }
+
+    private fun isPmd(buffer: ByteBuffer): Boolean {
+        buffer.position(0)
+        if (buffer.remaining() < 7) return false
+        val signatureBytes = ByteArray(3)
+        buffer.get(signatureBytes, 0, 3)
+        return signatureBytes.contentEquals(PMD_SIGNATURE)
     }
 
     private fun isLikelyJson(buffer: ByteBuffer): Boolean {
