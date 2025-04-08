@@ -13,11 +13,14 @@ import top.fifthlight.armorstand.util.ClientThreadDispatcher
 import kotlin.coroutines.CoroutineContext
 
 object ArmorStand : ClientModInitializer {
+    var debug: Boolean = false
+        private set
     val scope by lazy { CoroutineScope(SupervisorJob() + ClientThreadDispatcher) }
 
     override fun onInitializeClient() {
         if (System.getProperty("armorstand.debug") == "true") {
             RenderPassImpl.IS_DEVELOPMENT = true
+            debug = true
         }
 
         RenderMaterial.PIPELINES.forEach(RenderPipelines::register)

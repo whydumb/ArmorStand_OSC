@@ -1,5 +1,6 @@
 package top.fifthlight.armorstand
 
+import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.client.util.math.MatrixStack
 import top.fifthlight.armorstand.state.PlayerModelManager
@@ -12,6 +13,7 @@ object PlayerRenderer {
         vanillaState: PlayerEntityRenderState,
         matrixStack: MatrixStack,
         light: Int,
+        vertexConsumerProvider: VertexConsumerProvider,
     ): Boolean {
         val entry = PlayerModelManager[uuid]
         if (entry == null) {
@@ -28,6 +30,9 @@ object PlayerRenderer {
         matrixStack.pop()
 
         instance.render(matrixStack, light)
+        if (ArmorStand.debug) {
+            instance.renderDebug(matrixStack, vertexConsumerProvider)
+        }
 
         matrixStack.push()
         matrixStack.peek().apply {

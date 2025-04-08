@@ -1,6 +1,7 @@
 package top.fifthlight.armorstand.model
 
 import com.mojang.blaze3d.systems.RenderSystem
+import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.client.util.math.MatrixStack
 import org.joml.Matrix4f
 import top.fifthlight.armorstand.util.AbstractRefCount
@@ -45,6 +46,10 @@ class ModelInstance private constructor(
 
     fun render(matrixStack: MatrixStack, light: Int) {
         scene.render(this, matrixStack, light)
+    }
+
+    fun renderDebug(matrixStack: MatrixStack, vertexConsumerProvider: VertexConsumerProvider) {
+        scene.renderDebug(this, matrixStack, vertexConsumerProvider)
     }
 
     override fun onClosed() {

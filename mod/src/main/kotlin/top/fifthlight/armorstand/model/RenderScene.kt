@@ -1,6 +1,7 @@
 package top.fifthlight.armorstand.model
 
 import it.unimi.dsi.fastutil.objects.Reference2IntMap
+import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.client.util.math.MatrixStack
 import org.joml.Matrix4f
 import top.fifthlight.armorstand.util.AbstractRefCount
@@ -24,6 +25,11 @@ class RenderScene(
     fun render(modelInstance: ModelInstance, matrixStack: MatrixStack, light: Int) {
         val globalMatrix = Matrix4f(matrixStack.peek().positionMatrix)
         rootNode.render(modelInstance, matrixStack, globalMatrix, light)
+    }
+
+    fun renderDebug(modelInstance: ModelInstance, matrixStack: MatrixStack, vertexConsumerProvider: VertexConsumerProvider) {
+        val globalMatrix = Matrix4f(matrixStack.peek().positionMatrix)
+        rootNode.renderDebug(modelInstance, matrixStack, globalMatrix, vertexConsumerProvider)
     }
 
     override fun onClosed() {
