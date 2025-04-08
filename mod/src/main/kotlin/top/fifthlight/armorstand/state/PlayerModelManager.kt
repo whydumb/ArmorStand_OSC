@@ -16,6 +16,7 @@ import top.fifthlight.armorstand.model.RenderNode
 import top.fifthlight.armorstand.model.RenderScene
 import top.fifthlight.armorstand.util.AbstractRefCount
 import top.fifthlight.renderer.model.gltf.GltfLoader
+import top.fifthlight.renderer.model.pmx.PmxLoader
 import java.util.*
 import kotlin.time.measureTimedValue
 
@@ -92,7 +93,14 @@ object PlayerModelManager {
                     val newModel = runCatching {
                         val (value, duration) = measureTimedValue {
                             config.modelPath
-                                ?.let { path -> GltfLoader.loadBinary(path) }
+                                ?.let { path ->
+                                    when (ModelFormatProber.probe(path)) {
+                                        ModelFormatProber.Result.GLTF_BINARY -> GltfLoader.loadBinary(path)
+                                        ModelFormatProber.Result.PMX -> PmxLoader.load(path)
+                                        ModelFormatProber.Result.LIKELY_GLTF_TEXT -> error("Unsupported file")
+                                        ModelFormatProber.Result.UNKNOWN -> error("Unknown file format")
+                                    }
+                                }
                                 ?.let { ModelLoader().loadScene(it) }
                                 ?.also { it.increaseReferenceCount() }
                         }

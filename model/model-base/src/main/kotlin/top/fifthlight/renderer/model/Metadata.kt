@@ -2,6 +2,11 @@ package top.fifthlight.renderer.model
 
 data class Metadata(
     val title: String? = null,
+    // For PMX
+    val titleUniversal: String? = null,
+    val commentLocal: String,
+    val commentUniversal: String,
+
     val version: String? = null,
     val authors: List<String>? = null,
     val copyrightInformation: String? = null,

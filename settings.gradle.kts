@@ -12,3 +12,4 @@ pluginManagement {
 include(":mod")
 include(":model:model-base")
 include(":model:model-gltf")
+include(":model:model-pmx")

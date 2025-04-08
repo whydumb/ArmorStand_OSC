@@ -21,6 +21,7 @@ import top.fifthlight.renderer.model.gltf.format.Gltf
 import top.fifthlight.renderer.model.gltf.format.GltfAttributeKey
 import top.fifthlight.renderer.model.gltf.format.GltfPrimitive
 import top.fifthlight.renderer.model.gltf.format.GltfTextureInfo
+import top.fifthlight.renderer.model.util.readAll
 import java.io.IOException
 import java.net.URI
 import java.nio.ByteBuffer
@@ -384,7 +385,7 @@ object GltfLoader {
         ) {
             readBuffer.clear()
             readBuffer.limit(len)
-            channel.read(readBuffer)
+            channel.readAll(readBuffer)
             if (readBuffer.limit() < len) {
                 throw GltfLoadException(fail(readBuffer.limit()))
             }
@@ -411,7 +412,7 @@ object GltfLoader {
             }
             readBuffer.clear()
             readBuffer.limit(8)
-            channel.read(readBuffer)
+            channel.readAll(readBuffer)
             when (readBuffer.limit()) {
                 0 -> return null
                 8 -> Unit
@@ -447,7 +448,7 @@ object GltfLoader {
             }
             val binaryBuffer = ByteBuffer.allocateDirect(length.toInt())
             binaryBuffer.limit(length.toInt())
-            channel.read(binaryBuffer)
+            channel.readAll(binaryBuffer)
             binaryBuffer.flip()
             if (binaryBuffer.limit() < length.toInt()) {
                 throw GltfLoadException("Chunk's size not correct: want to read $length, but only got ${binaryBuffer.limit()}")

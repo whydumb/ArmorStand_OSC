@@ -7,6 +7,7 @@ data class RgbaColor(
     val a: Float,
 ) {
     constructor(rgba: FloatArray): this(rgba[0], rgba[1], rgba[2], rgba[3])
+    constructor(rgbColor: RgbColor): this(rgbColor.r, rgbColor.g, rgbColor.b, 1f)
 }
 
 data class RgbColor(

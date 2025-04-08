@@ -18,15 +18,16 @@ import net.minecraft.screen.ScreenTexts
 import net.minecraft.text.Text
 import top.fifthlight.armorstand.state.PlayerModelManager
 import top.fifthlight.armorstand.util.ClientThreadDispatcher
+import java.nio.file.FileVisitResult
 import java.nio.file.Path
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
-
+import kotlin.io.path.visitFileTree
 
 class ConfigScreen(private val parent: Screen? = null) : Screen(Text.translatable("armorstand.screen.config")) {
     private val modelDir = FabricLoader.getInstance().gameDir.resolve("models")
-    private val allowedExtensions = listOf("vrm", "glb", "gltf")
+    private val allowedExtensions = listOf("vrm", "glb", "gltf", "pmx")
     private val items = MutableStateFlow(listOf<Path>())
     private val scope = CoroutineScope(ClientThreadDispatcher)
 
@@ -35,7 +36,16 @@ class ConfigScreen(private val parent: Screen? = null) : Screen(Text.translatabl
 
     private fun loadItems() {
         val items = runCatching {
-            modelDir.listDirectoryEntries().filter { it.isRegularFile() && it.extension.lowercase() in allowedExtensions }
+            buildList {
+                modelDir.visitFileTree(maxDepth = 4) {
+                    onVisitFile { path, attributes ->
+                        if (path.extension.lowercase() in allowedExtensions) {
+                            add(path)
+                        }
+                        FileVisitResult.CONTINUE
+                    }
+                }
+            }
         }.getOrNull() ?: listOf()
         this.items.value = items
     }
