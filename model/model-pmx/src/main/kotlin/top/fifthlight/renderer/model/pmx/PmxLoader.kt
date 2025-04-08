@@ -1,5 +1,6 @@
 package top.fifthlight.renderer.model.pmx
 
+import org.joml.Vector3f
 import top.fifthlight.renderer.model.Accessor
 import top.fifthlight.renderer.model.Buffer
 import top.fifthlight.renderer.model.BufferView
@@ -7,6 +8,7 @@ import top.fifthlight.renderer.model.Material
 import top.fifthlight.renderer.model.Mesh
 import top.fifthlight.renderer.model.Node
 import top.fifthlight.renderer.model.NodeId
+import top.fifthlight.renderer.model.NodeTransform
 import top.fifthlight.renderer.model.Primitive
 import top.fifthlight.renderer.model.RgbColor
 import top.fifthlight.renderer.model.RgbaColor
@@ -491,6 +493,9 @@ object PmxLoader {
                 Node(
                     name = "Node for material $pmxMaterial",
                     id = NodeId(modelId, index),
+                    transform = NodeTransform.Decomposed(
+                        scale = Vector3f(0.1f),
+                    ),
                     mesh = Mesh(
                         primitives = listOf(
                             Primitive(
