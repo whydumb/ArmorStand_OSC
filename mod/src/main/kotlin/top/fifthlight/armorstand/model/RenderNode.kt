@@ -1,6 +1,5 @@
 package top.fifthlight.armorstand.model
 
-import net.minecraft.client.render.RenderLayer
 import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.util.Colors
@@ -180,10 +179,16 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         ) {
             val matrix = matrixStack.peek().positionMatrix
             cacheMatrix.set(matrix)
+            val buffer = vertexConsumerProvider.getBuffer(RenderLayers.DEBUG_BONE_LINES)
+            buffer.vertex(matrix, 0f, 0f, 0f).color(Colors.RED)
+            buffer.vertex(matrix, 0.01f, 0f, 0f).color(Colors.RED)
+            buffer.vertex(matrix, 0f, 0f, 0f).color(Colors.GREEN)
+            buffer.vertex(matrix, 0f, 0.01f, 0f).color(Colors.GREEN)
+            buffer.vertex(matrix, 0f, 0f, 0f).color(Colors.BLUE)
+            buffer.vertex(matrix, 0f, 0f, 0.01f).color(Colors.BLUE)
             parentJoint?.let { parent ->
-                val buffer = vertexConsumerProvider.getBuffer(RenderLayers.DEBUG_BONE_LINES)
-                buffer.vertex(parent.cacheMatrix, 0f, 0f, 0f).color(Colors.RED)
-                buffer.vertex(matrix, 0f, 0f, 0f).color(Colors.GREEN)
+                buffer.vertex(parent.cacheMatrix, 0f, 0f, 0f).color(Colors.YELLOW)
+                buffer.vertex(matrix, 0f, 0f, 0f).color(Colors.CYAN)
             }
         }
 
