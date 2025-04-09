@@ -1,5 +1,7 @@
 package top.fifthlight.renderer.model
 
+import top.fifthlight.renderer.model.Accessor.ComponentTypeItem
+
 data class Primitive(
     val mode: Mode,
     val material: Material,
@@ -56,7 +58,7 @@ data class Primitive(
             ),
             TANGENT(
                 allowedComponentTypes = listOf(ComponentTypeItem(Accessor.ComponentType.FLOAT)),
-                allowedAccessorTypes = listOf(Accessor.AccessorType.VEC3),
+                allowedAccessorTypes = listOf(Accessor.AccessorType.VEC4),
             ),
             TEXCOORD(
                 allowedComponentTypes = listOf(
@@ -91,13 +93,6 @@ data class Primitive(
                 ),
                 allowedAccessorTypes = listOf(Accessor.AccessorType.VEC4),
             );
-
-            data class ComponentTypeItem(
-                val type: Accessor.ComponentType,
-                val normalized: Boolean = false,
-            ) {
-                override fun toString(): String = "$type (normalized: $normalized)"
-            }
         }
 
         operator fun contains(key: Key): Boolean = when (key) {

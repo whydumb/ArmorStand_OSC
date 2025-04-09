@@ -9,16 +9,15 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
 import net.minecraft.client.MinecraftClient
 import org.slf4j.Logger
 import top.fifthlight.armorstand.ArmorStand
+import top.fifthlight.armorstand.animation.AnimationItem
+import top.fifthlight.armorstand.animation.AnimationLoader
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.model.ModelInstance
 import top.fifthlight.armorstand.model.ModelLoader
 import top.fifthlight.armorstand.model.RenderNode
 import top.fifthlight.armorstand.model.RenderScene
 import top.fifthlight.armorstand.util.AbstractRefCount
-import top.fifthlight.armorstand.util.ModelFormatProber
-import top.fifthlight.renderer.model.gltf.GltfLoader
-import top.fifthlight.renderer.model.pmd.PmdLoader
-import top.fifthlight.renderer.model.pmx.PmxLoader
+import top.fifthlight.armorstand.util.ModelLoaders
 import java.util.*
 import kotlin.time.measureTimedValue
 
@@ -26,8 +25,13 @@ object PlayerModelManager {
     private val LOGGER = LogUtils.getLogger()
 
     private val client = MinecraftClient.getInstance()
-    private val selfModel = MutableStateFlow<RenderScene?>(null)
     private val inGame = MutableStateFlow(false)
+
+    private data class ModelData(
+        val scene: RenderScene,
+        val animations: List<AnimationItem>,
+    )
+    private val selfModel = MutableStateFlow<ModelData?>(null)
 
     data class ModelEntry(
         val instance: ModelInstance,
@@ -74,7 +78,7 @@ object PlayerModelManager {
             dumpTreeInternal(logger, "", true, true)
         }
 
-        selfModel.value?.rootNode?.dumpTree(LOGGER) ?: run {
+        selfModel.value?.scene?.rootNode?.dumpTree(LOGGER) ?: run {
             LOGGER.info("No root node loaded.")
         }
     }
@@ -90,23 +94,11 @@ object PlayerModelManager {
             launch {
                 ConfigHolder.config.collectLatest { config ->
                     val currentModel = selfModel.value
-                    currentModel?.decreaseReferenceCount()
+                    currentModel?.scene?.decreaseReferenceCount()
                     selfModel.value = null
-                    val newModel = runCatching {
+                    val modelLoadResult = runCatching {
                         val (value, duration) = measureTimedValue {
-                            config.modelPath
-                                ?.let { path ->
-                                    when (ModelFormatProber.probe(path)) {
-                                        ModelFormatProber.Result.GLTF_BINARY -> GltfLoader.loadBinary(path)
-                                        ModelFormatProber.Result.PMX -> PmxLoader.load(path)
-                                        ModelFormatProber.Result.PMD -> PmdLoader.load(path)
-                                        ModelFormatProber.Result.LIKELY_GLTF_TEXT -> error("Unsupported file")
-                                        ModelFormatProber.Result.UNKNOWN -> error("Unknown file format")
-                                    }
-                                }
-                                ?.also { LOGGER.info("Model metadata: ${it.metadata}") }
-                                ?.let { ModelLoader().loadScene(it) }
-                                ?.also { it.increaseReferenceCount() }
+                            config.modelPath?.let { path -> ModelLoaders.probeAndLoad(path) }
                         }
                         LOGGER.info("Model loaded, duration: $duration")
                         value
@@ -114,20 +106,37 @@ object PlayerModelManager {
                         it.exceptionOrNull()?.let { LOGGER.warn("Model load failed", it) }
                         it.getOrNull()
                     }
-                    selfModel.value = newModel
+                    modelLoadResult?.takeIf { it.scene != null }?.let { result ->
+                        LOGGER.info("Model metadata: ${result.metadata}")
+
+                        val scene = ModelLoader().loadScene(result.scene!!)
+                        scene.increaseReferenceCount()
+
+                        val animations = result.animations?.map { AnimationLoader.load(scene, it) } ?: listOf()
+
+                        val modelData = ModelData(
+                            scene = scene,
+                            animations = animations,
+                        )
+                        selfModel.value = modelData
+                    }
                 }
             }
             launch {
-                selfModel.combine(inGame, ::Pair).collectLatest { (model, inGame) ->
+                selfModel.combine(inGame, ::Pair).collectLatest { (entry, inGame) ->
                     val newInstance = if (!inGame) {
                         null
-                    } else if (model == null) {
+                    } else if (entry == null) {
                         null
                     } else {
-                        val instance = ModelInstance(model)
+                        val instance = ModelInstance(entry.scene)
                         ModelEntry(
                             instance = instance,
-                            controller = ModelController.LiveUpdated(instance.scene),
+                            controller = if (entry.animations.isEmpty()) {
+                                ModelController.LiveUpdated(instance.scene)
+                            } else {
+                                ModelController.Predefined(entry.animations)
+                            },
                         )
                     }
                     val newEntry = newInstance?.also { it.increaseReferenceCount() }

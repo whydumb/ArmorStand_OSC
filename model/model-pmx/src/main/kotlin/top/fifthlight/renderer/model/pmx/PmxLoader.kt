@@ -7,6 +7,7 @@ import top.fifthlight.renderer.model.BufferView
 import top.fifthlight.renderer.model.Material
 import top.fifthlight.renderer.model.Mesh
 import top.fifthlight.renderer.model.Metadata
+import top.fifthlight.renderer.model.ModelFileLoader
 import top.fifthlight.renderer.model.Node
 import top.fifthlight.renderer.model.NodeId
 import top.fifthlight.renderer.model.NodeTransform
@@ -31,11 +32,23 @@ class PmxLoadException(message: String) : Exception(message)
 
 // PMX loader.
 // Format from https://gist.github.com/felixjones/f8a06bd48f9da9a4539f
-object PmxLoader {
+object PmxLoader: ModelFileLoader {
+    override val extensions = listOf("pmx")
+
     private val PMX_SIGNATURE = byteArrayOf(0x50, 0x4D, 0x58, 0x20)
+    override val probeLength = PMX_SIGNATURE.size
+    override fun probe(buffer: ByteBuffer): Boolean {
+        if (buffer.remaining() < PMX_SIGNATURE.size) return false
+        val signatureBytes = ByteArray(PMX_SIGNATURE.size)
+        buffer.get(signatureBytes, 0, PMX_SIGNATURE.size)
+        return signatureBytes.contentEquals(PMX_SIGNATURE)
+    }
+
     private val VALID_INDEX_SIZES = listOf(1, 2, 4)
+
     //                                             POS NORM UV
     private const val BASE_VERTEX_ATTRIBUTE_SIZE = (3 + 3 + 2) * 4
+
     //                                           JOINT WEIGHT
     private const val SKIN_VERTEX_ATTRIBUTE_SIZE = (4 + 4) * 4
     private const val VERTEX_ATTRIBUTE_SIZE = BASE_VERTEX_ATTRIBUTE_SIZE + SKIN_VERTEX_ATTRIBUTE_SIZE
@@ -425,14 +438,14 @@ object PmxLoader {
                     edgeScale = buffer.getFloat(),
                     textureIndex = loadTextureIndex(buffer),
                     environmentIndex = loadTextureIndex(buffer),
-                    environmentBlendMode = when(val mode = buffer.get().toInt()) {
+                    environmentBlendMode = when (val mode = buffer.get().toInt()) {
                         0 -> PmxMaterial.EnvironmentBlendMode.DISABLED
                         1 -> PmxMaterial.EnvironmentBlendMode.MULTIPLY
                         2 -> PmxMaterial.EnvironmentBlendMode.ADDICTIVE
                         3 -> PmxMaterial.EnvironmentBlendMode.ADDITIONAL_VEC4
                         else -> throw PmxLoadException("Unsupported environment blend mode: $mode")
                     },
-                    toonReference = when(val type = buffer.get().toInt()) {
+                    toonReference = when (val type = buffer.get().toInt()) {
                         0 -> PmxMaterial.ToonReference.Texture(index = loadTextureIndex(buffer))
                         1 -> PmxMaterial.ToonReference.Internal(index = buffer.get().toUByte())
                         else -> throw PmxLoadException("Unsupported toon reference: $type")
@@ -450,7 +463,7 @@ object PmxLoader {
             }
         }
 
-        fun load(buffer: ByteBuffer): Scene? {
+        fun load(buffer: ByteBuffer): ModelFileLoader.Result {
             val header = loadHeader(buffer)
             loadVertices(buffer)
             loadSurfaces(buffer)
@@ -566,20 +579,23 @@ object PmxLoader {
                 }
             }
 
-            return Scene(
+            return ModelFileLoader.Result(
                 metadata = Metadata(
                     title = header.modelNameLocal,
                     titleUniversal = header.modelNameUniversal,
                     comment = header.commentLocal,
                     commentUniversal = header.commentUniversal,
                 ),
-                nodes = nodes,
-                skins = listOf() // TODO skin support
+                scene = Scene(
+                    nodes = nodes,
+                    skins = listOf() // TODO skin support
+                ),
+                animations = listOf(),
             )
         }
     }
 
-    fun load(path: Path, basePath: Path = path.parent): Scene? =
+    override fun load(path: Path, basePath: Path) =
         FileChannel.open(path, StandardOpenOption.READ).use { channel ->
             val fileSize = channel.size()
             val buffer = runCatching {

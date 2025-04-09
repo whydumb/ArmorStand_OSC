@@ -4,9 +4,13 @@ import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.util.math.MathHelper
 import org.joml.Matrix4f
 import org.joml.Matrix4fc
+import top.fifthlight.armorstand.animation.AnimationItem
+import top.fifthlight.armorstand.animation.Timeline
 import top.fifthlight.armorstand.model.ModelInstance
 import top.fifthlight.armorstand.model.RenderScene
 import top.fifthlight.armorstand.util.toRadian
+import top.fifthlight.renderer.model.Animation
+import top.fifthlight.renderer.model.AnimationChannel
 import top.fifthlight.renderer.model.HumanoidTag
 
 sealed class ModelController {
@@ -22,7 +26,7 @@ sealed class ModelController {
         inline fun update(instance: ModelInstance, crossinline func: Matrix4f.() -> Unit) {
             targetMatrix.set(initialMatrix)
             func(targetMatrix)
-            instance.setTransform(index, targetMatrix)
+            instance.setTransformMatrix(index, targetMatrix)
         }
     }
 
@@ -45,7 +49,7 @@ sealed class ModelController {
 
         companion object {
             private fun RenderScene.getBone(tag: HumanoidTag) =
-                humanoidJointTransformIndices.getInt(tag).takeIf { it != -1 }?.let { index ->
+                humanoidTagTransformMap.getInt(tag).takeIf { it != -1 }?.let { index ->
                     JointItem(
                         initialMatrix = defaultTransforms[index]?.matrix ?: Matrix4f(),
                         index = index,
@@ -70,11 +74,28 @@ sealed class ModelController {
     }
 
     class Predefined(
-        model: RenderScene,
-        // animation data
+        animations: List<AnimationItem>,
     ) : ModelController() {
-        override fun apply(instance: ModelInstance) {
+        private data class Item(
+            val animation: AnimationItem,
+            val timeline: Timeline,
+        )
+        private val items = animations.map {
+            Item(
+                animation = it,
+                timeline = Timeline(
+                    duration = it.duration,
+                    loop = true,
+                ).also {
+                    it.play()
+                }
+            )
+        }
 
+        override fun apply(instance: ModelInstance) {
+            items.forEach {
+                it.animation.apply(instance, it.timeline.currentTime)
+            }
         }
     }
 }

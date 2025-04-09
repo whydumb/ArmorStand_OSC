@@ -16,6 +16,8 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector4f
 import top.fifthlight.renderer.model.Accessor
+import top.fifthlight.renderer.model.AnimationChannel
+import top.fifthlight.renderer.model.AnimationInterpolation
 import top.fifthlight.renderer.model.BufferView
 import top.fifthlight.renderer.model.HumanoidTag
 import top.fifthlight.renderer.model.Material
@@ -27,7 +29,7 @@ import top.fifthlight.renderer.model.Texture as CommonTexture
 
 internal typealias BoneMapping = Map<Int, HumanoidTag>
 
-private abstract class EnumSerializer<T : Enum<T>>(
+private abstract class IntEnumSerializer<T : Enum<T>>(
     serialName: String,
     vararg mappings: Pair<T, Int>,
 ) : KSerializer<T> {
@@ -43,6 +45,25 @@ private abstract class EnumSerializer<T : Enum<T>>(
 
     override fun serialize(encoder: Encoder, value: T) {
         encoder.encodeInt(map[value] ?: throw SerializationException("No value for $value"))
+    }
+}
+
+private abstract class StringEnumSerializer<T : Enum<T>>(
+    serialName: String,
+    vararg mappings: Pair<T, String>,
+) : KSerializer<T> {
+    private val map = mapOf(*mappings)
+    private val reverseMap = mappings.associate { (a, b) -> Pair(b, a) }
+
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor(serialName, PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): T {
+        val value = decoder.decodeString()
+        return reverseMap[value] ?: throw SerializationException("Invalid value: $value")
+    }
+
+    override fun serialize(encoder: Encoder, value: T) {
+        encoder.encodeString(map[value] ?: throw SerializationException("No value for $value"))
     }
 }
 
@@ -107,7 +128,7 @@ internal data class GltfBufferView(
         require(byteLength > 1) { "Buffer's length less than 1: $byteLength" }
     }
 
-    private class BufferViewTargetSerializer : EnumSerializer<BufferView.Target>(
+    private class BufferViewTargetSerializer : IntEnumSerializer<BufferView.Target>(
         "top.fifthlight.renderer.model.BufferView.Target",
         BufferView.Target.ARRAY_BUFFER to 34962,
         BufferView.Target.ELEMENT_ARRAY_BUFFER to 34963,
@@ -132,7 +153,7 @@ internal data class GltfAccessor(
         require(count > 0) { "Invalid accessor count: $count" }
     }
 
-    private class ComponentTypeSerializer : EnumSerializer<Accessor.ComponentType>(
+    private class ComponentTypeSerializer : IntEnumSerializer<Accessor.ComponentType>(
         "top.fifthlight.renderer.model.Accessor.ComponentType",
         Accessor.ComponentType.BYTE to 5120,
         Accessor.ComponentType.UNSIGNED_BYTE to 5121,
@@ -165,54 +186,45 @@ internal data class GltfSparseValues(
 
 @Serializable
 internal data class GltfAnimation(
+    val name: String? = null,
     val channels: List<GltfAnimationChannel>,
-    val samplers: List<GltfAnimationSampler>
+    val samplers: List<GltfAnimationSampler>,
 )
 
 @Serializable
 internal data class GltfAnimationChannel(
     val sampler: Int,
-    val target: GltfAnimationTarget
+    val target: GltfAnimationTarget,
 )
 
 @Serializable
 internal data class GltfAnimationTarget(
     val node: Int? = null,
-    val path: GltfAnimationPath,
-)
-
-@Serializable
-internal enum class GltfAnimationPath {
-    @SerialName("translation")
-    TRANSLATION,
-
-    @SerialName("rotation")
-    ROATATION,
-
-    @SerialName("scale")
-    SCALE,
-
-    @SerialName("weights")
-    WEIGHTS,
+    @Serializable(with = AnimationInterpolationSerializer::class)
+    val path: AnimationChannel.Path,
+) {
+    private class AnimationInterpolationSerializer : StringEnumSerializer<AnimationChannel.Path>(
+        "top.fifthlight.renderer.model.AnimationChannel.Path",
+        AnimationChannel.Path.TRANSLATION to "translation",
+        AnimationChannel.Path.ROTATION to "rotation",
+        AnimationChannel.Path.WEIGHTS to "weights",
+        AnimationChannel.Path.SCALE to "scale",
+    )
 }
 
 @Serializable
 internal data class GltfAnimationSampler(
     val input: Int,
     val output: Int,
-    val interpolation: GltfInterpolation = GltfInterpolation.LINEAR
-)
-
-@Serializable
-internal enum class GltfInterpolation {
-    @SerialName("LINEAR")
-    LINEAR,
-
-    @SerialName("STEP")
-    STEP,
-
-    @SerialName("CUBICSPLINE")
-    CUBIC_SPLINE,
+    @Serializable(with = AnimationInterpolationSerializer::class)
+    val interpolation: AnimationInterpolation,
+) {
+    private class AnimationInterpolationSerializer : StringEnumSerializer<AnimationInterpolation>(
+        "top.fifthlight.renderer.model.AnimationInterpolation",
+        AnimationInterpolation.LINEAR to "LINEAR",
+        AnimationInterpolation.STEP to "STEP",
+        AnimationInterpolation.CUBIC_SPLINE to "CUBICSPLINE",
+    )
 }
 
 @Serializable
@@ -338,13 +350,13 @@ internal data class GltfTextureSampler(
     @Serializable(with = WrapModeSerializer::class)
     val wrapT: CommonTexture.Sampler.WrapMode = CommonTexture.Sampler.WrapMode.REPEAT,
 ) {
-    private class MagFilterSerializer : EnumSerializer<CommonTexture.Sampler.MagFilter>(
+    private class MagFilterSerializer : IntEnumSerializer<CommonTexture.Sampler.MagFilter>(
         "top.fifthlight.renderer.model.Texture.Sampler.MagFilter",
         CommonTexture.Sampler.MagFilter.NEAREST to 9728,
         CommonTexture.Sampler.MagFilter.LINEAR to 9729,
     )
 
-    private class MinFilterSerializer : EnumSerializer<CommonTexture.Sampler.MinFilter>(
+    private class MinFilterSerializer : IntEnumSerializer<CommonTexture.Sampler.MinFilter>(
         "top.fifthlight.renderer.model.Texture.Sampler.MinFilter",
         CommonTexture.Sampler.MinFilter.NEAREST to 9728,
         CommonTexture.Sampler.MinFilter.LINEAR to 9729,
@@ -354,7 +366,7 @@ internal data class GltfTextureSampler(
         CommonTexture.Sampler.MinFilter.LINEAR_MIPMAP_LINEAR to 9987,
     )
 
-    private class WrapModeSerializer : EnumSerializer<CommonTexture.Sampler.WrapMode>(
+    private class WrapModeSerializer : IntEnumSerializer<CommonTexture.Sampler.WrapMode>(
         "top.fifthlight.renderer.model.Texture.Sampler.WrapMode",
         CommonTexture.Sampler.WrapMode.CLAMP_TO_EDGE to 33071,
         CommonTexture.Sampler.WrapMode.MIRRORED_REPEAT to 33648,
@@ -437,7 +449,7 @@ internal data class GltfPrimitive(
     val mode: Primitive.Mode = Primitive.Mode.TRIANGLES,
     val targets: List<Map<GltfAttributeKey, Int>>? = null,
 ) {
-    private class PrimitiveModeSerializer : EnumSerializer<Primitive.Mode>(
+    private class PrimitiveModeSerializer : IntEnumSerializer<Primitive.Mode>(
         "top.fifthlight.renderer.model.Primitive.Mode",
         Primitive.Mode.POINTS to 0,
         Primitive.Mode.LINES to 1,

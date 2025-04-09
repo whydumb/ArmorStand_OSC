@@ -78,10 +78,14 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
     ) : RenderNode() {
         override fun render(instance: ModelInstance, matrixStack: MatrixStack, globalMatrix: Matrix4fc, light: Int) {
             val transform = instance.transforms[transformIndex]
-            matrixStack.push()
-            matrixStack.multiplyPositionMatrix(transform)
-            child.render(instance, matrixStack, globalMatrix, light)
-            matrixStack.pop()
+            transform?.matrix?.let { matrix ->
+                matrixStack.push()
+                matrixStack.multiplyPositionMatrix(matrix)
+                child.render(instance, matrixStack, globalMatrix, light)
+                matrixStack.pop()
+            } ?: run {
+                child.render(instance, matrixStack, globalMatrix, light)
+            }
         }
 
         override fun renderDebug(
@@ -91,10 +95,14 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
             vertexConsumerProvider: VertexConsumerProvider
         ) {
             val transform = instance.transforms[transformIndex]
-            matrixStack.push()
-            matrixStack.multiplyPositionMatrix(transform)
-            child.renderDebug(instance, matrixStack, globalMatrix, vertexConsumerProvider)
-            matrixStack.pop()
+            transform?.matrix?.let { matrix ->
+                matrixStack.push()
+                matrixStack.multiplyPositionMatrix(matrix)
+                child.renderDebug(instance, matrixStack, globalMatrix, vertexConsumerProvider)
+                matrixStack.pop()
+            } ?: run {
+                child.renderDebug(instance, matrixStack, globalMatrix, vertexConsumerProvider)
+            }
         }
 
         override fun update(instance: ModelInstance, matrixStack: MatrixStack, updateTransform: Boolean) {
@@ -104,10 +112,14 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
             }
             val updateTransform = updateTransform || transformsDirty
             val transform = instance.transforms[transformIndex]
-            matrixStack.push()
-            matrixStack.multiplyPositionMatrix(transform)
-            child.update(instance, matrixStack, updateTransform)
-            matrixStack.pop()
+            transform?.matrix?.let { matrix ->
+                matrixStack.push()
+                matrixStack.multiplyPositionMatrix(matrix)
+                child.update(instance, matrixStack, updateTransform)
+                matrixStack.pop()
+            } ?: run {
+                child.update(instance, matrixStack, updateTransform)
+            }
         }
 
         override fun iterator() = iteratorOf<RenderNode>(child)

@@ -19,15 +19,26 @@ class PmdLoadException(message: String) : Exception(message)
 
 // Pmd loader
 // Format from: https://mikumikudance.fandom.com/wiki/MMD:Polygon_Model_Data
-object PmdLoader {
+object PmdLoader: ModelFileLoader {
+    override val extensions = listOf("pmd")
+
+    private val PMD_SIGNATURE = byteArrayOf(0x50, 0x6D, 0x64, 0x00, 0x00, 0x80u.toByte(), 0x3F)
+    override val probeLength = PMD_SIGNATURE.size
+    override fun probe(buffer: ByteBuffer): Boolean {
+        if (buffer.remaining() < PMD_SIGNATURE.size) return false
+        val signatureBytes = ByteArray(PMD_SIGNATURE.size)
+        buffer.get(signatureBytes, 0, PMD_SIGNATURE.size)
+        return signatureBytes.contentEquals(PMD_SIGNATURE)
+    }
+
     private val SHIFT_JIS = Charset.forName("Shift-JIS")
     private val decoder = SHIFT_JIS.newDecoder()
-            .onMalformedInput(CodingErrorAction.REPORT)
-            .onUnmappableCharacter(CodingErrorAction.REPORT)
-    private val PMD_SIGNATURE = byteArrayOf(0x50, 0x6D, 0x64, 0x00, 0x00, 0x80u.toByte(), 0x3F)
+        .onMalformedInput(CodingErrorAction.REPORT)
+        .onUnmappableCharacter(CodingErrorAction.REPORT)
 
     //                                             POS NORM UV
     private const val BASE_VERTEX_ATTRIBUTE_SIZE = (3 + 3 + 2) * 4
+
     //                                           JOINT WEIGHT
     private const val SKIN_VERTEX_ATTRIBUTE_SIZE = (4 + 4) * 4
     private const val VERTEX_ATTRIBUTE_SIZE = BASE_VERTEX_ATTRIBUTE_SIZE + SKIN_VERTEX_ATTRIBUTE_SIZE
@@ -220,7 +231,7 @@ object PmdLoader {
             )
         }
 
-        fun load(buffer: ByteBuffer): Scene {
+        fun load(buffer: ByteBuffer): ModelFileLoader.Result {
             val header = loadHeader(buffer)
             loadVertices(buffer)
             loadIndices(buffer)
@@ -330,18 +341,21 @@ object PmdLoader {
                 }
             }
 
-            return Scene(
+            return ModelFileLoader.Result(
                 metadata = Metadata(
                     title = header.name,
                     comment = header.comment,
                 ),
-                nodes = nodes,
-                skins = listOf() // TODO skin support
+                scene = Scene(
+                    nodes = nodes,
+                    skins = listOf() // TODO skin support
+                ),
+                animations = listOf(),
             )
         }
     }
 
-    fun load(path: Path, basePath: Path = path.parent): Scene? =
+    override fun load(path: Path, basePath: Path) =
         FileChannel.open(path, StandardOpenOption.READ).use { channel ->
             val fileSize = channel.size()
             val buffer = runCatching {

@@ -80,10 +80,10 @@ data class Metadata(
         appendLine(version, "Version: ")
 
         // Authors and references
-        appendLine(authors?.joinToString(", "), "Authors")
+        appendLine(authors?.joinToString(", "), "Authors: ")
         appendLine(copyrightInformation, "Copyright: ")
         appendLine(contactInformation, "Contact: ")
-        appendLine(references?.joinToString(", "), "References")
+        appendLine(references?.joinToString(", "), "References: ")
         appendLine(thirdPartyLicenses, "Third Party Licenses: ")
 
         // License information

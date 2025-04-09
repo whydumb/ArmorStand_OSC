@@ -4,6 +4,9 @@ import com.mojang.blaze3d.buffers.BufferType
 import com.mojang.blaze3d.buffers.BufferUsage
 import com.mojang.blaze3d.textures.TextureFormat
 import com.mojang.blaze3d.vertex.VertexFormat
+import it.unimi.dsi.fastutil.objects.Object2IntMap
+import it.unimi.dsi.fastutil.objects.Object2IntMaps
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap
 import kotlinx.coroutines.*
 import top.fifthlight.armorstand.helper.GpuDeviceExt
@@ -57,6 +60,8 @@ class ModelLoader {
 
     private val defaultTransforms = mutableListOf<NodeTransform?>()
     private val humanoidJointTransformIndices = Reference2IntOpenHashMap<HumanoidTag>()
+    private val nodeIdTransformMap = Object2IntOpenHashMap<NodeId>()
+    private val nodeNameTransformMap = Object2IntOpenHashMap<String>()
     private val textureCache = CacheMap<Texture, RefCountedGpuTexture>()
     private val vertexBufferCache = CacheMap<Buffer, RefCountedGpuBuffer>()
 
@@ -339,6 +344,8 @@ class ModelLoader {
                 skinItem.humanoidTag?.let { tag -> humanoidJointTransformIndices.put(tag, transformIndex) }
             }
         }
+        nodeIdTransformMap.put(node.id, transformIndex)
+        node.name?.let { nodeNameTransformMap.put(it, transformIndex) }
         RenderNode.Transform(
             transformIndex = transformIndex,
             child = currentNode,
@@ -354,7 +361,9 @@ class ModelLoader {
             rootNode = rootNode,
             defaultTransforms = defaultTransforms.toTypedArray(),
             skins = skinsList,
-            humanoidJointTransformIndices = humanoidJointTransformIndices,
+            humanoidTagTransformMap = humanoidJointTransformIndices,
+            nodeNameTransformMap = nodeNameTransformMap,
+            nodeIdTransformMap = nodeIdTransformMap,
         )
     }
 }

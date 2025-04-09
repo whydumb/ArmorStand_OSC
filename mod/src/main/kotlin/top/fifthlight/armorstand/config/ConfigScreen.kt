@@ -18,6 +18,7 @@ import net.minecraft.screen.ScreenTexts
 import net.minecraft.text.Text
 import top.fifthlight.armorstand.state.PlayerModelManager
 import top.fifthlight.armorstand.util.ClientThreadDispatcher
+import top.fifthlight.armorstand.util.ModelLoaders
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
 import kotlin.io.path.extension
@@ -25,7 +26,6 @@ import kotlin.io.path.visitFileTree
 
 class ConfigScreen(private val parent: Screen? = null) : Screen(Text.translatable("armorstand.screen.config")) {
     private val modelDir = FabricLoader.getInstance().gameDir.resolve("models")
-    private val allowedExtensions = listOf("vrm", "glb", "gltf", "pmx", "pmd")
     private val items = MutableStateFlow(listOf<Path>())
     private val scope = CoroutineScope(ClientThreadDispatcher)
 
@@ -37,7 +37,7 @@ class ConfigScreen(private val parent: Screen? = null) : Screen(Text.translatabl
             buildList {
                 modelDir.visitFileTree(maxDepth = 4) {
                     onVisitFile { path, attributes ->
-                        if (path.extension.lowercase() in allowedExtensions) {
+                        if (path.extension.lowercase() in ModelLoaders.allExtensions) {
                             add(path)
                         }
                         FileVisitResult.CONTINUE

@@ -59,6 +59,13 @@ data class Accessor(
         FLOAT(4),
     }
 
+    data class ComponentTypeItem(
+        val type: Accessor.ComponentType,
+        val normalized: Boolean = false,
+    ) {
+        override fun toString(): String = "$type (normalized: $normalized)"
+    }
+
     enum class AccessorType(val components: Int) {
         SCALAR(1),
         VEC2(2),

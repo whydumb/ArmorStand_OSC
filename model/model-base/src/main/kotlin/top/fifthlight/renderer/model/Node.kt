@@ -1,16 +1,17 @@
 package top.fifthlight.renderer.model
 
 import org.joml.Matrix4f
+import org.joml.Matrix4fc
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import java.util.UUID
 
 sealed class NodeTransform {
-    abstract val matrix: Matrix4f
+    abstract val matrix: Matrix4fc
     abstract fun clone(): NodeTransform
 
     data class Matrix(
-        override val matrix: Matrix4f
+        override val matrix: Matrix4f = Matrix4f()
     ) : NodeTransform() {
         override fun clone(): NodeTransform = copy()
     }
@@ -20,7 +21,10 @@ sealed class NodeTransform {
         val rotation: Quaternionf = Quaternionf(),
         val scale: Vector3f = Vector3f(1f),
     ) : NodeTransform() {
-        override val matrix: Matrix4f = Matrix4f().translationRotateScale(translation, rotation, scale)
+        private val cacheMatrix = Matrix4f()
+        override val matrix: Matrix4f
+            get() = cacheMatrix.translationRotateScale(translation, rotation, scale)
+
         override fun clone(): NodeTransform = copy()
     }
 }

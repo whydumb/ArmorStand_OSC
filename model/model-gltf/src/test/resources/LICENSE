@@ -1,6 +1,8 @@
-The model used for test "Alicia Solid" is from DWANGO Co., Ltd.
-You should follow their usage rule when using this model, which is at <https://3d.nicovideo.jp/alicia/rule.html>.
+The "InterpolationTest" model used for test is from Khronos under CC0.
+You can get the model at <https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/InterpolationTest>.
 
+The "Alicia Solid" model used for test is from DWANGO Co., Ltd.
+You should follow their usage rule when using this model, which is at <https://3d.nicovideo.jp/alicia/rule.html>.
 Below are the rule text for reference: (in Japanese)
 
 ニコニ立体ちゃんライセンス利用規約
