@@ -246,6 +246,14 @@ object PmxLoader : ModelFileLoader {
                 }
 
                 fun readWeight(): Float = buffer.getFloat(inputPosition).also { inputPosition += 4 }
+                fun readVector3f(): Vector3f = Vector3f().also {
+                    it.set(
+                        buffer.getFloat(inputPosition),
+                        buffer.getFloat(inputPosition + 4),
+                        buffer.getFloat(inputPosition + 8)
+                    )
+                    inputPosition += 12
+                }
 
                 // TODO: keep track of vertices without bone, to exclude non-skinned vertices out
                 when (weightDeformType) {
@@ -271,8 +279,8 @@ object PmxLoader : ModelFileLoader {
                             outputBuffer.putFloat(outputPosition + 20, 1f - weight1)
                         }
                     }
-                    // BDEF4
-                    2 -> {
+                    // BDEF4, or not really supported QDEF
+                    2, 4 -> {
                         val index1 = readBoneIndex()
                         val index2 = readBoneIndex()
                         val index3 = readBoneIndex()
@@ -299,8 +307,23 @@ object PmxLoader : ModelFileLoader {
                         }
                     }
 
-                    3 -> throw PmxLoadException("SDEF is not supported!")
-                    4 -> throw PmxLoadException("QDEF is not supported!")
+                    3 -> {
+                        // SDEF, not really supported, just treat as BDEF2
+                        val index1 = readBoneIndex()
+                        val index2 = readBoneIndex()
+                        val weight1 = readWeight()
+                        val c = readVector3f()
+                        val r0 = readVector3f()
+                        val r1 = readVector3f()
+                        outputBuffer.putInt(outputPosition, index1)
+                        outputBuffer.putInt(outputPosition + 4, index2)
+                        if (index1 != -1) {
+                            outputBuffer.putFloat(outputPosition + 16, weight1)
+                        }
+                        if (index2 != -1) {
+                            outputBuffer.putFloat(outputPosition + 20, 1f - weight1)
+                        }
+                    }
                 }
                 outputPosition += SKIN_VERTEX_ATTRIBUTE_SIZE
 
