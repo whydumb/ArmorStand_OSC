@@ -82,14 +82,15 @@ object AnimationLoader {
                     channel = Channel(
                         indexer = loadIndexer(channel.sampler.input),
                         keyframeData = Vector3KeyFrameData(
-                            when (channel.sampler.output.componentType) {
+                            values = when (channel.sampler.output.componentType) {
                                 Accessor.ComponentType.BYTE -> loadSignedByteAccessor(channel.sampler.output)
                                 Accessor.ComponentType.UNSIGNED_BYTE -> loadUnsignedByteAccessor(channel.sampler.output)
                                 Accessor.ComponentType.SHORT -> loadSignedShortAccessor(channel.sampler.output)
                                 Accessor.ComponentType.UNSIGNED_SHORT -> loadUnsignedShortAccessor(channel.sampler.output)
                                 Accessor.ComponentType.FLOAT -> loadFloatAccessor(channel.sampler.output)
                                 else -> error("Bad translation component: ${channel.sampler.output.componentType}")
-                            }
+                            },
+                            stride = channel.sampler.interpolation.outputMultiplier,
                         ),
                         interpolation = channel.sampler.interpolation,
                     )
@@ -100,10 +101,11 @@ object AnimationLoader {
                     channel = Channel(
                         indexer = loadIndexer(channel.sampler.input),
                         keyframeData = Vector3KeyFrameData(
-                            when (channel.sampler.output.componentType) {
+                            values = when (channel.sampler.output.componentType) {
                                 Accessor.ComponentType.FLOAT -> loadFloatAccessor(channel.sampler.output)
                                 else -> error("Bad scale component: should be float, but got ${channel.sampler.output.componentType}")
-                            }
+                            },
+                            stride = channel.sampler.interpolation.outputMultiplier,
                         ),
                         interpolation = channel.sampler.interpolation,
                     )
@@ -114,14 +116,15 @@ object AnimationLoader {
                     channel = Channel(
                         indexer = loadIndexer(channel.sampler.input),
                         keyframeData = QuaternionKeyFrameData(
-                            when (channel.sampler.output.componentType) {
+                            values = when (channel.sampler.output.componentType) {
                                 Accessor.ComponentType.BYTE -> loadSignedByteAccessor(channel.sampler.output)
                                 Accessor.ComponentType.UNSIGNED_BYTE -> loadUnsignedByteAccessor(channel.sampler.output)
                                 Accessor.ComponentType.SHORT -> loadSignedShortAccessor(channel.sampler.output)
                                 Accessor.ComponentType.UNSIGNED_SHORT -> loadUnsignedShortAccessor(channel.sampler.output)
                                 Accessor.ComponentType.FLOAT -> loadFloatAccessor(channel.sampler.output)
                                 else -> error("Bad rotation component: ${channel.sampler.output.componentType}")
-                            }
+                            },
+                            stride = channel.sampler.interpolation.outputMultiplier,
                         ),
                         interpolation = channel.sampler.interpolation,
                     )

@@ -4,6 +4,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.LivingEntityRenderer;
 import net.minecraft.client.render.entity.model.EntityModel;
 import net.minecraft.client.render.entity.state.LivingEntityRenderState;
@@ -40,7 +41,10 @@ public abstract class PlayerModelMixin {
         if (uuid == null) {
             return original.call(instance, state, showBody, translucent, showOutline);
         }
-        if (!PlayerRenderer.render(uuid, (PlayerEntityRenderState) state, matrixStack, light, vertexConsumerProvider)) {
+        @SuppressWarnings("unchecked")
+        var entityRenderer = ((EntityRenderer<T, S>) (Object) this);
+        var textRenderer = entityRenderer.getTextRenderer();
+        if (!PlayerRenderer.render(uuid, (PlayerEntityRenderState) state, matrixStack, light, vertexConsumerProvider, textRenderer, entityRenderer.dispatcher)) {
             return original.call(instance, state, showBody, translucent, showOutline);
         }
         return null;

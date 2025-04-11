@@ -1,7 +1,9 @@
 package top.fifthlight.armorstand.model
 
 import com.mojang.blaze3d.systems.RenderSystem
+import net.minecraft.client.font.TextRenderer
 import net.minecraft.client.render.VertexConsumerProvider
+import net.minecraft.client.render.entity.EntityRenderDispatcher
 import net.minecraft.client.util.math.MatrixStack
 import org.joml.Matrix4f
 import org.joml.Quaternionf
@@ -69,8 +71,8 @@ class ModelInstance private constructor(
         scene.render(this, matrixStack, light)
     }
 
-    fun renderDebug(matrixStack: MatrixStack, vertexConsumerProvider: VertexConsumerProvider) {
-        scene.renderDebug(this, matrixStack, vertexConsumerProvider)
+    fun renderDebug(matrixStack: MatrixStack, vertexConsumerProvider: VertexConsumerProvider, textRenderer: TextRenderer, dispatcher: EntityRenderDispatcher, light: Int) {
+        scene.renderDebug(this, matrixStack, vertexConsumerProvider, textRenderer, dispatcher, light)
     }
 
     override fun onClosed() {

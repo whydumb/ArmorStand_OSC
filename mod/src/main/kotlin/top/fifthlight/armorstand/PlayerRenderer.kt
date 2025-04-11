@@ -1,6 +1,8 @@
 package top.fifthlight.armorstand
 
+import net.minecraft.client.font.TextRenderer
 import net.minecraft.client.render.VertexConsumerProvider
+import net.minecraft.client.render.entity.EntityRenderDispatcher
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.client.util.math.MatrixStack
 import top.fifthlight.armorstand.state.PlayerModelManager
@@ -14,6 +16,8 @@ object PlayerRenderer {
         matrixStack: MatrixStack,
         light: Int,
         vertexConsumerProvider: VertexConsumerProvider,
+        textRenderer: TextRenderer,
+        dispatcher: EntityRenderDispatcher,
     ): Boolean {
         val entry = PlayerModelManager[uuid]
         if (entry == null) {
@@ -31,7 +35,7 @@ object PlayerRenderer {
 
         instance.render(matrixStack, light)
         if (ArmorStand.debug) {
-            instance.renderDebug(matrixStack, vertexConsumerProvider)
+            instance.renderDebug(matrixStack, vertexConsumerProvider, textRenderer, dispatcher, light)
         }
 
         matrixStack.push()

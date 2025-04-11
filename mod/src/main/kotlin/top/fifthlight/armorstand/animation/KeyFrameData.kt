@@ -4,11 +4,24 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 
 interface KeyFrameData<T> {
-    fun get(index: Int, stride: Int, data: List<T>)
+    val frames: Int
+    val stride: Int
+    fun get(index: Int, data: List<T>)
 }
 
-class Vector3KeyFrameData(private val values: FloatArray) : KeyFrameData<Vector3f> {
-    override fun get(index: Int, stride: Int, data: List<Vector3f>) {
+class Vector3KeyFrameData(
+    private val values: FloatArray,
+    override val stride: Int,
+) : KeyFrameData<Vector3f> {
+    init {
+        require(values.size % (stride * 3) == 0) {
+            "Invalid data size ${values.size} for stride $stride (requires multiple of ${stride * 3})"
+        }
+    }
+
+    override val frames = values.size / (stride * 3)
+
+    override fun get(index: Int, data: List<Vector3f>) {
         val baseOffset = index * stride * 3
         for (i in 0 until stride) {
             val offset = baseOffset + i * 3
@@ -17,8 +30,19 @@ class Vector3KeyFrameData(private val values: FloatArray) : KeyFrameData<Vector3
     }
 }
 
-class QuaternionKeyFrameData(private val values: FloatArray) : KeyFrameData<Quaternionf> {
-    override fun get(index: Int, stride: Int, data: List<Quaternionf>) {
+class QuaternionKeyFrameData(
+    private val values: FloatArray,
+    override val stride: Int,
+) : KeyFrameData<Quaternionf> {
+    init {
+        require(values.size % (stride * 4) == 0) {
+            "Invalid data size ${values.size} for stride $stride (requires multiple of ${stride * 4})"
+        }
+    }
+
+    override val frames = values.size / (stride * 4)
+
+    override fun get(index: Int, data: List<Quaternionf>) {
         val baseOffset = index * stride * 4
         for (i in 0 until stride) {
             val offset = baseOffset + i * 4

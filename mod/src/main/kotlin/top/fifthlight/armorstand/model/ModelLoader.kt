@@ -4,11 +4,10 @@ import com.mojang.blaze3d.buffers.BufferType
 import com.mojang.blaze3d.buffers.BufferUsage
 import com.mojang.blaze3d.textures.TextureFormat
 import com.mojang.blaze3d.vertex.VertexFormat
-import it.unimi.dsi.fastutil.objects.Object2IntMap
-import it.unimi.dsi.fastutil.objects.Object2IntMaps
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap
 import kotlinx.coroutines.*
+import org.joml.Vector3f
 import top.fifthlight.armorstand.helper.GpuDeviceExt
 import top.fifthlight.armorstand.render.IndexBuffer
 import top.fifthlight.armorstand.render.RefCountedGpuBuffer
@@ -39,7 +38,6 @@ class ModelLoader {
                 name = skin.name,
                 inverseBindMatrices = skin.inverseBindMatrices,
                 jointSize = skin.joints.size,
-                ignoreGlobalTransform = skin.ignoreGlobalTransform,
             )
             for ((jointIndex, joint) in skin.joints.withIndex()) {
                 jointSkinMap.getOrPut(joint) { mutableListOf() }.add(
@@ -313,13 +311,16 @@ class ModelLoader {
         val jointSkin = jointSkins[node.id]
 
         val children = buildList {
-            jointSkin?.forEach { (skinIndex, jointIndex) -> add(RenderNode.Joint(skinIndex, jointIndex)) }
+            jointSkin?.forEach { (skinIndex, jointIndex) -> add(RenderNode.Joint(
+                node.name,
+                skinIndex,
+                jointIndex
+            )) }
             node.mesh?.let {
                 add(
                     RenderNode.Mesh(
                         mesh = loadMesh(it, skinItem?.second),
                         skinIndex = skinItem?.first,
-                        ignoreGlobalTransform = skinItem?.second?.ignoreGlobalTransform == true,
                     )
                 )
             }
@@ -356,11 +357,17 @@ class ModelLoader {
 
     suspend fun loadScene(scene: Scene): RenderScene {
         loadSkins(scene)
-        val rootNode = RenderNode.Group(scene.nodes.mapNotNull { loadNode(it) })
+        val rootTransformId = defaultTransforms.size
+        defaultTransforms += scene.initialTransform
+        val rootNode = RenderNode.Transform(
+            child = RenderNode.Group(scene.nodes.mapNotNull { loadNode(it) }),
+            transformIndex = rootTransformId,
+        )
         return RenderScene(
             rootNode = rootNode,
             defaultTransforms = defaultTransforms.toTypedArray(),
             skins = skinsList,
+            rootTransformId = rootTransformId,
             humanoidTagTransformMap = humanoidJointTransformIndices,
             nodeNameTransformMap = nodeNameTransformMap,
             nodeIdTransformMap = nodeIdTransformMap,

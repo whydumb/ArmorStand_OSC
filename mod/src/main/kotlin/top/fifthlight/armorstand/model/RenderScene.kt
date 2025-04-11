@@ -2,7 +2,9 @@ package top.fifthlight.armorstand.model
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap
 import it.unimi.dsi.fastutil.objects.Reference2IntMap
+import net.minecraft.client.font.TextRenderer
 import net.minecraft.client.render.VertexConsumerProvider
+import net.minecraft.client.render.entity.EntityRenderDispatcher
 import net.minecraft.client.util.math.MatrixStack
 import org.joml.Matrix4f
 import top.fifthlight.armorstand.util.AbstractRefCount
@@ -14,6 +16,7 @@ class RenderScene(
     val rootNode: RenderNode,
     val defaultTransforms: Array<NodeTransform?>,
     val skins: List<RenderSkin>,
+    val rootTransformId: Int,
     val nodeIdTransformMap: Object2IntMap<NodeId>,
     val nodeNameTransformMap: Object2IntMap<String>,
     val humanoidTagTransformMap: Reference2IntMap<HumanoidTag>,
@@ -32,9 +35,16 @@ class RenderScene(
         rootNode.render(modelInstance, matrixStack, globalMatrix, light)
     }
 
-    fun renderDebug(modelInstance: ModelInstance, matrixStack: MatrixStack, vertexConsumerProvider: VertexConsumerProvider) {
+    fun renderDebug(
+        modelInstance: ModelInstance,
+        matrixStack: MatrixStack,
+        vertexConsumerProvider: VertexConsumerProvider,
+        textRenderer: TextRenderer,
+        dispatcher: EntityRenderDispatcher,
+        light: Int,
+    ) {
         val globalMatrix = Matrix4f(matrixStack.peek().positionMatrix)
-        rootNode.renderDebug(modelInstance, matrixStack, globalMatrix, vertexConsumerProvider)
+        rootNode.renderDebug(modelInstance, matrixStack, globalMatrix, vertexConsumerProvider, textRenderer, dispatcher, light)
     }
 
     override fun onClosed() {

@@ -12,7 +12,7 @@ data class Channel<T: Any>(
     val defaultValue: () -> T,
 ) {
     val duration: Float
-        get() = indexer.duration
+        get() = indexer.lastTime
 
     private val indexResult = KeyFrameIndexer.FindResult()
     private val startValues = List(interpolation.outputMultiplier) { defaultValue() }
@@ -21,13 +21,13 @@ data class Channel<T: Any>(
     fun getKeyFrameData(time: Float, result: T) {
         indexer.findKeyFrames(time, indexResult)
         if (indexResult.startFrame == indexResult.endFrame || indexResult.startTime > time || indexResult.endTime < time) {
-            keyframeData.get(indexResult.startFrame, interpolation.outputMultiplier, startValues)
+            keyframeData.get(indexResult.startFrame, startValues)
             interpolator.set(startValues, result)
             return
         }
         val delta = (time - indexResult.startTime) / (indexResult.endTime - indexResult.startTime)
-        keyframeData.get(indexResult.startFrame, interpolation.outputMultiplier, startValues)
-        keyframeData.get(indexResult.endFrame, interpolation.outputMultiplier, endValues)
+        keyframeData.get(indexResult.startFrame, startValues)
+        keyframeData.get(indexResult.endFrame, endValues)
         interpolator.interpolate(delta, interpolation, startValues, endValues, result)
     }
 }

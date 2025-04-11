@@ -12,6 +12,7 @@ import java.nio.file.StandardOpenOption
 
 object GltfBinaryLoader: ModelFileLoader {
     override val extensions = listOf("glb", "vrm")
+    override val abilities = listOf(ModelFileLoader.Ability.MODEL, ModelFileLoader.Ability.ANIMATION)
 
     private const val GLTF_BINARY_MAGIC = 0x46546c67
     override val probeLength = 4

@@ -4,7 +4,13 @@ import java.nio.ByteBuffer
 import java.nio.file.Path
 
 interface ModelFileLoader {
+    enum class Ability {
+        MODEL,
+        ANIMATION,
+    }
+    
     val extensions: List<String>
+    val abilities: List<Ability>
     val probeLength: Int
     fun probe(buffer: ByteBuffer): Boolean
 

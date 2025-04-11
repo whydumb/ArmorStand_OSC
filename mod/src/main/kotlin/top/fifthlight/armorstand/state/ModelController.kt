@@ -9,8 +9,6 @@ import top.fifthlight.armorstand.animation.Timeline
 import top.fifthlight.armorstand.model.ModelInstance
 import top.fifthlight.armorstand.model.RenderScene
 import top.fifthlight.armorstand.util.toRadian
-import top.fifthlight.renderer.model.Animation
-import top.fifthlight.renderer.model.AnimationChannel
 import top.fifthlight.renderer.model.HumanoidTag
 
 sealed class ModelController {
@@ -31,20 +29,16 @@ sealed class ModelController {
     }
 
     class LiveUpdated private constructor(
-        private val hips: JointItem?,
+        private val center: JointItem?,
         private val head: JointItem?,
-        private val leftArm: JointItem?,
-        private val rightArm: JointItem?,
     ) : ModelController() {
         private var bodyYaw: Float = 0f
         private var headYaw: Float = 0f
         private var headPitch: Float = 0f
 
         constructor(scene: RenderScene): this(
-            hips = scene.getBone(HumanoidTag.HIPS),
+            center = scene.getBone(HumanoidTag.CENTER),
             head = scene.getBone(HumanoidTag.HEAD),
-            leftArm = scene.getBone(HumanoidTag.LEFT_UPPER_ARM),
-            rightArm = scene.getBone(HumanoidTag.RIGHT_UPPER_ARM),
         )
 
         companion object {
@@ -64,7 +58,7 @@ sealed class ModelController {
         }
 
         override fun apply(instance: ModelInstance) {
-            hips?.update(instance) {
+            center?.update(instance) {
                 rotateY(bodyYaw)
             }
             head?.update(instance) {

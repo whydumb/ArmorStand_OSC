@@ -21,6 +21,7 @@ class PmdLoadException(message: String) : Exception(message)
 // Format from: https://mikumikudance.fandom.com/wiki/MMD:Polygon_Model_Data
 object PmdLoader: ModelFileLoader {
     override val extensions = listOf("pmd")
+    override val abilities = listOf(ModelFileLoader.Ability.MODEL)
 
     private val PMD_SIGNATURE = byteArrayOf(0x50, 0x6D, 0x64, 0x00, 0x00, 0x80u.toByte(), 0x3F)
     override val probeLength = PMD_SIGNATURE.size
@@ -269,9 +270,6 @@ object PmdLoader: ModelFileLoader {
                 )
                 Node(
                     id = NodeId(modelId, index),
-                    transform = NodeTransform.Decomposed(
-                        scale = Vector3f(0.1f),
-                    ),
                     mesh = Mesh(
                         primitives = listOf(
                             Primitive(

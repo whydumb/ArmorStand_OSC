@@ -37,7 +37,7 @@ class ConfigScreen(private val parent: Screen? = null) : Screen(Text.translatabl
             buildList {
                 modelDir.visitFileTree(maxDepth = 4) {
                     onVisitFile { path, attributes ->
-                        if (path.extension.lowercase() in ModelLoaders.allExtensions) {
+                        if (path.extension.lowercase() in ModelLoaders.modelExtensions) {
                             add(path)
                         }
                         FileVisitResult.CONTINUE

@@ -1,9 +1,11 @@
 package top.fifthlight.renderer.model.pmx
 
+import org.joml.Matrix4f
 import org.joml.Vector3f
 import top.fifthlight.renderer.model.Accessor
 import top.fifthlight.renderer.model.Buffer
 import top.fifthlight.renderer.model.BufferView
+import top.fifthlight.renderer.model.HumanoidTag
 import top.fifthlight.renderer.model.Material
 import top.fifthlight.renderer.model.Mesh
 import top.fifthlight.renderer.model.Metadata
@@ -15,7 +17,9 @@ import top.fifthlight.renderer.model.Primitive
 import top.fifthlight.renderer.model.RgbColor
 import top.fifthlight.renderer.model.RgbaColor
 import top.fifthlight.renderer.model.Scene
+import top.fifthlight.renderer.model.Skin
 import top.fifthlight.renderer.model.Texture
+import top.fifthlight.renderer.model.pmx.format.PmxBone
 import top.fifthlight.renderer.model.pmx.format.PmxGlobals
 import top.fifthlight.renderer.model.pmx.format.PmxHeader
 import top.fifthlight.renderer.model.pmx.format.PmxMaterial
@@ -32,8 +36,9 @@ class PmxLoadException(message: String) : Exception(message)
 
 // PMX loader.
 // Format from https://gist.github.com/felixjones/f8a06bd48f9da9a4539f
-object PmxLoader: ModelFileLoader {
+object PmxLoader : ModelFileLoader {
     override val extensions = listOf("pmx")
+    override val abilities = listOf(ModelFileLoader.Ability.MODEL)
 
     private val PMX_SIGNATURE = byteArrayOf(0x50, 0x4D, 0x58, 0x20)
     override val probeLength = PMX_SIGNATURE.size
@@ -72,6 +77,9 @@ object PmxLoader: ModelFileLoader {
 
         private lateinit var textures: List<Texture>
         private lateinit var materials: List<PmxMaterial>
+        private lateinit var bones: List<PmxBone>
+        private val childBoneMap = mutableMapOf<Int, MutableList<Int>>()
+        private val rootBones = mutableListOf<Int>()
 
         private fun loadRgbColor(buffer: ByteBuffer): RgbColor {
             if (buffer.remaining() < 3 * 4) {
@@ -94,6 +102,13 @@ object PmxLoader: ModelFileLoader {
                 b = buffer.getFloat(),
                 a = buffer.getFloat(),
             )
+        }
+
+        private fun loadVector3f(buffer: ByteBuffer): Vector3f {
+            if (buffer.remaining() < 3 * 4) {
+                throw PmxLoadException("Bad file: want to read Vec3 (12 bytes), but only have ${buffer.remaining()} bytes available")
+            }
+            return Vector3f(buffer.getFloat(), buffer.getFloat(), buffer.getFloat())
         }
 
         private fun loadSignature(buffer: ByteBuffer) {
@@ -406,15 +421,16 @@ object PmxLoader: ModelFileLoader {
 
             fun loadDrawingFlags(buffer: ByteBuffer): PmxMaterial.DrawingFlags {
                 val byte = buffer.get().toUByte().toInt()
+                fun loadBitfield(index: Int): Boolean = (byte and (1 shl index)) != 0
                 return PmxMaterial.DrawingFlags(
-                    noCull = (byte and 0b00000001) != 0,
-                    groundShadow = (byte and 0b00000010) != 0,
-                    drawShadow = (byte and 0b00000100) != 0,
-                    receiveShadow = (byte and 0b00001000) != 0,
-                    hasEdge = (byte and 0b00010000) != 0,
-                    vertexColor = (byte and 0b00100000) != 0,
-                    pointDrawing = (byte and 0b01000000) != 0,
-                    lineDrawing = (byte and 0b10000000) != 0,
+                    noCull = loadBitfield(0),
+                    groundShadow = loadBitfield(1),
+                    drawShadow = loadBitfield(2),
+                    receiveShadow = loadBitfield(3),
+                    hasEdge = loadBitfield(4),
+                    vertexColor = loadBitfield(5),
+                    pointDrawing = loadBitfield(6),
+                    lineDrawing = loadBitfield(7),
                 )
             }
 
@@ -463,14 +479,176 @@ object PmxLoader: ModelFileLoader {
             }
         }
 
+        private fun loadBones(buffer: ByteBuffer) {
+            val boneCount = buffer.getInt()
+            if (boneCount < 0) {
+                throw PmxLoadException("Bad PMX model: bones count less than zero")
+            }
+
+            fun loadBoneIndex(buffer: ByteBuffer): Int = when (globals.boneIndexSize) {
+                1 -> buffer.get().toInt()
+                2 -> buffer.getShort().toInt()
+                4 -> buffer.getInt()
+                else -> throw AssertionError()
+            }
+
+            fun loadBoneFlags(buffer: ByteBuffer): PmxBone.Flags {
+                val flags = buffer.getShort().toInt()
+                fun loadBitfield(index: Int): Boolean = (flags and (1 shl index)) != 0
+                return PmxBone.Flags(
+                    indexedTailPosition = loadBitfield(0),
+                    rotatable = loadBitfield(1),
+                    translatable = loadBitfield(2),
+                    isVisible = loadBitfield(3),
+                    enabled = loadBitfield(4),
+                    ik = loadBitfield(5),
+                    inheritRotation = loadBitfield(8),
+                    inheritTranslation = loadBitfield(9),
+                    fixedAxis = loadBitfield(10),
+                    localCoordinate = loadBitfield(11),
+                    physicsAfterDeform = loadBitfield(12),
+                    externalParentDeform = loadBitfield(13),
+                )
+            }
+
+            fun loadBone(buffer: ByteBuffer): PmxBone {
+                val nameLocal = loadString(buffer)
+                val nameUniversal = loadString(buffer)
+                val position = loadVector3f(buffer)
+                val parentBoneIndex = loadBoneIndex(buffer)
+                val layer = buffer.getInt()
+                val flags = loadBoneFlags(buffer)
+                val tailPosition = if (flags.indexedTailPosition) {
+                    PmxBone.TailPosition.Indexed(loadBoneIndex(buffer))
+                } else {
+                    PmxBone.TailPosition.Scalar(loadVector3f(buffer))
+                }
+                val inheritParent = if (flags.inheritRotation || flags.inheritTranslation) {
+                    Pair(loadBoneIndex(buffer), buffer.getFloat())
+                } else {
+                    null
+                }
+                val axisDirection = if (flags.fixedAxis) {
+                    loadVector3f(buffer)
+                } else {
+                    null
+                }
+                val localCoordinate = if (flags.localCoordinate) {
+                    PmxBone.LocalCoordinate(loadVector3f(buffer), loadVector3f(buffer))
+                } else {
+                    null
+                }
+                val externalParentIndex = if (flags.externalParentDeform) {
+                    loadBoneIndex(buffer)
+                } else {
+                    null
+                }
+                val ikData = if (flags.ik) {
+                    val targetIndex = loadBoneIndex(buffer)
+                    val loopCount = buffer.getInt()
+                    val limitRadian = buffer.getFloat()
+                    val linkCount = buffer.getInt()
+                    val links = (0 until linkCount).map {
+                        val index = loadBoneIndex(buffer)
+                        val limits = if (buffer.get() != 0.toByte()) {
+                            PmxBone.IkLink.Limits(
+                                limitMin = loadVector3f(buffer),
+                                limitMax = loadVector3f(buffer),
+                            )
+                        } else {
+                            null
+                        }
+                        PmxBone.IkLink(
+                            index = index,
+                            limits = limits,
+                        )
+                    }
+                    PmxBone.IkData(
+                        targetIndex = targetIndex,
+                        loopCount = loopCount,
+                        limitRadian = limitRadian,
+                        links = links,
+                    )
+                } else {
+                    null
+                }
+                return PmxBone(
+                    nameLocal = nameLocal,
+                    nameUniversal = nameUniversal,
+                    position = position,
+                    parentBoneIndex = parentBoneIndex.takeIf { it >= 0 },
+                    layer = layer,
+                    flags = flags,
+                    tailPosition = tailPosition,
+                    inheritParentIndex = inheritParent?.first,
+                    inheritParentInfluence = inheritParent?.second,
+                    axisDirection = axisDirection,
+                    localCoordinate = localCoordinate,
+                    externalParentIndex = externalParentIndex,
+                    ikData = ikData,
+                )
+            }
+
+            bones = (0 until boneCount).map { index ->
+                loadBone(buffer).also { bone ->
+                    bone.parentBoneIndex?.let { parentBoneIndex ->
+                        childBoneMap.getOrPut(parentBoneIndex) { mutableListOf() }.add(index)
+                    } ?: run {
+                        rootBones.add(index)
+                    }
+                }
+            }
+        }
+
         fun load(buffer: ByteBuffer): ModelFileLoader.Result {
             val header = loadHeader(buffer)
             loadVertices(buffer)
             loadSurfaces(buffer)
             loadTextures(buffer)
             loadMaterials(buffer)
+            loadBones(buffer)
 
             val modelId = UUID.randomUUID()
+            val rootNodes = mutableListOf<Node>()
+            var nextNodeId = 0
+
+            val jointIds = mutableMapOf<Int, NodeId>()
+            fun addBone(index: Int, parentPosition: Vector3f? = null): Node {
+                val bone = bones[index]
+                var nodeIndex = nextNodeId++
+                val nodeId = NodeId(modelId, nodeIndex)
+                jointIds[index] = nodeId
+                val children = childBoneMap[index]?.map { addBone(it, bone.position) } ?: listOf()
+                return Node(
+                    name = bone.nameLocal,
+                    id = nodeId,
+                    children = children,
+                    transform = NodeTransform.Decomposed(
+                        translation = Vector3f().set(bone.position).also {
+                            if (parentPosition != null) {
+                                it.sub(parentPosition)
+                            }
+                        },
+                    )
+                )
+            }
+            rootBones.forEach { index ->
+                rootNodes.add(addBone(index))
+            }
+
+            val skin = Skin(
+                name = "PMX skin",
+                joints = (0 until bones.size).map { jointIds[it]!! },
+                inverseBindMatrices = bones.map { Matrix4f().translation(it.position).invertAffine() },
+                jointHumanoidTags = bones.map {
+                    HumanoidTag.fromPmxJapanese(it.nameLocal) ?: HumanoidTag.fromPmxEnglish(
+                        it.nameUniversal
+                    )
+                },
+            )
+
+            // TODO generate GLTF-like skin and bound it to primitive
+
             val vertexBuffer = Buffer(
                 name = "Vertex Buffer",
                 buffer = vertexBuffer
@@ -493,7 +671,8 @@ object PmxLoader: ModelFileLoader {
             )
 
             var indexOffset = 0
-            val nodes = materials.mapIndexed { index, pmxMaterial ->
+            materials.forEach { pmxMaterial ->
+                val nodeId = nextNodeId++
                 val material = Material.Unlit(
                     name = pmxMaterial.nameLocal,
                     baseColor = pmxMaterial.diffuseColor,
@@ -506,10 +685,8 @@ object PmxLoader: ModelFileLoader {
                 )
                 Node(
                     name = "Node for material ${pmxMaterial.nameLocal}",
-                    id = NodeId(modelId, index),
-                    transform = NodeTransform.Decomposed(
-                        scale = Vector3f(0.1f),
-                    ),
+                    id = NodeId(modelId, nodeId),
+                    skin = skin,
                     mesh = Mesh(
                         primitives = listOf(
                             Primitive(
@@ -575,6 +752,7 @@ object PmxLoader: ModelFileLoader {
                         ),
                     )
                 ).also {
+                    rootNodes.add(it)
                     indexOffset += pmxMaterial.surfaceCount
                 }
             }
@@ -587,8 +765,11 @@ object PmxLoader: ModelFileLoader {
                     commentUniversal = header.commentUniversal,
                 ),
                 scene = Scene(
-                    nodes = nodes,
-                    skins = listOf() // TODO skin support
+                    nodes = rootNodes,
+                    skins = listOf(skin),
+                    initialTransform = NodeTransform.Decomposed(
+                        scale = Vector3f(0.1f),
+                    ),
                 ),
                 animations = listOf(),
             )

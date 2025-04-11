@@ -7,7 +7,5 @@ data class Skin(
     val joints: List<NodeId>,
     val inverseBindMatrices: List<Matrix4f>? = null,
     val skeleton: NodeId? = null,
-    // According to GLTF specification 3.7.3.2, skinned node shouldn't apply global transform.
-    val ignoreGlobalTransform: Boolean = false,
     val jointHumanoidTags: List<HumanoidTag?> = listOf(),
 )

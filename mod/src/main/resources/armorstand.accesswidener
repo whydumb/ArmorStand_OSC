@@ -13,3 +13,4 @@ accessible field net/minecraft/client/gl/RenderPassImpl pipeline Lnet/minecraft/
 accessible field net/minecraft/client/gl/RenderPassImpl samplerUniforms Ljava/util/HashMap;
 accessible field net/minecraft/client/gl/RenderPassImpl simpleUniforms Ljava/util/HashMap;
 accessible field net/minecraft/client/gl/RenderPassImpl setSamplers Ljava/util/Set;
+accessible field net/minecraft/client/render/entity/EntityRenderer dispatcher Lnet/minecraft/client/render/entity/EntityRenderDispatcher;

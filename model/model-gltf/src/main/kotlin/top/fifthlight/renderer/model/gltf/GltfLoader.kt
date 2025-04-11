@@ -304,7 +304,6 @@ internal class GltfLoader(
                 joints = skin.joints.map { NodeId(uuid, it) },
                 skeleton = skin.skeleton?.let { NodeId(uuid, it) },
                 inverseBindMatrices = inverseBindMatrices,
-                ignoreGlobalTransform = true,
                 jointHumanoidTags = skin.joints.map { boneMapping?.get(it) },
             )
         } ?: listOf()

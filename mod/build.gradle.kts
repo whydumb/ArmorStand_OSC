@@ -42,10 +42,12 @@ dependencies {
 	implementation(project(":model:model-gltf"))
 	implementation(project(":model:model-pmx"))
 	implementation(project(":model:model-pmd"))
+	implementation(project(":model:model-vmd"))
 	include(project(":model:model-base"))
 	include(project(":model:model-gltf"))
 	include(project(":model:model-pmx"))
 	include(project(":model:model-pmd"))
+	include(project(":model:model-vmd"))
 }
 
 tasks.processResources {

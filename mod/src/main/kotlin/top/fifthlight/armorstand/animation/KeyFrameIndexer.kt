@@ -1,8 +1,11 @@
 package top.fifthlight.armorstand.animation
 
 interface KeyFrameIndexer {
-    // Total time for this animation
-    val duration: Float
+    // First keyframe's time
+    val startTime: Float
+
+    // Last keyframe's time
+    val lastTime: Float
 
     // Total indices
     val indices: Int
@@ -26,7 +29,8 @@ interface KeyFrameIndexer {
 }
 
 class FloatArrayKeyFrameIndexer(private val times: FloatArray) : KeyFrameIndexer {
-    override val duration = if (times.isEmpty()) 0f else times.last()
+    override val startTime = if (times.isEmpty()) 0f else times.first()
+    override val lastTime = if (times.isEmpty()) 0f else times.last()
     override val indices = times.size
 
     override fun findKeyFrames(time: Float, result: KeyFrameIndexer.FindResult) {
@@ -35,6 +39,7 @@ class FloatArrayKeyFrameIndexer(private val times: FloatArray) : KeyFrameIndexer
                 result.clear()
                 return
             }
+
             times.size < 2 || time <= times[0] -> {
                 result.startFrame = 0
                 result.endFrame = 0
@@ -87,13 +92,5 @@ class FloatArrayKeyFrameIndexer(private val times: FloatArray) : KeyFrameIndexer
         result.endFrame = foundIndex + 1
         result.startTime = times[foundIndex]
         result.endTime = times[foundIndex + 1]
-    }
-
-    companion object {
-        fun createFixedRate(duration: Float, fps: Int): KeyFrameIndexer {
-            require(duration > 0 && fps > 0) { "Duration and fps should be greater than zero" }
-            val frameCount = (duration * fps).toInt() + 1
-            return FloatArrayKeyFrameIndexer(FloatArray(frameCount) { it * (1f / fps) })
-        }
     }
 }

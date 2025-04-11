@@ -15,6 +15,7 @@ import kotlin.coroutines.CoroutineContext
 object ArmorStand : ClientModInitializer {
     var debug: Boolean = false
         private set
+    var showBoneLabel: Boolean = false
     val scope by lazy { CoroutineScope(SupervisorJob() + ClientThreadDispatcher) }
 
     override fun onInitializeClient() {

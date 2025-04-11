@@ -5,6 +5,7 @@ import top.fifthlight.renderer.model.gltf.GltfBinaryLoader
 import top.fifthlight.renderer.model.pmd.PmdLoader
 import top.fifthlight.renderer.model.pmx.PmxLoader
 import top.fifthlight.renderer.model.util.readAll
+import top.fifthlight.renderer.model.vmd.VmdLoader
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.Path
@@ -15,9 +16,15 @@ object ModelLoaders {
         GltfBinaryLoader,
         PmxLoader,
         PmdLoader,
+        VmdLoader,
     )
 
-    val allExtensions = loaders.flatMap { it.extensions }
+    val modelExtensions = loaders
+        .filter { ModelFileLoader.Ability.MODEL in it.abilities }
+        .flatMap { it.extensions }
+    val animationExtensions = loaders
+        .filter { ModelFileLoader.Ability.ANIMATION in it.abilities }
+        .flatMap { it.extensions }
     val probeBytes = loaders.maxOf { it.probeLength }
 
     fun probeAndLoad(path: Path, basePath: Path = path.parent): ModelFileLoader.Result? {
