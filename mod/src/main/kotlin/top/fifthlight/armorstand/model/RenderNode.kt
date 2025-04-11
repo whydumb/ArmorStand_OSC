@@ -81,7 +81,11 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
 
         override fun render(instance: ModelInstance, matrixStack: MatrixStack, globalMatrix: Matrix4fc, light: Int) {
             val skinData = skinIndex?.let { instance.skinData[it] }
-            mesh.render(globalMatrix, light, skinData)
+            if (skinData != null) {
+                mesh.render(globalMatrix, light, skinData)
+            } else {
+                mesh.render(matrixStack.peek().positionMatrix, light, skinData)
+            }
         }
 
         override fun iterator() = iteratorOf<RenderNode>()

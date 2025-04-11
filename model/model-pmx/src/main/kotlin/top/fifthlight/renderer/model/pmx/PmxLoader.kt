@@ -647,8 +647,6 @@ object PmxLoader : ModelFileLoader {
                 },
             )
 
-            // TODO generate GLTF-like skin and bound it to primitive
-
             val vertexBuffer = Buffer(
                 name = "Vertex Buffer",
                 buffer = vertexBuffer

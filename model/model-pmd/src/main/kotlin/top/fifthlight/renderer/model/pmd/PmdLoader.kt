@@ -1,8 +1,10 @@
 package top.fifthlight.renderer.model.pmd
 
+import org.joml.Matrix4f
 import org.joml.Vector3f
 import top.fifthlight.renderer.model.*
 import top.fifthlight.renderer.model.Material.TextureInfo
+import top.fifthlight.renderer.model.pmd.format.PmdBone
 import top.fifthlight.renderer.model.pmd.format.PmdHeader
 import top.fifthlight.renderer.model.pmd.format.PmdMaterial
 import top.fifthlight.renderer.model.util.readAll
@@ -54,6 +56,9 @@ object PmdLoader: ModelFileLoader {
         private var indices: Int = -1
 
         private lateinit var materials: List<PmdMaterial>
+        private lateinit var bones: List<PmdBone>
+        private val childBoneMap = mutableMapOf<Int, MutableList<Int>>()
+        private val rootBones = mutableListOf<Int>()
 
         private fun loadString(buffer: ByteBuffer, maxLength: Int): String {
             val bytes = ByteBuffer.allocate(maxLength)
@@ -85,6 +90,13 @@ object PmdLoader: ModelFileLoader {
                 b = buffer.getFloat(),
                 a = buffer.getFloat(),
             )
+        }
+
+        private fun loadVector3f(buffer: ByteBuffer): Vector3f {
+            if (buffer.remaining() < 3 * 4) {
+                throw PmdLoadException("Bad file: want to read Vec3 (12 bytes), but only have ${buffer.remaining()} bytes available")
+            }
+            return Vector3f(buffer.getFloat(), buffer.getFloat(), buffer.getFloat())
         }
 
         private fun loadSignature(buffer: ByteBuffer) {
@@ -232,13 +244,74 @@ object PmdLoader: ModelFileLoader {
             )
         }
 
+        private fun loadBones(buffer: ByteBuffer) {
+            val boneCount = buffer.getShort()
+            if (boneCount < 0) {
+                throw PmdLoadException("Bad PMD model: bones count less than zero")
+            }
+
+            fun loadBone(buffer: ByteBuffer): PmdBone = PmdBone(
+                name = loadString(buffer, 20),
+                parentBoneIndex = buffer.getShort().toInt().takeIf { it != -1 },
+                tailBoneIndex = buffer.getShort().toInt().takeIf { it != -1 },
+                type = buffer.get().toUByte().toInt(),
+                targetBoneIndex = buffer.getShort().toInt().takeIf { it != -1 },
+                position = loadVector3f(buffer),
+            )
+
+            bones = (0 until boneCount).map { index ->
+                loadBone(buffer).also { bone ->
+                    bone.parentBoneIndex?.let { parentBoneIndex ->
+                        childBoneMap.getOrPut(parentBoneIndex) { mutableListOf() }.add(index)
+                    } ?: run {
+                        rootBones.add(index)
+                    }
+                }
+            }
+        }
+
         fun load(buffer: ByteBuffer): ModelFileLoader.Result {
             val header = loadHeader(buffer)
             loadVertices(buffer)
             loadIndices(buffer)
             loadMaterials(buffer)
+            loadBones(buffer)
 
             val modelId = UUID.randomUUID()
+            val rootNodes = mutableListOf<Node>()
+            var nextNodeId = 0
+
+            val jointIds = mutableMapOf<Int, NodeId>()
+            fun addBone(index: Int, parentPosition: Vector3f? = null): Node {
+                val bone = bones[index]
+                var nodeIndex = nextNodeId++
+                val nodeId = NodeId(modelId, nodeIndex)
+                jointIds[index] = nodeId
+                val children = childBoneMap[index]?.map { addBone(it, bone.position) } ?: listOf()
+                return Node(
+                    name = bone.name,
+                    id = nodeId,
+                    children = children,
+                    transform = NodeTransform.Decomposed(
+                        translation = Vector3f().set(bone.position).also {
+                            if (parentPosition != null) {
+                                it.sub(parentPosition)
+                            }
+                        },
+                    )
+                )
+            }
+            rootBones.forEach { index ->
+                rootNodes.add(addBone(index))
+            }
+
+            val skin = Skin(
+                name = "PMX skin",
+                joints = (0 until bones.size).map { jointIds[it]!! },
+                inverseBindMatrices = bones.map { Matrix4f().translation(it.position).invertAffine() },
+                jointHumanoidTags = bones.map { HumanoidTag.fromPmxJapanese(it.name) },
+            )
+
             val vertexBuffer = Buffer(
                 name = "Vertex Buffer",
                 buffer = vertexBuffer
@@ -261,7 +334,8 @@ object PmdLoader: ModelFileLoader {
             )
 
             var indexOffset = 0
-            val nodes = materials.mapIndexed { index, pmdMaterial ->
+            materials.map { pmdMaterial ->
+                val nodeId = nextNodeId++
                 val material = Material.Unlit(
                     name = null,
                     baseColor = pmdMaterial.diffuseColor,
@@ -269,7 +343,8 @@ object PmdLoader: ModelFileLoader {
                     doubleSided = true,
                 )
                 Node(
-                    id = NodeId(modelId, index),
+                    id = NodeId(modelId, nodeId),
+                    skin = skin,
                     mesh = Mesh(
                         primitives = listOf(
                             Primitive(
@@ -335,6 +410,7 @@ object PmdLoader: ModelFileLoader {
                         ),
                     )
                 ).also {
+                    rootNodes.add(it)
                     indexOffset += pmdMaterial.verticesCount
                 }
             }
@@ -345,8 +421,11 @@ object PmdLoader: ModelFileLoader {
                     comment = header.comment,
                 ),
                 scene = Scene(
-                    nodes = nodes,
-                    skins = listOf() // TODO skin support
+                    nodes = rootNodes,
+                    skins = listOf(skin),
+                    initialTransform = NodeTransform.Decomposed(
+                        scale = Vector3f(0.1f),
+                    ),
                 ),
                 animations = listOf(),
             )

@@ -15,3 +15,7 @@ Currently support GLB, VRM, PMX and PMD format.
 In development.
 
 Put your model under `models` directory in your game directory. Open mod settings in Mod Menu.
+
+---
+
+Thanks for the [Saba](https://github.com/benikabocha/saba) project for reference of MMD (PMX/PMD/VMD) related logic. 
