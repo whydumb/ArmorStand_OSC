@@ -17,9 +17,29 @@ base {
 
 loom {
 	accessWidenerPath = file("src/main/resources/armorstand.accesswidener")
+
+	splitEnvironmentSourceSets()
+
 	mixin {
 		useLegacyMixinAp = false
 	}
+
+	mods {
+		create("armorstand") {
+			sourceSet("main")
+			sourceSet("client")
+		}
+	}
+
+	runs {
+		getByName("client") {
+			runDir("run/client")
+		}
+		getByName("server") {
+			runDir("run/server")
+		}
+	}
+
 	localProperties["minecraft.vm-args"]?.toString()?.split(":")?.let { jvmArgs ->
 		runs.configureEach {
 			vmArgs(jvmArgs)

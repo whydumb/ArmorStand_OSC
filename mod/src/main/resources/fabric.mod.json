@@ -7,11 +7,17 @@
 	"authors": ["fifth_light"],
 	"license": "LGPL-3.0-or-later",
 	"icon": "assets/armorstand/icon.png",
-	"environment": "client",
+	"environment": "*",
 	"entrypoints": {
 		"client": [
 			{
-				"value": "top.fifthlight.armorstand.ArmorStand",
+				"value": "top.fifthlight.armorstand.ArmorStandClient",
+				"adapter": "kotlin"
+			}
+		],
+		"server": [
+			{
+				"value": "top.fifthlight.armorstand.ArmorStandServer",
 				"adapter": "kotlin"
 			}
 		],
