@@ -26,11 +26,14 @@ out vec2 texCoord0;
 #moj_import <armorstand:joint.glsl>
 in ivec4 Joint;
 in vec4 Weight;
+
+// Joint matrix buffer
+uniform samplerBuffer Joints;
 #endif
 
 void main() {
     #ifdef SKINNED
-    mat4 skinMatrix = getSkinMatrix(Weight, Joint);
+    mat4 skinMatrix = getSkinMatrix(Joints, Weight, Joint);
     gl_Position = ProjMat * ModelViewMat * skinMatrix * vec4(Position, 1.0);
     #else
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);

@@ -1,24 +1,21 @@
 #version 150
 
-// Joint matrix buffer
-uniform samplerBuffer Joints;
-
-mat4 getJointMatrix(int index) {
+mat4 getJointMatrix(in samplerBuffer joints, int index) {
     int base = index * 4;
     return mat4(
-        texelFetch(Joints, base),
-        texelFetch(Joints, base + 1),
-        texelFetch(Joints, base + 2),
-        texelFetch(Joints, base + 3)
+        texelFetch(joints, base),
+        texelFetch(joints, base + 1),
+        texelFetch(joints, base + 2),
+        texelFetch(joints, base + 3)
     );
 }
 
-mat4 getSkinMatrix(vec4 weight, ivec4 jointIndices) {
+mat4 getSkinMatrix(in samplerBuffer joints, vec4 weight, ivec4 jointIndices) {
     if (weight == vec4(0.0)) {
         return mat4(1.0);
     }
-    return weight.x * getJointMatrix(jointIndices.x) +
-        weight.y * getJointMatrix(jointIndices.y) +
-        weight.z * getJointMatrix(jointIndices.z) +
-        weight.w * getJointMatrix(jointIndices.w);
+    return weight.x * getJointMatrix(joints, jointIndices.x) +
+        weight.y * getJointMatrix(joints, jointIndices.y) +
+        weight.z * getJointMatrix(joints, jointIndices.z) +
+        weight.w * getJointMatrix(joints, jointIndices.w);
 }
