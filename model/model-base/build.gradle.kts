@@ -7,4 +7,5 @@ group = "top.fifthlight.armorstand"
 
 dependencies {
     api(libs.joml)
+    api(libs.fastutil)
 }

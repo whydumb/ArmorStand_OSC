@@ -1,5 +1,6 @@
 package top.fifthlight.renderer.model
 
+import top.fifthlight.renderer.model.animation.Animation
 import java.nio.ByteBuffer
 import java.nio.file.Path
 

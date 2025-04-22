@@ -10,3 +10,9 @@ dependencies {
     testImplementation(kotlin("test"))
 }
 
+val testFile = file("src/test/resources/animation.vmd")
+if (!testFile.isFile) {
+    tasks.test {
+        enabled = false
+    }
+}

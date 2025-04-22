@@ -128,9 +128,9 @@ class ModelLoader {
     private fun loadGenericBuffer(accessor: Accessor, type: BufferType): RefCountedGpuBuffer =
         accessor.bufferView?.let { bufferView ->
             require(bufferView.byteStride == 0) { "Non-vertex buffer view's byteStride is not zero: ${bufferView.byteStride}" }
-            require(accessor.length <= bufferView.byteLength) { "Accessor's length larger than underlying buffer view" }
+            require(accessor.totalByteLength <= bufferView.byteLength) { "Accessor's length larger than underlying buffer view" }
             val buffer =
-                bufferView.buffer.buffer.slice(bufferView.byteOffset + accessor.byteOffset, accessor.length)
+                bufferView.buffer.buffer.slice(bufferView.byteOffset + accessor.byteOffset, accessor.totalByteLength)
             RefCountedGpuBuffer(
                 RenderSystem.getDevice().createBuffer({ bufferView.buffer.name }, type, BufferUsage.STATIC_WRITE, buffer)
             )
@@ -342,12 +342,14 @@ class ModelLoader {
         }
         nodeIdTransformMap.put(node.id, transformIndex)
         node.name?.let { nodeNameTransformMap.put(it, transformIndex) }
-        RenderNode.Transform(
+        currentNode = RenderNode.Transform(
             transformIndex = transformIndex,
             child = currentNode,
         ).also {
             currentNode.parent = it
         }
+
+        currentNode
     }
 
     suspend fun loadScene(scene: Scene): RenderScene {

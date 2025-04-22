@@ -19,7 +19,6 @@ import top.fifthlight.armorstand.util.ModelLoaders
 import top.fifthlight.armorstand.util.RefCount
 import java.nio.file.Path
 import java.util.*
-import kotlin.io.path.relativeTo
 import kotlin.time.measureTimedValue
 
 object ModelInstanceManager {
@@ -124,13 +123,17 @@ object ModelInstanceManager {
                 if (selfPath != path) {
                     return@loadModel
                 }
-                selfItem = when (val scene = (result as? ModelCache.Loaded)?.scene) {
+                selfItem = when (val result = result as? ModelCache.Loaded) {
                     null -> Item.Empty
                     else -> Item.Model(
                         path = path,
                         lastAccessTime = System.currentTimeMillis(),
-                        instance = ModelInstance(scene),
-                        controller = ModelController.LiveUpdated(scene)
+                        instance = ModelInstance(result.scene),
+                        controller = if (result.animation.isNotEmpty()) {
+                            ModelController.Predefined(result.animation)
+                        } else {
+                            ModelController.LiveUpdated(result.scene)
+                        }
                     ).also {
                         it.increaseReferenceCount()
                     }

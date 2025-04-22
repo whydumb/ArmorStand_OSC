@@ -1,10 +1,15 @@
-package top.fifthlight.armorstand.animation
+package top.fifthlight.renderer.model.animation
 
 import org.joml.Quaternionf
 import org.joml.Vector3f
-import top.fifthlight.renderer.model.AnimationInterpolation
 
-interface Interpolator<T> {
+enum class AnimationInterpolation(val elements: Int) {
+    LINEAR(1),
+    STEP(1),
+    CUBIC_SPLINE(3),
+}
+
+interface AnimationInterpolator<T> {
     fun set(value: List<T>, result: T)
 
     fun interpolate(
@@ -16,7 +21,7 @@ interface Interpolator<T> {
     )
 }
 
-object Vector3Interpolator : Interpolator<Vector3f> {
+object Vector3AnimationInterpolator : AnimationInterpolator<Vector3f> {
     override fun set(value: List<Vector3f>, result: Vector3f) {
         result.set(value[0])
     }
@@ -53,7 +58,7 @@ object Vector3Interpolator : Interpolator<Vector3f> {
     }
 }
 
-object QuaternionInterpolator : Interpolator<Quaternionf> {
+object QuaternionAnimationInterpolator : AnimationInterpolator<Quaternionf> {
     override fun set(value: List<Quaternionf>, result: Quaternionf) {
         result.set(value[0])
     }

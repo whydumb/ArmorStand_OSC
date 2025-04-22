@@ -4,31 +4,19 @@ import kotlinx.serialization.json.Json
 import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
-import top.fifthlight.renderer.model.Accessor
-import top.fifthlight.renderer.model.Animation
-import top.fifthlight.renderer.model.AnimationChannel
-import top.fifthlight.renderer.model.AnimationSampler
-import top.fifthlight.renderer.model.Buffer
-import top.fifthlight.renderer.model.BufferView
-import top.fifthlight.renderer.model.HumanoidTag
-import top.fifthlight.renderer.model.Material
-import top.fifthlight.renderer.model.Mesh
-import top.fifthlight.renderer.model.ModelFileLoader
-import top.fifthlight.renderer.model.Node
-import top.fifthlight.renderer.model.NodeId
-import top.fifthlight.renderer.model.NodeTransform
-import top.fifthlight.renderer.model.Primitive
-import top.fifthlight.renderer.model.Scene
-import top.fifthlight.renderer.model.Skin
-import top.fifthlight.renderer.model.Texture
-import top.fifthlight.renderer.model.gltf.format.Gltf
-import top.fifthlight.renderer.model.gltf.format.GltfAttributeKey
-import top.fifthlight.renderer.model.gltf.format.GltfPrimitive
-import top.fifthlight.renderer.model.gltf.format.GltfTextureInfo
+import org.joml.getVector3f
+import top.fifthlight.renderer.model.*
+import top.fifthlight.renderer.model.animation.*
+import top.fifthlight.renderer.model.gltf.format.*
+import top.fifthlight.renderer.model.util.getSByteNormalized
+import top.fifthlight.renderer.model.util.getSShortNormalized
+import top.fifthlight.renderer.model.util.getUByteNormalized
+import top.fifthlight.renderer.model.util.getUShortNormalized
 import java.net.URI
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.file.Path
-import java.util.UUID
+import java.util.*
 
 class GltfLoadException(message: String) : Exception(message)
 
@@ -203,10 +191,10 @@ internal class GltfLoader(
             var position: Accessor? = null
             var normal: Accessor? = null
             var tangent: Accessor? = null
-            var texcoords = mutableMapOf<Int, Accessor>()
-            var colors = mutableMapOf<Int, Accessor>()
-            var joints = mutableMapOf<Int, Accessor>()
-            var weights = mutableMapOf<Int, Accessor>()
+            val texcoords = mutableMapOf<Int, Accessor>()
+            val colors = mutableMapOf<Int, Accessor>()
+            val joints = mutableMapOf<Int, Accessor>()
+            val weights = mutableMapOf<Int, Accessor>()
             for ((key, value) in attributes) {
                 val accessor = accessors.getOrNull(value)
                     ?: throw GltfLoadException("Bad attributes: unknown accessor index: $value")
@@ -294,7 +282,7 @@ internal class GltfLoader(
                     throw GltfLoadException("Bad size of inverseBindMatrices: get ${accessor.count}, should be ${skin.joints.size}")
                 }
                 buildList<Matrix4f>(accessor.count) {
-                    accessor.read { buffer ->
+                    accessor.read(ByteOrder.LITTLE_ENDIAN) { buffer ->
                         add(Matrix4f().set(buffer))
                     }
                 }
@@ -345,30 +333,114 @@ internal class GltfLoader(
     }
 
     private fun loadAnimations() {
-        animations = gltf.animations?.map {
-            val samplers = it.samplers.map {
-                AnimationSampler(
-                    input = accessors.getOrNull(it.input)
-                        ?: throw GltfLoadException("Bad animation sampler: unknown input accessor ${it.input}"),
-                    interpolation = it.interpolation,
-                    output = accessors.getOrNull(it.output)
-                        ?: throw GltfLoadException("Bad animation sampler: unknown output accessor ${it.output}"),
-                )
-            }
+        animations = gltf.animations?.map { animation ->
             Animation(
-                name = it.name,
-                channels = it.channels.mapNotNull {
-                    val targetNodeId = it.target.node ?: return@mapNotNull null
+                name = animation.name,
+                channels = animation.channels.mapNotNull { channel ->
+                    val targetNodeId = channel.target.node ?: return@mapNotNull null
                     val targetNode = nodes[targetNodeId]
                         ?: throw GltfLoadException("Bad animation channel: target node $targetNodeId not found")
-                    AnimationChannel(
-                        sampler = samplers.getOrNull(it.sampler)
-                            ?: throw GltfLoadException("Bad animation channel: unknown sampler ${it.sampler}"),
-                        targetNode = NodeId(uuid, targetNodeId),
-                        targetNodeName = targetNode.name,
-                        targetHumanoid = targetNode.name?.let { name -> HumanoidTag.fromVrmName(name) },
-                        targetPath = it.target.path,
-                    )
+                    val targetNodeName = targetNode.name
+                    val targetHumanoidTag = targetNode.name?.let { HumanoidTag.fromVrmName(it) }
+                    val sampler = animation.samplers.getOrNull(channel.sampler)
+                        ?: throw GltfLoadException("Bad animation channel: unknown sampler ${channel.sampler}")
+                    val inputAccessor = accessors.getOrNull(sampler.input)
+                        ?: throw GltfLoadException("Bad animation sampler: unknown input accessor ${sampler.input}")
+                    val outputAccessor = accessors.getOrNull(sampler.output)
+                        ?: throw GltfLoadException("Bad animation sampler: unknown output accessor ${sampler.output}")
+                    channel.target.path.check(outputAccessor)
+                    when (channel.target.path) {
+                        GltfAnimationTarget.Path.TRANSLATION -> SimpleAnimationChannel(
+                            type = AnimationChannel.Type.Translation,
+                            targetNode = targetNode,
+                            targetNodeName = targetNodeName,
+                            targetHumanoidTag = targetHumanoidTag,
+                            indexer = AccessorAnimationKeyFrameIndexer(inputAccessor),
+                            keyframeData = AccessorAnimationKeyFrameData(
+                                accessor = outputAccessor,
+                                elements = sampler.interpolation.elements,
+                                elementGetter = { buffer, result -> buffer.getVector3f(result) },
+                            ),
+                            interpolation = sampler.interpolation,
+                        )
+
+                        GltfAnimationTarget.Path.SCALE -> SimpleAnimationChannel(
+                            type = AnimationChannel.Type.Scale,
+                            targetNode = targetNode,
+                            targetNodeName = targetNodeName,
+                            targetHumanoidTag = targetHumanoidTag,
+                            indexer = AccessorAnimationKeyFrameIndexer(inputAccessor),
+                            keyframeData = AccessorAnimationKeyFrameData(
+                                accessor = outputAccessor,
+                                elements = sampler.interpolation.elements,
+                                elementGetter = { buffer, result -> buffer.getVector3f(result) },
+                            ),
+                            interpolation = sampler.interpolation,
+                        )
+
+                        GltfAnimationTarget.Path.ROTATION -> SimpleAnimationChannel(
+                            type = AnimationChannel.Type.Rotation,
+                            targetNode = targetNode,
+                            targetNodeName = targetNodeName,
+                            targetHumanoidTag = targetHumanoidTag,
+                            indexer = AccessorAnimationKeyFrameIndexer(inputAccessor),
+                            keyframeData = AccessorAnimationKeyFrameData(
+                                accessor = outputAccessor,
+                                elements = sampler.interpolation.elements,
+                                elementGetter = when (outputAccessor.componentType) {
+                                    Accessor.ComponentType.BYTE -> { buffer, result ->
+                                        result.set(
+                                            buffer.getSByteNormalized(),
+                                            buffer.getSByteNormalized(),
+                                            buffer.getSByteNormalized(),
+                                            buffer.getSByteNormalized(),
+                                        )
+                                    }
+
+                                    Accessor.ComponentType.UNSIGNED_BYTE -> { buffer, result ->
+                                        result.set(
+                                            buffer.getUByteNormalized(),
+                                            buffer.getUByteNormalized(),
+                                            buffer.getUByteNormalized(),
+                                            buffer.getUByteNormalized(),
+                                        )
+                                    }
+
+                                    Accessor.ComponentType.SHORT -> { buffer, result ->
+                                        result.set(
+                                            buffer.getSShortNormalized(),
+                                            buffer.getSShortNormalized(),
+                                            buffer.getSShortNormalized(),
+                                            buffer.getSShortNormalized(),
+                                        )
+                                    }
+
+                                    Accessor.ComponentType.UNSIGNED_SHORT -> { buffer, result ->
+                                        result.set(
+                                            buffer.getUShortNormalized(),
+                                            buffer.getUShortNormalized(),
+                                            buffer.getUShortNormalized(),
+                                            buffer.getUShortNormalized(),
+                                        )
+                                    }
+
+                                    Accessor.ComponentType.FLOAT -> { buffer, result ->
+                                        result.set(
+                                            buffer.getFloat(),
+                                            buffer.getFloat(),
+                                            buffer.getFloat(),
+                                            buffer.getFloat(),
+                                        )
+                                    }
+
+                                    else -> throw AssertionError()
+                                },
+                            ),
+                            interpolation = sampler.interpolation,
+                        )
+
+                        else -> return@mapNotNull null
+                    }
                 }
             )
         } ?: listOf()

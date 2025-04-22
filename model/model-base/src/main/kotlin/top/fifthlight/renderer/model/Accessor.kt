@@ -14,7 +14,7 @@ data class Accessor(
     val min: List<Float>? = null,
     val name: String? = null,
 ) {
-    val length
+    val totalByteLength
         get() = bufferView?.byteStride?.takeIf { it > 0 }?.let { stride ->
             (count - 1) * stride + componentType.byteLength * type.components
         } ?: run {
@@ -28,11 +28,11 @@ data class Accessor(
             if (bufferView.byteStride > 0) {
                 require(bufferView.byteStride % componentType.byteLength == 0) { "Invalid byte stride: ${bufferView.byteStride} (${bufferView.byteStride} % ${componentType.byteLength} != 0)" }
             }
-            require(length <= bufferView.byteLength - byteOffset) { "Bad accessor size: $length, bufferView: ${bufferView.byteLength}, accessor offset: $byteOffset" }
+            require(totalByteLength <= bufferView.byteLength - byteOffset) { "Bad accessor size: $totalByteLength, bufferView: ${bufferView.byteLength}, accessor offset: $byteOffset" }
         }
     }
 
-    inline fun read(crossinline func: (ByteBuffer) -> Unit) {
+    inline fun read(order: ByteOrder = ByteOrder.nativeOrder(), crossinline func: (ByteBuffer) -> Unit) {
         val bufferView = bufferView
         val elementLength = componentType.byteLength * type.components
         if (bufferView == null) {
@@ -40,8 +40,8 @@ data class Accessor(
             repeat(count) { func(buffer) }
             return
         }
-        val buffer = bufferView.buffer.buffer.slice(byteOffset + bufferView.byteOffset, length)
-        buffer.order(ByteOrder.nativeOrder())
+        val buffer = bufferView.buffer.buffer.slice(byteOffset + bufferView.byteOffset, totalByteLength)
+        buffer.order(order)
         val stride = bufferView.byteStride.takeIf { it > 0 } ?: elementLength
         repeat(count) {
             val position = buffer.position()
@@ -60,7 +60,7 @@ data class Accessor(
     }
 
     data class ComponentTypeItem(
-        val type: Accessor.ComponentType,
+        val type: ComponentType,
         val normalized: Boolean = false,
     ) {
         override fun toString(): String = "$type (normalized: $normalized)"

@@ -14,20 +14,11 @@ import kotlinx.serialization.encoding.Encoder
 import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
-import org.joml.Vector4f
-import top.fifthlight.renderer.model.Accessor
-import top.fifthlight.renderer.model.AnimationChannel
-import top.fifthlight.renderer.model.AnimationInterpolation
-import top.fifthlight.renderer.model.BufferView
-import top.fifthlight.renderer.model.HumanoidTag
-import top.fifthlight.renderer.model.Material
-import top.fifthlight.renderer.model.Primitive
-import top.fifthlight.renderer.model.RgbaColor
+import top.fifthlight.renderer.model.*
+import top.fifthlight.renderer.model.animation.AnimationInterpolation
 import top.fifthlight.renderer.model.gltf.format.extension.VrmV0Extension
 import top.fifthlight.renderer.model.gltf.format.extension.VrmV1Extension
 import top.fifthlight.renderer.model.Texture as CommonTexture
-
-internal typealias BoneMapping = Map<Int, HumanoidTag>
 
 private abstract class IntEnumSerializer<T : Enum<T>>(
     serialName: String,
@@ -200,15 +191,63 @@ internal data class GltfAnimationChannel(
 @Serializable
 internal data class GltfAnimationTarget(
     val node: Int? = null,
-    @Serializable(with = AnimationInterpolationSerializer::class)
-    val path: AnimationChannel.Path,
+    @Serializable(with = PathSerializer::class)
+    val path: Path,
 ) {
-    private class AnimationInterpolationSerializer : StringEnumSerializer<AnimationChannel.Path>(
-        "top.fifthlight.renderer.model.AnimationChannel.Path",
-        AnimationChannel.Path.TRANSLATION to "translation",
-        AnimationChannel.Path.ROTATION to "rotation",
-        AnimationChannel.Path.WEIGHTS to "weights",
-        AnimationChannel.Path.SCALE to "scale",
+    data class ComponentTypeItem(
+        val type: Accessor.ComponentType,
+        val normalized: Boolean,
+    )
+
+    enum class Path(
+        val allowedAccessorTypes: Set<Accessor.AccessorType>,
+        val allowedComponentType: Set<ComponentTypeItem>,
+    ) {
+        TRANSLATION(
+            allowedAccessorTypes = setOf(Accessor.AccessorType.VEC3),
+            allowedComponentType = setOf(ComponentTypeItem(Accessor.ComponentType.FLOAT, false)),
+        ),
+        ROTATION(
+            allowedAccessorTypes = setOf(Accessor.AccessorType.VEC4),
+            allowedComponentType = setOf(
+                ComponentTypeItem(Accessor.ComponentType.FLOAT, false),
+                ComponentTypeItem(Accessor.ComponentType.BYTE, true),
+                ComponentTypeItem(Accessor.ComponentType.UNSIGNED_BYTE, true),
+                ComponentTypeItem(Accessor.ComponentType.SHORT, true),
+                ComponentTypeItem(Accessor.ComponentType.UNSIGNED_SHORT, true),
+            ),
+        ),
+        SCALE(
+            allowedAccessorTypes = setOf(Accessor.AccessorType.VEC3),
+            allowedComponentType = setOf(ComponentTypeItem(Accessor.ComponentType.FLOAT, false)),
+        ),
+        WEIGHTS(
+            allowedAccessorTypes = setOf(Accessor.AccessorType.SCALAR),
+            allowedComponentType = setOf(
+                ComponentTypeItem(Accessor.ComponentType.FLOAT, false),
+                ComponentTypeItem(Accessor.ComponentType.BYTE, true),
+                ComponentTypeItem(Accessor.ComponentType.UNSIGNED_BYTE, true),
+                ComponentTypeItem(Accessor.ComponentType.SHORT, true),
+                ComponentTypeItem(Accessor.ComponentType.UNSIGNED_SHORT, true),
+            ),
+        );
+
+        fun check(accessor: Accessor) {
+            require(accessor.type in allowedAccessorTypes) {
+                "Bad accessor type for animation target"
+            }
+            require(ComponentTypeItem(accessor.componentType, accessor.normalized) in allowedComponentType) {
+                "Bad component type for animation target"
+            }
+        }
+    }
+
+    private class PathSerializer : StringEnumSerializer<Path>(
+        "top.fifthlight.renderer.model.gltf.format.GltfAnimationTarget.Path",
+        Path.TRANSLATION to "translation",
+        Path.ROTATION to "rotation",
+        Path.WEIGHTS to "weights",
+        Path.SCALE to "scale",
     )
 }
 
@@ -519,25 +558,6 @@ private class RgbaColorSerializer : KSerializer<RgbaColor> {
             throw SerializationException("Bad RgbaColor: $list")
         }
         return RgbaColor(list[0], list[1], list[2], list[3])
-    }
-}
-
-internal class Vector4fSerializer : KSerializer<Vector4f> {
-    private val delegated = ListSerializer(Float.serializer())
-
-    override val descriptor: SerialDescriptor = delegated.descriptor
-
-    override fun serialize(encoder: Encoder, value: Vector4f) =
-        delegated.serialize(encoder, (0 until 4).map { value.get(it) })
-
-    override fun deserialize(decoder: Decoder): Vector4f {
-        val list = delegated.deserialize(decoder)
-        if (list.size != 4) {
-            throw SerializationException("Bad Vector4f: $list")
-        }
-        return Vector4f().also {
-            it.set(list.toFloatArray())
-        }
     }
 }
 

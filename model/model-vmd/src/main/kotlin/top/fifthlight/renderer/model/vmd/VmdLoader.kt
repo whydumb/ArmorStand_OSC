@@ -1,6 +1,9 @@
 package top.fifthlight.renderer.model.vmd
 
+import it.unimi.dsi.fastutil.floats.FloatArrayList
+import top.fifthlight.renderer.model.HumanoidTag
 import top.fifthlight.renderer.model.ModelFileLoader
+import top.fifthlight.renderer.model.animation.*
 import top.fifthlight.renderer.model.util.readAll
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -69,24 +72,74 @@ object VmdLoader : ModelFileLoader {
         }
     }
 
-    private fun loadBone(buffer: ByteBuffer) {
+    private class BoneChannel {
+        val indexList = FloatArrayList()
+        val translationList = FloatArrayList()
+        val rotationList = FloatArrayList()
+    }
+
+    private const val FRAME_TIME_SEC = 1f / 24f
+
+    private fun loadBone(buffer: ByteBuffer): List<AnimationChannel<*>> {
+        val channels = mutableMapOf<String, BoneChannel>()
         val boneKeyframeCount = buffer.getInt()
         repeat(boneKeyframeCount) {
             val boneName = loadString(buffer, 15)
+            val channel = channels.getOrPut(boneName, ::BoneChannel)
+
             val frameNumber = buffer.getInt()
-            TODO()
+            val frameTime = frameNumber * FRAME_TIME_SEC
+            channel.indexList.add(frameTime)
+            repeat(3) {
+                channel.translationList.add(buffer.getFloat())
+            }
+            repeat(4) {
+                channel.rotationList.add(buffer.getFloat())
+            }
+
+            // Skip curve data (not supported for now)
             buffer.position(buffer.position() + 64)
+        }
+
+        return channels.flatMap { (name, channel) ->
+            val indexer = ListAnimationKeyFrameIndexer(channel.indexList)
+            listOf(
+                SimpleAnimationChannel(
+                    type = AnimationChannel.Type.Translation,
+                    targetNode = null,
+                    targetNodeName = name,
+                    targetHumanoidTag = HumanoidTag.fromPmxJapanese(name),
+                    indexer = indexer,
+                    keyframeData = AnimationKeyFrameData.ofVector3f(
+                        values = channel.translationList,
+                        elements = 1,
+                    ),
+                    interpolation = AnimationInterpolation.LINEAR,
+                ),
+                SimpleAnimationChannel(
+                    type = AnimationChannel.Type.Rotation,
+                    targetNode = null,
+                    targetNodeName = name,
+                    targetHumanoidTag = HumanoidTag.fromPmxJapanese(name),
+                    indexer = indexer,
+                    keyframeData = AnimationKeyFrameData.ofQuaternionf(
+                        values = channel.rotationList,
+                        elements = 1,
+                    ),
+                    interpolation = AnimationInterpolation.LINEAR,
+                ),
+            )
         }
     }
 
     private fun load(buffer: ByteBuffer): ModelFileLoader.Result {
         val modelName = loadHeader(buffer)
-        loadBone(buffer)
+        val boneChannels = loadBone(buffer)
 
         return ModelFileLoader.Result(
             metadata = null,
             scene = null,
-            animations = listOf(),
+            animations = listOf(Animation(channels = boneChannels)),
         )
     }
 
@@ -110,7 +163,7 @@ object VmdLoader : ModelFileLoader {
             }
             buffer
         }
-
+        buffer.order(ByteOrder.LITTLE_ENDIAN)
         load(buffer)
     }
 }
