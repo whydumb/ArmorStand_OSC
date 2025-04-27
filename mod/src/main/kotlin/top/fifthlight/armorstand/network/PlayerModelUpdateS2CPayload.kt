@@ -13,7 +13,7 @@ data class PlayerModelUpdateS2CPayload(
     companion object {
         private val PAYLOAD_ID = Identifier.of("armorstand", "player_model_update")
         val ID = CustomPayload.Id<PlayerModelUpdateS2CPayload>(PAYLOAD_ID)
-        val CODEC = PacketCodec.of(PlayerModelUpdateS2CPayload::write, ::PlayerModelUpdateS2CPayload)
+        val CODEC: PacketCodec<PacketByteBuf, PlayerModelUpdateS2CPayload> = PacketCodec.of(PlayerModelUpdateS2CPayload::write, ::PlayerModelUpdateS2CPayload)
     }
 
     constructor(buf: PacketByteBuf): this(

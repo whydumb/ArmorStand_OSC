@@ -6,11 +6,11 @@ import com.mojang.blaze3d.systems.CommandEncoder
 import com.mojang.blaze3d.systems.GpuDevice
 import net.minecraft.util.Identifier
 import org.joml.Matrix4f
-import top.fifthlight.armorstand.helper.BufferTypeExt
+import top.fifthlight.armorstand.extension.BufferTypeExt
 import top.fifthlight.armorstand.render.GpuTextureBuffer
 import top.fifthlight.armorstand.render.TextureBufferFormat
 import top.fifthlight.armorstand.util.AbstractRefCount
-import top.fifthlight.armorstand.util.createTextureBuffer
+import top.fifthlight.armorstand.extension.createTextureBuffer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -20,17 +20,18 @@ class RenderSkinData(
     companion object {
         private val IDENTITY = Matrix4f()
         private val TYPE_ID = Identifier.of("armorstand", "skin_data")
+        const val MAT4X4_SIZE = 16 * 4
     }
 
     override val typeId: Identifier
         get() = TYPE_ID
 
-    private val matricesBuffer = ByteBuffer.allocateDirect(skin.jointSize * 16 * 4).apply {
+    val matricesBuffer = ByteBuffer.allocateDirect(skin.jointSize * MAT4X4_SIZE).apply {
         order(ByteOrder.nativeOrder())
         var position = 0
         repeat(skin.jointSize) {
             IDENTITY.get(this)
-            position += 16 * 4
+            position += MAT4X4_SIZE
             position(position)
         }
         flip()
@@ -43,7 +44,7 @@ class RenderSkinData(
 
     fun setMatrix(index: Int, matrix4f: Matrix4f) {
         dirty = true
-        matricesBuffer.position(index * 16 * 4)
+        matricesBuffer.position(index * MAT4X4_SIZE)
         matrix4f.get(matricesBuffer)
     }
 

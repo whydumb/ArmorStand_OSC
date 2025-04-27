@@ -83,10 +83,10 @@ class ConfigScreen(private val parent: Screen? = null) : Screen(Text.translatabl
                 items.collectLatest {
                     clearEntries()
                     addEntry(Entry("EMPTY", null))
-                    val entries = it.associate {
+                    val entries = it.associateWith {
                         val entry = Entry(it.fileName.toString(), it)
                         addEntry(entry)
-                        Pair(it, entry)
+                        entry
                     }
                     ConfigHolder.config.collect {
                         val index = entries.keys.indexOf(it.modelPath)

@@ -1,12 +1,11 @@
-package top.fifthlight.armorstand.util
+package top.fifthlight.armorstand.extension
 
 import com.mojang.blaze3d.buffers.BufferType
 import com.mojang.blaze3d.buffers.BufferUsage
 import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.systems.GpuDevice
 import com.mojang.blaze3d.vertex.VertexFormat.DrawMode
-import top.fifthlight.armorstand.helper.GpuDeviceExt
-import top.fifthlight.armorstand.helper.GpuDeviceExt.FillType
+import top.fifthlight.armorstand.extension.GpuDeviceExt.FillType
 import top.fifthlight.armorstand.render.GpuTextureBuffer
 import top.fifthlight.armorstand.render.TextureBufferFormat
 import top.fifthlight.armorstand.render.VertexBuffer

@@ -1,23 +1,26 @@
 package top.fifthlight.armorstand
 
-import net.minecraft.client.font.TextRenderer
-import net.minecraft.client.render.VertexConsumerProvider
-import net.minecraft.client.render.entity.EntityRenderDispatcher
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.client.util.math.MatrixStack
+import top.fifthlight.armorstand.model.TaskMap
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import java.util.*
 
 object PlayerRenderer {
+    private var renderingWorld = false
+    private val taskMap = TaskMap()
+
+    fun startRenderWorld() {
+        renderingWorld = true
+    }
+
     @JvmStatic
-    fun render(
+    fun appendPlayer(
         uuid: UUID,
         vanillaState: PlayerEntityRenderState,
         matrixStack: MatrixStack,
         light: Int,
-        vertexConsumerProvider: VertexConsumerProvider,
-        textRenderer: TextRenderer,
-        dispatcher: EntityRenderDispatcher,
     ): Boolean {
         val entry = ModelInstanceManager.get(uuid, System.currentTimeMillis())
         if (entry !is ModelInstanceManager.Item.Model) {
@@ -34,9 +37,12 @@ object PlayerRenderer {
         val backupItem = matrixStack.peek().copy()
         matrixStack.pop()
 
-        instance.render(matrixStack, light)
-        if (ArmorStandClient.debug) {
-            instance.renderDebug(matrixStack, vertexConsumerProvider, textRenderer, dispatcher, light)
+        if (renderingWorld) {
+            instance.schedule(matrixStack, light) { task ->
+                taskMap.addTask(task)
+            }
+        } else {
+            instance.render(matrixStack, light)
         }
 
         matrixStack.push()
@@ -45,5 +51,10 @@ object PlayerRenderer {
             normalMatrix.set(backupItem.normalMatrix)
         }
         return true
+    }
+
+    fun executeDraw(context: WorldRenderContext) {
+        renderingWorld = false
+        taskMap.executeTasks()
     }
 }

@@ -1,17 +1,15 @@
-package top.fifthlight.armorstand.mixin;
+package top.fifthlight.armorstand.mixin.gl;
 
-import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.buffers.BufferType;
 import com.mojang.blaze3d.buffers.BufferUsage;
 import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.opengl.GlConst;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.shaders.ShaderType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.TextureFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.gl.*;
 import net.minecraft.util.Identifier;
@@ -19,16 +17,16 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.opengl.GL32C;
 import org.lwjgl.opengl.GLCapabilities;
-import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import top.fifthlight.armorstand.helper.GlStateManagerHelper;
-import top.fifthlight.armorstand.helper.GpuDeviceExt;
-import top.fifthlight.armorstand.helper.RenderPipelineWithVertexType;
+import top.fifthlight.armorstand.helper.gl.GlStateManagerHelper;
+import top.fifthlight.armorstand.extension.GpuDeviceExt;
+import top.fifthlight.armorstand.extension.RenderPipelineExt;
+import top.fifthlight.armorstand.helper.ShaderProgramHelper;
 import top.fifthlight.armorstand.render.GpuTextureBuffer;
 import top.fifthlight.armorstand.render.TextureBufferFormat;
 import top.fifthlight.armorstand.render.VertexBuffer;
@@ -36,7 +34,6 @@ import top.fifthlight.armorstand.render.gl.FilledVertexElementProvider;
 import top.fifthlight.armorstand.render.gl.GlConstKt;
 import top.fifthlight.armorstand.render.gl.GlTextureBuffer;
 import top.fifthlight.armorstand.render.gl.GlVertexBuffer;
-import top.fifthlight.armorstand.util.ShaderProgramExt;
 
 import java.util.List;
 import java.util.Set;
@@ -45,13 +42,6 @@ import java.util.function.Supplier;
 
 @Mixin(GlBackend.class)
 public abstract class GlBackendMixin implements GpuDeviceExt {
-    @Shadow
-    protected abstract CompiledShader compileShader(Identifier id, ShaderType type, Defines defines, BiFunction<Identifier, ShaderType, String> sourceRetriever);
-
-    @Shadow
-    @Final
-    private static Logger LOGGER;
-
     @Shadow
     @Final
     private DebugLabelManager debugLabelManager;
@@ -65,33 +55,13 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
         FilledVertexElementProvider.INSTANCE.init(capabilities, this.debugLabelManager, this.usedGlCapabilities);
     }
 
-    @WrapMethod(method = "compileRenderPipeline")
-    private CompiledShaderPipeline compileRenderPipeline(RenderPipeline pipeline, BiFunction<Identifier, ShaderType, String> sourceRetriever, Operation<CompiledShaderPipeline> original) {
-        var vertexType = ((RenderPipelineWithVertexType) pipeline).armorStand$getVertexType();
-        if (vertexType != null) {
-            CompiledShader compiledShader = this.compileShader(pipeline.getVertexShader(), ShaderType.VERTEX, pipeline.getShaderDefines(), sourceRetriever);
-            CompiledShader compiledShader2 = this.compileShader(pipeline.getFragmentShader(), ShaderType.FRAGMENT, pipeline.getShaderDefines(), sourceRetriever);
-            if (compiledShader == CompiledShader.INVALID_SHADER) {
-                LOGGER.error("Couldn't compile pipeline {}: vertex shader {} was invalid", pipeline.getLocation(), pipeline.getVertexShader());
-                return new CompiledShaderPipeline(pipeline, ShaderProgram.INVALID);
-            } else if (compiledShader2 == CompiledShader.INVALID_SHADER) {
-                LOGGER.error("Couldn't compile pipeline {}: fragment shader {} was invalid", pipeline.getLocation(), pipeline.getFragmentShader());
-                return new CompiledShaderPipeline(pipeline, ShaderProgram.INVALID);
-            } else {
-                ShaderProgram shaderProgram;
-                try {
-                    shaderProgram = ShaderProgramExt.create(compiledShader, compiledShader2, vertexType, pipeline.getLocation().toString());
-                } catch (ShaderLoader.LoadException ex) {
-                    LOGGER.error("Couldn't compile program for pipeline {}: {}", pipeline.getLocation(), ex);
-                    return new CompiledShaderPipeline(pipeline, ShaderProgram.INVALID);
-                }
-
-                shaderProgram.set(pipeline.getUniforms(), pipeline.getSamplers());
-                this.debugLabelManager.labelShaderProgram(shaderProgram);
-                return new CompiledShaderPipeline(pipeline, shaderProgram);
-            }
+    @WrapOperation(method = "compileRenderPipeline", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/ShaderProgram;create(Lnet/minecraft/client/gl/CompiledShader;Lnet/minecraft/client/gl/CompiledShader;Lcom/mojang/blaze3d/vertex/VertexFormat;Ljava/lang/String;)Lnet/minecraft/client/gl/ShaderProgram;"))
+    private ShaderProgram onCompileShaderProgram(CompiledShader vertexShader, CompiledShader fragmentShader, VertexFormat format, String name, Operation<ShaderProgram> original, RenderPipeline pipeline) throws ShaderLoader.LoadException {
+        var vertexType = ((RenderPipelineExt) pipeline).armorStand$getVertexType();
+        if (vertexType.isPresent()) {
+            return ShaderProgramHelper.create(vertexShader, fragmentShader, vertexType.get(), pipeline.getLocation().toString());
         } else {
-            return original.call(pipeline, sourceRetriever);
+            return original.call(vertexShader, fragmentShader, format, name);
         }
     }
 
@@ -116,7 +86,7 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
         if (buffer.size % format.getPixelSize() != 0) {
             throw new IllegalArgumentException("Bad byte size " + buffer.size + " for format " + format + " (" + buffer.size + " % " + format.getPixelSize() + " != 0)");
         }
-        int textureId = GlStateManager._genTexture();
+        var textureId = GlStateManager._genTexture();
         if (label == null) {
             label = String.valueOf(textureId);
         }

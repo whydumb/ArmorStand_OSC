@@ -10,7 +10,6 @@ import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
-import kotlin.io.path.absolute
 
 object ModelLoaders {
     val loaders = listOf(

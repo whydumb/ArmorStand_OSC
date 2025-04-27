@@ -126,13 +126,22 @@ object PmdLoader: ModelFileLoader {
                 ByteBuffer.allocateDirect(VERTEX_ATTRIBUTE_SIZE * vertexCount).order(ByteOrder.nativeOrder())
             var outputPosition = 0
             var inputPosition = buffer.position()
+
+            fun readFloat(): Float = buffer.getFloat(inputPosition).also {
+                inputPosition += 4
+            }
+
+            val copyBaseVertexSize = BASE_VERTEX_ATTRIBUTE_SIZE - 4
             // FORMAT: POSITION_NORMAL_UV_JOINT_WEIGHT
             for (i in 0 until vertexCount) {
                 // Read vertex data
+                // invert x axis
+                outputBuffer.putFloat(outputPosition, -readFloat())
+                outputPosition += 4
                 // POSITION_NORMAL_UV_JOINT_WEIGHT
-                outputBuffer.put(outputPosition, buffer, inputPosition, BASE_VERTEX_ATTRIBUTE_SIZE)
-                outputPosition += BASE_VERTEX_ATTRIBUTE_SIZE
-                inputPosition += BASE_VERTEX_ATTRIBUTE_SIZE
+                outputBuffer.put(outputPosition, buffer, inputPosition, copyBaseVertexSize)
+                outputPosition += copyBaseVertexSize
+                inputPosition += copyBaseVertexSize
 
                 outputBuffer.putInt(outputPosition, buffer.getShort(inputPosition).toUShort().toInt())
                 outputBuffer.putInt(outputPosition + 4, buffer.getShort(inputPosition + 2).toUShort().toInt())
@@ -244,6 +253,8 @@ object PmdLoader: ModelFileLoader {
             )
         }
 
+        private fun Vector3f.invertX() = also { x = -x }
+
         private fun loadBones(buffer: ByteBuffer) {
             val boneCount = buffer.getShort()
             if (boneCount < 0) {
@@ -256,7 +267,7 @@ object PmdLoader: ModelFileLoader {
                 tailBoneIndex = buffer.getShort().toInt().takeIf { it != -1 },
                 type = buffer.get().toUByte().toInt(),
                 targetBoneIndex = buffer.getShort().toInt().takeIf { it != -1 },
-                position = loadVector3f(buffer),
+                position = loadVector3f(buffer).invertX(),
             )
 
             bones = (0 until boneCount).map { index ->
@@ -284,7 +295,7 @@ object PmdLoader: ModelFileLoader {
             val jointIds = mutableMapOf<Int, NodeId>()
             fun addBone(index: Int, parentPosition: Vector3f? = null): Node {
                 val bone = bones[index]
-                var nodeIndex = nextNodeId++
+                val nodeIndex = nextNodeId++
                 val nodeId = NodeId(modelId, nodeIndex)
                 jointIds[index] = nodeId
                 val children = childBoneMap[index]?.map { addBone(it, bone.position) } ?: listOf()

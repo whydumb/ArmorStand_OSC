@@ -24,6 +24,12 @@ class RenderMesh(
         }
     }
 
+    fun schedule(matrix: Matrix4fc, light: Int, skin: RenderSkinData?, onTaskScheduled: (RenderTask<*, *>) -> Unit) {
+        for (primitive in primitives) {
+            primitive.schedule(matrix, light, skin, onTaskScheduled)
+        }
+    }
+
     override fun onClosed() {
         primitives.forEach { it.decreaseReferenceCount() }
     }

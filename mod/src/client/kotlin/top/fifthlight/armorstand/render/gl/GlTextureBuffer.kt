@@ -8,7 +8,7 @@ class GlTextureBuffer(
     val glId: Int,
     override val label: String?,
     override val format: TextureBufferFormat,
-): GpuTextureBuffer() {
+): GpuTextureBuffer {
     override var closed: Boolean = false
         private set
 

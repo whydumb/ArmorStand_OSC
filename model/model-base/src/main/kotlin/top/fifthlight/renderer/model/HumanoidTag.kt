@@ -9,9 +9,9 @@ enum class HumanoidTag(
     HEAD(vrmName = "head", pmxEnglish = "Head", pmxJapanese = "頭");
 
     companion object {
-        private val vrmNameMap = entries.associate { Pair(it.vrmName, it) }
-        private val pmxEnglishMap = entries.associate { Pair(it.pmxEnglish, it) }
-        private val pmxJapaneseMap = entries.associate { Pair(it.pmxJapanese, it) }
+        private val vrmNameMap = entries.associateBy { it.vrmName }
+        private val pmxEnglishMap = entries.associateBy { it.pmxEnglish }
+        private val pmxJapaneseMap = entries.associateBy { it.pmxJapanese }
 
         fun fromVrmName(name: String): HumanoidTag? = vrmNameMap[name]
         fun fromPmxEnglish(name: String): HumanoidTag? = pmxEnglishMap[name]

@@ -12,38 +12,71 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.Slice;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import top.fifthlight.armorstand.helper.RenderPipelineWithVertexType;
+import top.fifthlight.armorstand.extension.internal.RenderPipelineBuilderExtInternal;
+import top.fifthlight.armorstand.extension.internal.RenderPipelineExtInternal;
+import top.fifthlight.armorstand.extension.internal.RenderPipelineSnippetExtInternal;
 import top.fifthlight.armorstand.model.VertexType;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 @Mixin(RenderPipeline.Builder.class)
-public abstract class RenderPipelineBuilderMixin implements RenderPipelineWithVertexType {
+public abstract class RenderPipelineBuilderMixin implements RenderPipelineBuilderExtInternal {
     @Unique
-    VertexType vertexType;
+    Optional<VertexType> vertexType;
+    @Unique
+    Optional<List<String>> uniformBuffers;
 
-    @Override
-    public void armorStand$setVertexType(@NotNull VertexType type) {
-        vertexType = type;
+    @Inject(method = "<init>", at = @At("TAIL"))
+    private void onInit(CallbackInfo ci) {
+        vertexType = Optional.empty();
+        uniformBuffers = Optional.empty();
     }
 
     @Override
     @Nullable
-    public VertexType armorStand$getVertexType() {
+    public Optional<VertexType> armorStand$getVertexType() {
         return vertexType;
     }
 
+    @Override
+    public void armorStand$withVertexType(@NotNull VertexType type) {
+        this.vertexType = Optional.of(type);
+    }
+
+    @Override
+    public void armorStand$withUniformBuffer(@NotNull String name) {
+        if (uniformBuffers.isEmpty()) {
+            uniformBuffers = Optional.of(new ArrayList<>());
+        }
+        uniformBuffers.get().add(name);
+    }
+
     @Inject(method = "withSnippet", at = @At("HEAD"))
-    void withSnippet(RenderPipeline.Snippet snippet, CallbackInfo ci) {
-        var vertexType = ((RenderPipelineWithVertexType) (Object) snippet).armorStand$getVertexType();
-        if (vertexType != null) {
+    void withSnippet(@NotNull RenderPipeline.Snippet snippet, CallbackInfo ci) {
+        var snippetInternal = ((RenderPipelineSnippetExtInternal) (Object) snippet);
+
+        var vertexType = snippetInternal.armorstand$getVertexType();
+        if (vertexType.isPresent()) {
             this.vertexType = vertexType;
         }
+        snippetInternal.armorstand$getUniformBuffers()
+                .ifPresent(uniformBuffers -> {
+                    if (this.uniformBuffers.isPresent()) {
+                        this.uniformBuffers.get().addAll(uniformBuffers);
+                    } else {
+                        this.uniformBuffers = Optional.of(new ArrayList<>(uniformBuffers));
+                    }
+                });
     }
 
     @ModifyReturnValue(method = "buildSnippet", at = @At("RETURN"))
-    public RenderPipeline.Snippet buildSnippet(RenderPipeline.Snippet original) {
-        ((RenderPipelineWithVertexType) (Object) original).armorStand$setVertexType(vertexType);
+    public RenderPipeline.Snippet buildSnippet(@NotNull RenderPipeline.Snippet original) {
+        var snippetExt = ((RenderPipelineSnippetExtInternal) (Object) original);
+        snippetExt.armorStand$setVertexType(vertexType);
+        snippetExt.armorStand$setUniformBuffers(uniformBuffers.map(Collections::unmodifiableList));
         return original;
     }
 
@@ -63,7 +96,7 @@ public abstract class RenderPipelineBuilderMixin implements RenderPipelineWithVe
             }
     )
     public boolean isVertexFormatOrModeEmpty(boolean original) {
-        return vertexType == null && original;
+        return vertexType.isEmpty() && original;
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -84,7 +117,8 @@ public abstract class RenderPipelineBuilderMixin implements RenderPipelineWithVe
 
     @ModifyReturnValue(method = "build", at = @At("RETURN"))
     public RenderPipeline afterBuilt(RenderPipeline original) {
-        ((RenderPipelineWithVertexType) original).armorStand$setVertexType(vertexType);
+        ((RenderPipelineExtInternal) original).armorStand$setVertexType(vertexType);
+        ((RenderPipelineExtInternal) original).armorStand$setUniformBuffers(uniformBuffers.orElse(Collections.emptyList()));
         return original;
     }
 }

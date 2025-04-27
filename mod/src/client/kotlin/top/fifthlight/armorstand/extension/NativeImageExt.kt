@@ -1,4 +1,4 @@
-package top.fifthlight.armorstand.util
+package top.fifthlight.armorstand.extension
 
 import net.minecraft.client.texture.NativeImage
 import org.lwjgl.stb.STBImage

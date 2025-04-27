@@ -1,3 +1,4 @@
 package top.fifthlight.armorstand.util
 
-fun Float.toRadian() = this * 0.017453293f
+// 180 / PI
+fun Float.toRadian() = this * 0.017453292f

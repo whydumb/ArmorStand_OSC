@@ -6,7 +6,7 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import top.fifthlight.armorstand.helper.BufferTypeExt;
+import top.fifthlight.armorstand.extension.BufferTypeExt;
 
 // Some hacky code
 @Mixin(BufferType.class)
@@ -24,7 +24,6 @@ public abstract class BufferTypeMixin {
         var TEXTURE_BUFFER = armorstand$invokeInit("TEXTURE_BUFFER", nextOrdinal);
         BufferTypeExt.TEXTURE_BUFFER = TEXTURE_BUFFER;
         newValues[nextOrdinal] = TEXTURE_BUFFER;
-        // nextOrdinal++;
 
         $VALUES = newValues;
     }

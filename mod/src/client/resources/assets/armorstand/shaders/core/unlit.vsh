@@ -8,14 +8,9 @@ in vec4 Color;
 in vec2 UV0;
 
 // Lightmap texture
-uniform sampler2D Sampler2;
+uniform sampler2D SamplerLightMap;
 
-uniform mat4 ModelViewMat;
-uniform mat4 ProjMat;
 uniform int FogShape;
-
-// Lightmap UV
-uniform ivec3 LightMapUv;
 
 out float vertexDistance;
 out vec4 vertexColor;
@@ -31,17 +26,66 @@ in vec4 Weight;
 uniform samplerBuffer Joints;
 #endif
 
+struct instance_t {
+    mat4 model_view_proj_mat;
+    ivec2 light_map_uv;
+};
+
+#ifdef INSTANCED
+
+#ifndef INSTANCE_SIZE
+#error "INSTANCE_SIZE not defined"
+#endif
+
+#ifdef SKINNED
+uniform int ModelJoints;
+#endif
+
+layout (std140) uniform Instances {
+    instance_t[INSTANCE_SIZE] instances;
+};
+
+instance_t get_instance() {
+    return instances[gl_InstanceID];
+}
+
+#else
+
+uniform mat4 ProjMat;
+uniform mat4 ModelViewMat;
+uniform ivec3 LightMapUv;
+
+instance_t get_instance() {
+    instance_t instance;
+    instance.model_view_proj_mat = ProjMat * ModelViewMat;
+    instance.light_map_uv = LightMapUv.xy;
+    return instance;
+}
+
+#endif
+
 void main() {
+    instance_t instance = get_instance();
+
     #ifdef SKINNED
-    mat4 skinMatrix = getSkinMatrix(Joints, Weight, Joint);
-    gl_Position = ProjMat * ModelViewMat * skinMatrix * vec4(Position, 1.0);
+    ivec4 joint_index =
+    #ifdef INSTANCED
+        Joint + ivec4(gl_InstanceID * ModelJoints)
     #else
-    gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
+        Joint
     #endif
+    #endif
+    ;
+
+    gl_Position = instance.model_view_proj_mat
+    #ifdef SKINNED
+        * getSkinMatrix(Joints, Weight, joint_index)
+    #endif
+        * vec4(Position, 1.0);
 
     vertexDistance = fog_distance(Position, FogShape);
     vertexColor = Color;
-    lightMapColor = texelFetch(Sampler2, LightMapUv.xy / 16, 0);
+    lightMapColor = texelFetch(SamplerLightMap, instance.light_map_uv / 16, 0);
 
     texCoord0 = UV0;
 }

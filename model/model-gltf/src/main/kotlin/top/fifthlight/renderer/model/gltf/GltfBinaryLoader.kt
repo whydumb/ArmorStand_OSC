@@ -34,7 +34,7 @@ object GltfBinaryLoader: ModelFileLoader {
         val readBuffer = ByteBuffer.allocate(16)
         readBuffer.order(ByteOrder.LITTLE_ENDIAN)
 
-        fun ByteBuffer.readBytes(
+        fun readBytes(
             len: Int,
             fail: (Int) -> String,
         ) {
@@ -47,13 +47,13 @@ object GltfBinaryLoader: ModelFileLoader {
             readBuffer.flip()
         }
 
-        readBuffer.readBytes(4) { "Want to read 4 bytes of magic, but only got $it bytes" }
+        readBytes(4) { "Want to read 4 bytes of magic, but only got $it bytes" }
         val magic = readBuffer.getInt()
         if (magic != 0x46546c67) {
             throw GltfLoadException("Bad magic: want 0x46546c67, but got 0x${magic.toString(16).padStart(8, '0')}")
         }
 
-        readBuffer.readBytes(8) { "Bad GLTF binary header" }
+        readBytes(8) { "Bad GLTF binary header" }
         val version = readBuffer.getInt()
         if (version != 2) {
             throw GltfLoadException("Bad GLTF version: want 2, but get $version")

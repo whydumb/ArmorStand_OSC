@@ -5,7 +5,7 @@ import com.mojang.blaze3d.opengl.GlStateManager
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.vertex.VertexFormat
 import net.minecraft.client.gl.GlGpuBuffer
-import top.fifthlight.armorstand.helper.GlStateManagerHelper
+import top.fifthlight.armorstand.helper.gl.GlStateManagerHelper
 import top.fifthlight.armorstand.render.VertexBuffer
 
 class GlVertexBuffer(

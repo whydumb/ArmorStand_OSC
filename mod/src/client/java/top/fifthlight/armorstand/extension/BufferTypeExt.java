@@ -1,4 +1,4 @@
-package top.fifthlight.armorstand.helper;
+package top.fifthlight.armorstand.extension;
 
 import com.mojang.blaze3d.buffers.BufferType;
 

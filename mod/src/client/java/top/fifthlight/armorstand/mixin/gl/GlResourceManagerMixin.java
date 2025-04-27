@@ -1,4 +1,4 @@
-package top.fifthlight.armorstand.mixin;
+package top.fifthlight.armorstand.mixin.gl;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
@@ -13,7 +13,10 @@ import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import it.unimi.dsi.fastutil.ints.IntList;
 import net.minecraft.client.gl.*;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL31;
 import org.lwjgl.opengl.GL32C;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Final;
@@ -21,24 +24,37 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
-import top.fifthlight.armorstand.helper.GlStateManagerHelper;
-import top.fifthlight.armorstand.helper.RenderPassWithTextureBuffer;
-import top.fifthlight.armorstand.helper.RenderPassWithVertexBuffer;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import top.fifthlight.armorstand.extension.RenderObjectExt;
+import top.fifthlight.armorstand.extension.internal.gl.GlResourceManagerExtInternal;
+import top.fifthlight.armorstand.extension.internal.RenderObjectExtInternal;
+import top.fifthlight.armorstand.extension.internal.ShaderProgramExtInternal;
+import top.fifthlight.armorstand.extension.internal.gl.GlRenderPassImplExtInternal;
+import top.fifthlight.armorstand.helper.gl.GlStateManagerHelper;
 import top.fifthlight.armorstand.render.gl.GlTextureBuffer;
 import top.fifthlight.armorstand.render.gl.GlVertexBuffer;
 
 import java.util.Collection;
+import java.util.Objects;
 
 @Mixin(GlResourceManager.class)
-public class GlResourceManagerMixin {
+public abstract class GlResourceManagerMixin implements GlResourceManagerExtInternal {
     @Final
     @Shadow
     private static Logger LOGGER;
 
+    @Shadow
+    protected abstract boolean setupRenderPass(RenderPassImpl pass);
+
+    @Shadow
+    @Final
+    private GlBackend backend;
+
     @WrapOperation(method = "setupRenderPass", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderPipeline;getVertexFormatMode()Lcom/mojang/blaze3d/vertex/VertexFormat$DrawMode;"))
     private VertexFormat.DrawMode onSetupRenderPassGetDrawMode(RenderPipeline instance, Operation<VertexFormat.DrawMode> original, RenderPassImpl pass) {
-        var vertexBuffer = ((RenderPassWithVertexBuffer) pass).armorStand$getVertexBuffer();
+        var vertexBuffer = ((GlRenderPassImplExtInternal) pass).armorStand$getVertexBuffer();
         if (vertexBuffer != null) {
             return vertexBuffer.getMode();
         } else {
@@ -48,7 +64,7 @@ public class GlResourceManagerMixin {
 
     @WrapOperation(method = "drawObjectWithRenderPass", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderPipeline;getVertexFormatMode()Lcom/mojang/blaze3d/vertex/VertexFormat$DrawMode;"))
     private VertexFormat.DrawMode onDrawObjectWithRenderPassGetVertexMode(RenderPipeline instance, Operation<VertexFormat.DrawMode> original, RenderPassImpl pass) {
-        var vertexBuffer = ((RenderPassWithVertexBuffer) pass).armorStand$getVertexBuffer();
+        var vertexBuffer = ((GlRenderPassImplExtInternal) pass).armorStand$getVertexBuffer();
         if (vertexBuffer != null) {
             return vertexBuffer.getMode();
         } else {
@@ -58,7 +74,7 @@ public class GlResourceManagerMixin {
 
     @WrapOperation(method = "drawObjectWithRenderPass", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/BufferManager;setupBuffer(Lcom/mojang/blaze3d/vertex/VertexFormat;Lnet/minecraft/client/gl/GlGpuBuffer;)V"))
     private void onDrawObjectWithRenderPassSetupBuffer(BufferManager instance, VertexFormat vertexFormat, GlGpuBuffer glGpuBuffer, Operation<Void> original, RenderPassImpl pass) {
-        var vertexBuffer = ((RenderPassWithVertexBuffer) pass).armorStand$getVertexBuffer();
+        var vertexBuffer = ((GlRenderPassImplExtInternal) pass).armorStand$getVertexBuffer();
         if (vertexBuffer != null) {
             var buffer = (GlVertexBuffer) vertexBuffer;
             GlStateManager._glBindVertexArray(buffer.getVaoId());
@@ -101,7 +117,7 @@ public class GlResourceManagerMixin {
         }
 
         var blaze3DVertexBuffer = pass.vertexBuffers[0];
-        var armorStandVertexBuffer = ((RenderPassWithVertexBuffer) pass).armorStand$getVertexBuffer();
+        var armorStandVertexBuffer = ((GlRenderPassImplExtInternal) pass).armorStand$getVertexBuffer();
         if (blaze3DVertexBuffer == null && armorStandVertexBuffer == null) {
             throw new IllegalStateException("Missing vertex buffer");
         }
@@ -129,11 +145,11 @@ public class GlResourceManagerMixin {
 
     @WrapWithCondition(method = "drawObjectsWithRenderPass", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/RenderPassImpl;setVertexBuffer(ILcom/mojang/blaze3d/buffers/GpuBuffer;)V"))
     private boolean onVertexBufferSetWhenDrawingMultipleObjects(RenderPassImpl pass, int i, GpuBuffer gpuBuffer, @Local(ordinal = 0) RenderPass.RenderObject renderObject) {
-        var vertexBuffer = ((RenderPassWithVertexBuffer) (Object) renderObject).armorStand$getVertexBuffer();
+        var vertexBuffer = ((RenderObjectExt) (Object) renderObject).armorStand$getVertexBuffer();
         if (vertexBuffer == null) {
             return true;
         }
-        ((RenderPassWithVertexBuffer) pass).armorStand$setVertexBuffer(vertexBuffer);
+        ((RenderObjectExtInternal) pass).armorStand$setVertexBuffer(vertexBuffer);
         return false;
     }
 
@@ -143,20 +159,22 @@ public class GlResourceManagerMixin {
             throw new IllegalStateException("Can't draw without a render pipeline");
         }
 
+        //noinspection resource
         if (pass.pipeline.program() == ShaderProgram.INVALID) {
             throw new IllegalStateException("Pipeline contains invalid shader program");
         }
 
-        for (RenderPipeline.UniformDescription uniformDescription : pass.pipeline.info().getUniforms()) {
-            Object object = pass.simpleUniforms.get(uniformDescription.name());
+        for (var uniformDescription : pass.pipeline.info().getUniforms()) {
+            var object = pass.simpleUniforms.get(uniformDescription.name());
             if (object == null && !ShaderProgram.PREDEFINED_UNIFORMS.contains(uniformDescription.name())) {
                 throw new IllegalStateException("Missing uniform " + uniformDescription.name() + " (should be " + uniformDescription.type() + ")");
             }
         }
 
-        var bufferSamplerUniforms = ((RenderPassWithTextureBuffer) pass).armorStand$getBufferSamplerUniforms();
+        var bufferSamplerUniforms = ((GlRenderPassImplExtInternal) pass).armorStand$getBufferSamplerUniforms();
 
-        for (String samplerName : pass.pipeline.program().getSamplers()) {
+        //noinspection resource
+        for (var samplerName : pass.pipeline.program().getSamplers()) {
             var sampler = pass.samplerUniforms.get(samplerName);
             var bufferSampler = bufferSamplerUniforms.get(samplerName);
             if (sampler == null && bufferSampler == null) {
@@ -173,7 +191,7 @@ public class GlResourceManagerMixin {
         }
     }
 
-    @ModifyExpressionValue(method = "setupRenderPass(Lnet/minecraft/client/gl/RenderPassImpl;)Z", at = @At(value = "FIELD", target = "Lnet/minecraft/client/gl/RenderPassImpl;IS_DEVELOPMENT:Z"))
+    @ModifyExpressionValue(method = "setupRenderPass", at = @At(value = "FIELD", target = "Lnet/minecraft/client/gl/RenderPassImpl;IS_DEVELOPMENT:Z"))
     private boolean onCheckRenderPassUniforms(boolean isDevelopment, RenderPassImpl pass) {
         if (isDevelopment) {
             checkRenderPassUniforms(pass);
@@ -181,16 +199,16 @@ public class GlResourceManagerMixin {
         return false;
     }
 
-    @WrapOperation(method = "setupRenderPass(Lnet/minecraft/client/gl/RenderPassImpl;)Z", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/ShaderProgram;getSamplerLocations()Lit/unimi/dsi/fastutil/ints/IntList;"))
+    @WrapOperation(method = "setupRenderPass", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/ShaderProgram;getSamplerLocations()Lit/unimi/dsi/fastutil/ints/IntList;"))
     private IntList onSetupRenderPassGetSamplerUniform(ShaderProgram instance, Operation<IntList> original, RenderPassImpl pass, @Local boolean switchedProgram, @Local ShaderProgram shaderProgram) {
         var samplerLocations = original.call(instance);
-        var bufferSamplerUniforms = ((RenderPassWithTextureBuffer) pass).armorStand$getBufferSamplerUniforms();
-        for (int i = 0; i < shaderProgram.getSamplers().size(); i++) {
+        var bufferSamplerUniforms = ((GlRenderPassImplExtInternal) pass).armorStand$getBufferSamplerUniforms();
+        for (var i = 0; i < shaderProgram.getSamplers().size(); i++) {
             var name = shaderProgram.getSamplers().get(i);
             var bufferSampler = (GlTextureBuffer) bufferSamplerUniforms.get(name);
             if (bufferSampler != null) {
                 if (switchedProgram || pass.setSamplers.contains(name)) {
-                    int samplerLocation = samplerLocations.getInt(i);
+                    var samplerLocation = samplerLocations.getInt(i);
                     GlUniform.setUniform(samplerLocation, i);
                     GlStateManager._activeTexture(GlConst.GL_TEXTURE0 + i);
                 }
@@ -199,5 +217,59 @@ public class GlResourceManagerMixin {
             }
         }
         return samplerLocations;
+    }
+
+    @Inject(method = "setupRenderPass", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/ShaderProgram;initializeUniforms(Lcom/mojang/blaze3d/vertex/VertexFormat$DrawMode;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;FF)V", shift = At.Shift.AFTER))
+    private void onSetupRenderPassInitializeUniform(RenderPassImpl pass, CallbackInfoReturnable<Boolean> cir) {
+        var pipeline = Objects.requireNonNull(pass.pipeline);
+        var shaderProgram = Objects.requireNonNull(pipeline.program());
+        var uniformBuffers = ((GlRenderPassImplExtInternal) pass).armorStand$getUniformBuffers();
+        var shaderUniformBlocks = ((ShaderProgramExtInternal) shaderProgram).armorstand$getUniformBlocks();
+        var uniformCount = shaderUniformBlocks.size();
+        for (var i = 0; i < uniformCount; i++) {
+            var uniformName = shaderUniformBlocks.get(i);
+            var buffer = uniformBuffers.get(uniformName);
+            if (buffer == null) {
+                throw new IllegalStateException("Missing uniform buffer object " + uniformName);
+            }
+
+            GL30.glBindBufferBase(GL31.GL_UNIFORM_BUFFER, i, ((GlGpuBuffer) buffer).id);
+        }
+    }
+
+    @Unique
+    private void drawInstancedObjectWithRenderPass(@NotNull RenderPassImpl pass, int instances, int first, int count, @Nullable VertexFormat.IndexType indexType, CompiledShaderPipeline pipeline) {
+        var vertexBuffer = ((GlRenderPassImplExtInternal) pass).armorStand$getVertexBuffer();
+        VertexFormat.DrawMode vertexFormatMode;
+        if (vertexBuffer != null) {
+            vertexFormatMode = vertexBuffer.getMode();
+            var buffer = (GlVertexBuffer) vertexBuffer;
+            GlStateManager._glBindVertexArray(buffer.getVaoId());
+        } else {
+            var info = pipeline.info();
+            vertexFormatMode = info.getVertexFormatMode();
+            this.backend.getBufferManager().setupBuffer(info.getVertexFormat(), (GlGpuBuffer) pass.vertexBuffers[0]);
+        }
+        if (indexType != null) {
+            //noinspection DataFlowIssue, because we check it in outer methods
+            GlStateManager._glBindBuffer(GlConst.GL_ELEMENT_ARRAY_BUFFER, ((GlGpuBuffer) pass.indexBuffer).id);
+            GlStateManagerHelper._drawElementsInstanced(GlConst.toGl(vertexFormatMode), count, GlConst.toGl(indexType), (long) first * indexType.size, instances);
+        } else {
+            GlStateManagerHelper._drawArraysInstanced(GlConst.toGl(vertexFormatMode), first, count, instances);
+        }
+    }
+
+    @Override
+    public void armorStand$drawInstancedBoundObjectWithRenderPass(@NotNull RenderPassImpl pass, int instances, int first, int count, VertexFormat.@Nullable IndexType indexType) {
+        if (this.setupRenderPass(pass)) {
+            if (RenderPassImpl.IS_DEVELOPMENT) {
+                checkRenderPassBuffers(pass, indexType != null);
+            }
+
+            if (pass.pipeline == null) {
+                throw new IllegalStateException("Pipeline is null");
+            }
+            this.drawInstancedObjectWithRenderPass(pass, instances, first, count, indexType, pass.pipeline);
+        }
     }
 }

@@ -13,7 +13,6 @@ class ResourceCountTrackerFrame : JFrame("Resource Count Tracker") {
         override fun isCellEditable(row: Int, column: Int) = false
     }
     private val table = JTable(tableModel)
-    private val tracker = ResourceCountTracker.instance
     private val updateTimer = Timer(1000) { updateData() }
     private val emptyLabel = JLabel("Tracker not initialized", SwingConstants.CENTER).apply {
         font = font.deriveFont(Font.BOLD)
@@ -50,7 +49,7 @@ class ResourceCountTrackerFrame : JFrame("Resource Count Tracker") {
     }
 
     private fun updateData() {
-        tracker?.let { tracker ->
+        ResourceCountTracker.instance?.let { tracker ->
             add(scrollPane, BorderLayout.CENTER)
             tableModel.rowCount = 0
             tracker.dumpData()

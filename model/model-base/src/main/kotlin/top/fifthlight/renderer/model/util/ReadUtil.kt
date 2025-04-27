@@ -1,5 +1,6 @@
 package top.fifthlight.renderer.model.util
 
+import java.nio.BufferOverflowException
 import java.nio.ByteBuffer
 import java.nio.channels.ReadableByteChannel
 
@@ -15,6 +16,20 @@ fun ReadableByteChannel.readAll(buffer: ByteBuffer): Int {
         }
     }
     return length
+}
+
+inline fun ByteBuffer.withRelativeLimit(relativeLimit: Int, crossinline func: () -> Unit) {
+    val oldLimit = limit()
+    val newLimit = position() + relativeLimit
+    if (newLimit > oldLimit) {
+        throw BufferOverflowException()
+    }
+    limit(newLimit)
+    try {
+        func()
+    } finally {
+        limit(oldLimit)
+    }
 }
 
 fun ByteBuffer.getUByteNormalized() = get().toFloat() / 255f

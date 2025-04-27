@@ -220,12 +220,41 @@ object PmxLoader : ModelFileLoader {
             var outputPosition = 0
             var inputPosition = buffer.position()
 
+            fun readFloat(): Float = buffer.getFloat(inputPosition).also {
+                inputPosition += 4
+            }
+
+            fun readBoneIndex(): Int {
+                val index = when (boneIndexSize) {
+                    1 -> buffer.get(inputPosition).toInt()
+                    2 -> buffer.getShort(inputPosition).toInt()
+                    4 -> buffer.getInt(inputPosition)
+                    else -> throw AssertionError()
+                }
+                inputPosition += boneIndexSize
+                return index
+            }
+
+            fun readWeight(): Float = buffer.getFloat(inputPosition).also { inputPosition += 4 }
+            fun readVector3f(dst: Vector3f) = dst.also {
+                dst.set(
+                    buffer.getFloat(inputPosition),
+                    buffer.getFloat(inputPosition + 4),
+                    buffer.getFloat(inputPosition + 8)
+                )
+                inputPosition += 12
+            }
+
+            val copyBaseVertexSize = BASE_VERTEX_ATTRIBUTE_SIZE - 4
             for (i in 0 until vertexCount) {
                 // Read vertex data
+                // invert x axis
+                outputBuffer.putFloat(outputPosition, -readFloat())
+                outputPosition += 4
                 // POSITION_NORMAL_UV_JOINT_WEIGHT
-                outputBuffer.put(outputPosition, buffer, inputPosition, BASE_VERTEX_ATTRIBUTE_SIZE)
-                outputPosition += BASE_VERTEX_ATTRIBUTE_SIZE
-                inputPosition += BASE_VERTEX_ATTRIBUTE_SIZE
+                outputBuffer.put(outputPosition, buffer, inputPosition, copyBaseVertexSize)
+                outputPosition += copyBaseVertexSize
+                inputPosition += copyBaseVertexSize
 
                 // Skip additionalVec4
                 inputPosition += additionalVec4Size
@@ -234,27 +263,7 @@ object PmxLoader : ModelFileLoader {
                 val weightDeformType = buffer.get(inputPosition).toUByte().toInt()
                 inputPosition += 1
 
-                fun readBoneIndex(): Int {
-                    val index = when (boneIndexSize) {
-                        1 -> buffer.get(inputPosition).toInt()
-                        2 -> buffer.getShort(inputPosition).toInt()
-                        4 -> buffer.getInt(inputPosition)
-                        else -> throw AssertionError()
-                    }
-                    inputPosition += boneIndexSize
-                    return index
-                }
-
-                fun readWeight(): Float = buffer.getFloat(inputPosition).also { inputPosition += 4 }
-                fun readVector3f(): Vector3f = Vector3f().also {
-                    it.set(
-                        buffer.getFloat(inputPosition),
-                        buffer.getFloat(inputPosition + 4),
-                        buffer.getFloat(inputPosition + 8)
-                    )
-                    inputPosition += 12
-                }
-
+                val vec = Vector3f()
                 // TODO: keep track of vertices without bone, to exclude non-skinned vertices out
                 when (weightDeformType) {
                     // BDEF1
@@ -312,9 +321,6 @@ object PmxLoader : ModelFileLoader {
                         val index1 = readBoneIndex()
                         val index2 = readBoneIndex()
                         val weight1 = readWeight()
-                        val c = readVector3f()
-                        val r0 = readVector3f()
-                        val r1 = readVector3f()
                         outputBuffer.putInt(outputPosition, index1)
                         outputBuffer.putInt(outputPosition + 4, index2)
                         if (index1 != -1) {
@@ -323,6 +329,9 @@ object PmxLoader : ModelFileLoader {
                         if (index2 != -1) {
                             outputBuffer.putFloat(outputPosition + 20, 1f - weight1)
                         }
+                        val c = readVector3f(vec)
+                        val r0 = readVector3f(vec)
+                        val r1 = readVector3f(vec)
                     }
                 }
                 outputPosition += SKIN_VERTEX_ATTRIBUTE_SIZE
@@ -502,6 +511,8 @@ object PmxLoader : ModelFileLoader {
             }
         }
 
+        private fun Vector3f.invertX() = also { x = -x }
+
         private fun loadBones(buffer: ByteBuffer) {
             val boneCount = buffer.getInt()
             if (boneCount < 0) {
@@ -537,14 +548,14 @@ object PmxLoader : ModelFileLoader {
             fun loadBone(buffer: ByteBuffer): PmxBone {
                 val nameLocal = loadString(buffer)
                 val nameUniversal = loadString(buffer)
-                val position = loadVector3f(buffer)
+                val position = loadVector3f(buffer).invertX()
                 val parentBoneIndex = loadBoneIndex(buffer)
                 val layer = buffer.getInt()
                 val flags = loadBoneFlags(buffer)
                 val tailPosition = if (flags.indexedTailPosition) {
                     PmxBone.TailPosition.Indexed(loadBoneIndex(buffer))
                 } else {
-                    PmxBone.TailPosition.Scalar(loadVector3f(buffer))
+                    PmxBone.TailPosition.Scalar(loadVector3f(buffer).invertX())
                 }
                 val inheritParent = if (flags.inheritRotation || flags.inheritTranslation) {
                     Pair(loadBoneIndex(buffer), buffer.getFloat())
@@ -552,12 +563,12 @@ object PmxLoader : ModelFileLoader {
                     null
                 }
                 val axisDirection = if (flags.fixedAxis) {
-                    loadVector3f(buffer)
+                    loadVector3f(buffer).invertX()
                 } else {
                     null
                 }
                 val localCoordinate = if (flags.localCoordinate) {
-                    PmxBone.LocalCoordinate(loadVector3f(buffer), loadVector3f(buffer))
+                    PmxBone.LocalCoordinate(loadVector3f(buffer).invertX(), loadVector3f(buffer).invertX())
                 } else {
                     null
                 }
@@ -575,8 +586,8 @@ object PmxLoader : ModelFileLoader {
                         val index = loadBoneIndex(buffer)
                         val limits = if (buffer.get() != 0.toByte()) {
                             PmxBone.IkLink.Limits(
-                                limitMin = loadVector3f(buffer),
-                                limitMax = loadVector3f(buffer),
+                                limitMin = loadVector3f(buffer).invertX(),
+                                limitMax = loadVector3f(buffer).invertX(),
                             )
                         } else {
                             null
@@ -638,10 +649,12 @@ object PmxLoader : ModelFileLoader {
             val jointIds = mutableMapOf<Int, NodeId>()
             fun addBone(index: Int, parentPosition: Vector3f? = null): Node {
                 val bone = bones[index]
-                var nodeIndex = nextNodeId++
+                val nodeIndex = nextNodeId++
                 val nodeId = NodeId(modelId, nodeIndex)
                 jointIds[index] = nodeId
-                val children = childBoneMap[index]?.map { addBone(it, bone.position) } ?: listOf()
+                val children = childBoneMap[index]?.map {
+                    addBone(it, bone.position)
+                } ?: listOf()
                 return Node(
                     name = bone.nameLocal,
                     id = nodeId,

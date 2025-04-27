@@ -1,4 +1,4 @@
-package top.fifthlight.armorstand.helper;
+package top.fifthlight.armorstand.helper.gl;
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -23,5 +23,15 @@ public class GlStateManagerHelper {
     public static void _glTexBuffer(int target, int internalFormat, int buffer) {
         RenderSystem.assertOnRenderThread();
         GL31.glTexBuffer(target, internalFormat, buffer);
+    }
+
+    public static void _drawElementsInstanced(int mode, int type, int count, long indices, int instanceCount) {
+        RenderSystem.assertOnRenderThread();
+        GL31.glDrawElementsInstanced(mode, type, count, indices, instanceCount);
+    }
+
+    public static void _drawArraysInstanced(int mode, int first, int count, int instanceCount) {
+        RenderSystem.assertOnRenderThread();
+        GL31.glDrawArraysInstanced(mode, first, count, instanceCount);
     }
 }

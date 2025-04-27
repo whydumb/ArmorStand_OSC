@@ -1,4 +1,4 @@
-package top.fifthlight.armorstand.mixin;
+package top.fifthlight.armorstand.mixin.gl;
 
 import com.mojang.blaze3d.buffers.BufferType;
 import com.mojang.blaze3d.opengl.GlConst;
@@ -7,7 +7,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import top.fifthlight.armorstand.helper.BufferTypeExt;
+import top.fifthlight.armorstand.extension.BufferTypeExt;
 
 @Mixin(GlConst.class)
 public class GlConstExt {

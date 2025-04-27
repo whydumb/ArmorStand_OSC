@@ -1,17 +1,11 @@
 package top.fifthlight.armorstand.model
 
-import net.minecraft.client.font.TextRenderer
-import net.minecraft.client.render.VertexConsumerProvider
-import net.minecraft.client.render.entity.EntityRenderDispatcher
+import com.mojang.blaze3d.systems.RenderSystem
 import net.minecraft.client.util.math.MatrixStack
-import net.minecraft.util.Colors
 import net.minecraft.util.Identifier
 import org.joml.Matrix4f
 import org.joml.Matrix4fc
-import org.joml.Vector3f
-import top.fifthlight.armorstand.ArmorStandClient
 import top.fifthlight.armorstand.util.AbstractRefCount
-import top.fifthlight.armorstand.util.RenderLayers
 import top.fifthlight.armorstand.util.iteratorOf
 
 sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
@@ -26,14 +20,12 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
 
     open fun render(instance: ModelInstance, matrixStack: MatrixStack, globalMatrix: Matrix4fc, light: Int) = Unit
     open fun update(instance: ModelInstance, matrixStack: MatrixStack, updateTransform: Boolean) = Unit
-    open fun renderDebug(
+    open fun schedule(
         instance: ModelInstance,
         matrixStack: MatrixStack,
         globalMatrix: Matrix4fc,
-        vertexConsumerProvider: VertexConsumerProvider,
-        textRenderer: TextRenderer,
-        dispatcher: EntityRenderDispatcher,
         light: Int,
+        onTaskScheduled: (RenderTask<*, *>) -> Unit
     ) = Unit
 
     class Group(val children: List<RenderNode>) : RenderNode() {
@@ -48,25 +40,13 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         override fun render(instance: ModelInstance, matrixStack: MatrixStack, globalMatrix: Matrix4fc, light: Int) =
             children.forEach { it.render(instance, matrixStack, globalMatrix, light) }
 
-        override fun renderDebug(
+        override fun schedule(
             instance: ModelInstance,
             matrixStack: MatrixStack,
             globalMatrix: Matrix4fc,
-            vertexConsumerProvider: VertexConsumerProvider,
-            textRenderer: TextRenderer,
-            dispatcher: EntityRenderDispatcher,
             light: Int,
-        ) = children.forEach {
-            it.renderDebug(
-                instance,
-                matrixStack,
-                globalMatrix,
-                vertexConsumerProvider,
-                textRenderer,
-                dispatcher,
-                light
-            )
-        }
+            onTaskScheduled: (RenderTask<*, *>) -> Unit
+        ) = children.forEach { it.schedule(instance, matrixStack, globalMatrix, light, onTaskScheduled) }
 
         override fun update(instance: ModelInstance, matrixStack: MatrixStack, updateTransform: Boolean) =
             children.forEach { it.update(instance, matrixStack, updateTransform) }
@@ -95,6 +75,22 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
             }
         }
 
+        override fun schedule(
+            instance: ModelInstance,
+            matrixStack: MatrixStack,
+            globalMatrix: Matrix4fc,
+            light: Int,
+            onTaskScheduled: (RenderTask<*, *>) -> Unit
+        ) {
+            val skinData = skinIndex?.let { instance.skinData[it] }
+            val matrix = if (skinData != null) {
+                globalMatrix
+            } else {
+                matrixStack.peek().positionMatrix
+            }
+            mesh.schedule(matrix, light, skinData, onTaskScheduled)
+        }
+
         override fun iterator() = iteratorOf<RenderNode>()
     }
 
@@ -118,39 +114,21 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
             }
         }
 
-        override fun renderDebug(
+        override fun schedule(
             instance: ModelInstance,
             matrixStack: MatrixStack,
             globalMatrix: Matrix4fc,
-            vertexConsumerProvider: VertexConsumerProvider,
-            textRenderer: TextRenderer,
-            dispatcher: EntityRenderDispatcher,
             light: Int,
+            onTaskScheduled: (RenderTask<*, *>) -> Unit
         ) {
             val transform = instance.transforms[transformIndex]
             transform?.matrix?.let { matrix ->
                 matrixStack.push()
                 matrixStack.multiplyPositionMatrix(matrix)
-                child.renderDebug(
-                    instance,
-                    matrixStack,
-                    globalMatrix,
-                    vertexConsumerProvider,
-                    textRenderer,
-                    dispatcher,
-                    light,
-                )
+                child.schedule(instance, matrixStack, globalMatrix, light, onTaskScheduled)
                 matrixStack.pop()
             } ?: run {
-                child.renderDebug(
-                    instance,
-                    matrixStack,
-                    globalMatrix,
-                    vertexConsumerProvider,
-                    textRenderer,
-                    dispatcher,
-                    light,
-                )
+                child.schedule(instance, matrixStack, globalMatrix, light, onTaskScheduled)
             }
         }
 
@@ -171,7 +149,7 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
             }
         }
 
-        override fun iterator() = iteratorOf<RenderNode>(child)
+        override fun iterator() = iteratorOf(child)
 
         override fun onClosed() {
             child.decreaseReferenceCount()
@@ -184,7 +162,6 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         val jointIndex: Int,
     ) : RenderNode() {
         private val cacheMatrix = Matrix4f()
-        private val translation = Vector3f()
 
         override fun update(instance: ModelInstance, matrixStack: MatrixStack, updateTransform: Boolean) {
             if (!updateTransform) {
@@ -198,80 +175,6 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
             val inverseMatrix = skinData.skin.inverseBindMatrices?.get(jointIndex)
             inverseMatrix?.let { matrix.mul(it) }
             skinData.setMatrix(jointIndex, matrix)
-        }
-
-        private val parentJoint: Joint? by lazy {
-            var current = parent
-
-            while (current != null) {
-                when (current) {
-                    is Transform -> {
-                        current = current.parent
-                        continue
-                    }
-
-                    is Group -> {
-                        for (sibling in current.children) {
-                            if (sibling is Joint && sibling != this && sibling.skinIndex == skinIndex) {
-                                return@lazy sibling
-                            }
-                        }
-                    }
-
-                    else -> return@lazy null
-                }
-                current = current.parent
-            }
-
-            null
-        }
-
-        override fun renderDebug(
-            instance: ModelInstance,
-            matrixStack: MatrixStack,
-            globalMatrix: Matrix4fc,
-            vertexConsumerProvider: VertexConsumerProvider,
-            textRenderer: TextRenderer,
-            dispatcher: EntityRenderDispatcher,
-            light: Int,
-        ) {
-            if (ArmorStandClient.showBoneLabel) {
-                name?.let { name ->
-                    val x = -textRenderer.getWidth(name) / 2f
-                    matrixStack.push()
-                    matrixStack.peek().positionMatrix.getTranslation(translation)
-                    matrixStack.peek().positionMatrix.translation(translation)
-                    matrixStack.peek().rotate(dispatcher.rotation)
-                    matrixStack.peek().scale(0.005F, -0.005F, 0.005F)
-                    textRenderer.draw(
-                        name,
-                        x,
-                        0f,
-                        Colors.WHITE,
-                        false,
-                        matrixStack.peek().positionMatrix,
-                        vertexConsumerProvider,
-                        TextRenderer.TextLayerType.NORMAL,
-                        0x33000000,
-                        light
-                    )
-                    matrixStack.pop()
-                }
-            }
-
-            val matrix = matrixStack.peek().positionMatrix
-            cacheMatrix.set(matrix)
-            val buffer = vertexConsumerProvider.getBuffer(RenderLayers.DEBUG_BONE_LINES)
-            buffer.vertex(matrix, 0f, 0f, 0f).color(Colors.RED)
-            buffer.vertex(matrix, 0.01f, 0f, 0f).color(Colors.RED)
-            buffer.vertex(matrix, 0f, 0f, 0f).color(Colors.GREEN)
-            buffer.vertex(matrix, 0f, 0.01f, 0f).color(Colors.GREEN)
-            buffer.vertex(matrix, 0f, 0f, 0f).color(Colors.BLUE)
-            buffer.vertex(matrix, 0f, 0f, 0.01f).color(Colors.BLUE)
-            parentJoint?.let { parent ->
-                buffer.vertex(parent.cacheMatrix, 0f, 0f, 0f).color(Colors.YELLOW)
-                buffer.vertex(matrix, 0f, 0f, 0f).color(Colors.CYAN)
-            }
         }
 
         override fun iterator() = iteratorOf<RenderNode>()

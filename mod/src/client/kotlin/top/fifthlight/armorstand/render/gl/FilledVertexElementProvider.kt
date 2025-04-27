@@ -12,7 +12,7 @@ import org.lwjgl.opengl.ARBClearBufferObject
 import org.lwjgl.opengl.GL32C
 import org.lwjgl.opengl.GLCapabilities
 import org.lwjgl.system.MemoryUtil
-import top.fifthlight.armorstand.helper.GpuDeviceExt.FillType
+import top.fifthlight.armorstand.extension.GpuDeviceExt.FillType
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.function.Supplier
@@ -46,6 +46,7 @@ object FilledVertexElementProvider {
         if (provider != null) {
             return
         }
+        @Suppress("SimplifyBooleanWithConstants")
         provider = if (capabilities.GL_ARB_clear_buffer_object && USE_ARB_EXTENSION) {
             usedCapabilities.add("GL_ARB_clear_buffer_object")
             ARBBufferProvider(labeler)

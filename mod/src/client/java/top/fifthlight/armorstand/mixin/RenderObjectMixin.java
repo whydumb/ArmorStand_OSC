@@ -5,11 +5,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
-import top.fifthlight.armorstand.helper.RenderPassWithVertexBuffer;
+import top.fifthlight.armorstand.extension.internal.RenderObjectExtInternal;
 import top.fifthlight.armorstand.render.VertexBuffer;
 
 @Mixin(RenderPass.RenderObject.class)
-public abstract class RenderObjectMixin implements RenderPassWithVertexBuffer {
+public abstract class RenderObjectMixin implements RenderObjectExtInternal {
     @Unique
     VertexBuffer vertexBuffer;
 

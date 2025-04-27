@@ -8,7 +8,10 @@ import com.mojang.blaze3d.vertex.VertexFormat
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap
 import kotlinx.coroutines.*
-import top.fifthlight.armorstand.helper.GpuDeviceExt
+import top.fifthlight.armorstand.extension.GpuDeviceExt
+import top.fifthlight.armorstand.extension.NativeImageExt
+import top.fifthlight.armorstand.extension.createBuffer
+import top.fifthlight.armorstand.extension.createVertexBuffer
 import top.fifthlight.armorstand.render.IndexBuffer
 import top.fifthlight.armorstand.render.RefCountedGpuBuffer
 import top.fifthlight.armorstand.render.RefCountedGpuTexture
@@ -93,7 +96,7 @@ class ModelLoader {
         )
     }
 
-    private suspend fun loadMaterial(material: Material, hasSkinElements: Boolean): RenderMaterial? = when (material) {
+    private suspend fun loadMaterial(material: Material, hasSkinElements: Boolean): RenderMaterial<*>? = when (material) {
         Material.Default -> RenderMaterial.Fallback
         is Material.Pbr -> RenderMaterial.Unlit(
             // TODO load PBR material
@@ -171,7 +174,7 @@ class ModelLoader {
 
     private fun loadVertexElements(
         attributes: Primitive.Attributes,
-        material: RenderMaterial
+        material: RenderMaterial<*>,
     ): List<VertexBuffer.VertexElement> = buildList {
         fun createElement(
             accessor: Accessor,
@@ -243,16 +246,14 @@ class ModelLoader {
                 byteBuffer.putShort(index.toShort())
             }
             byteBuffer.flip()
-            val gpuBuffer = RenderSystem.getDevice().let { device ->
-                RefCountedGpuBuffer(
-                    device.createBuffer(
-                        { "Transformed index buffer ${accessor.name}" },
-                        BufferType.INDICES,
-                        BufferUsage.STATIC_WRITE,
-                        byteBuffer
-                    )
+            val gpuBuffer = RefCountedGpuBuffer(
+                RenderSystem.getDevice().createBuffer(
+                    { "Transformed index buffer ${accessor.name}" },
+                    BufferType.INDICES,
+                    BufferUsage.STATIC_WRITE,
+                    byteBuffer
                 )
-            }
+            )
             return IndexBuffer(
                 buffer = gpuBuffer,
                 length = accessor.count,

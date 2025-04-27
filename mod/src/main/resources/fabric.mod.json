@@ -27,7 +27,10 @@
 	},
 	"accessWidener": "armorstand.accesswidener",
 	"mixins": [
-		"armorstand.mixins.json"
+		{
+			"environment": "client",
+			"config": "armorstand.mixins.client.json"
+		}
 	],
 	"depends": {
 		"fabricloader": ">=0.16.10",

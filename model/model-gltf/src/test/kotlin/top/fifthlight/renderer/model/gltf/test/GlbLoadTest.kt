@@ -1,7 +1,6 @@
 package top.fifthlight.renderer.model.gltf.test
 
 import top.fifthlight.renderer.model.gltf.GltfBinaryLoader
-import top.fifthlight.renderer.model.gltf.GltfLoader
 import java.nio.file.FileSystems
 import kotlin.io.path.toPath
 import kotlin.test.Test

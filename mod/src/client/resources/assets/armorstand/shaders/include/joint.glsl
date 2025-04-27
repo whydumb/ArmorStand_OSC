@@ -10,12 +10,12 @@ mat4 getJointMatrix(in samplerBuffer joints, int index) {
     );
 }
 
-mat4 getSkinMatrix(in samplerBuffer joints, vec4 weight, ivec4 jointIndices) {
+mat4 getSkinMatrix(in samplerBuffer joints, vec4 weight, ivec4 joint_indices) {
     if (weight == vec4(0.0)) {
         return mat4(1.0);
     }
-    return weight.x * getJointMatrix(joints, jointIndices.x) +
-        weight.y * getJointMatrix(joints, jointIndices.y) +
-        weight.z * getJointMatrix(joints, jointIndices.z) +
-        weight.w * getJointMatrix(joints, jointIndices.w);
+    return weight.x * getJointMatrix(joints, joint_indices.x) +
+        weight.y * getJointMatrix(joints, joint_indices.y) +
+        weight.z * getJointMatrix(joints, joint_indices.z) +
+        weight.w * getJointMatrix(joints, joint_indices.w);
 }
