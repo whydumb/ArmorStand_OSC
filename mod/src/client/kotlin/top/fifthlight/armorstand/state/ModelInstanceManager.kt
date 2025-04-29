@@ -171,9 +171,9 @@ object ModelInstanceManager {
                 val (result, duration) = measureTimedValue {
                     val modelLoadResult = runCatching {
                         ModelLoaders.probeAndLoad(modelDir.resolve(path).toAbsolutePath())
-                    }.let {
-                        it.exceptionOrNull()?.let { LOGGER.warn("Model load failed", it) }
-                        it.getOrNull()
+                    }.let { value ->
+                        value.exceptionOrNull()?.let { LOGGER.warn("Model load failed", it) }
+                        value.getOrNull()
                     }
                     val result = modelLoadResult?.takeIf { it.scene != null }?.let { result ->
                         LOGGER.info("Model metadata: ${result.metadata}")

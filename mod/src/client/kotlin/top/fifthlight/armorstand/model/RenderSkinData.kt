@@ -26,7 +26,7 @@ class RenderSkinData(
     override val typeId: Identifier
         get() = TYPE_ID
 
-    val matricesBuffer = ByteBuffer.allocateDirect(skin.jointSize * MAT4X4_SIZE).apply {
+    val matricesBuffer: ByteBuffer = ByteBuffer.allocateDirect(skin.jointSize * MAT4X4_SIZE).apply {
         order(ByteOrder.nativeOrder())
         var position = 0
         repeat(skin.jointSize) {

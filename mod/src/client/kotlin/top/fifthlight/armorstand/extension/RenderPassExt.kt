@@ -2,12 +2,8 @@ package top.fifthlight.armorstand.extension
 
 import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.systems.RenderPass
-import com.mojang.blaze3d.systems.RenderPass.UniformUploader
-import top.fifthlight.armorstand.helper.RenderObjectHelper
 import top.fifthlight.armorstand.render.GpuTextureBuffer
-import top.fifthlight.armorstand.render.IndexBuffer
 import top.fifthlight.armorstand.render.VertexBuffer
-import java.util.function.Consumer
 
 fun RenderPass.setVertexBuffer(vertexBuffer: VertexBuffer) =
     (this as RenderPassExt).`armorStand$setVertexBuffer`(vertexBuffer)

@@ -30,6 +30,6 @@ object ModelDumper {
     }
 
     fun dumpNode(node: RenderNode, logger: Logger) {
-        node.dumpTreeInternal(logger, "", true, true)
+        node.dumpTreeInternal(logger, "", isLastChild = true, isFirst = true)
     }
 }

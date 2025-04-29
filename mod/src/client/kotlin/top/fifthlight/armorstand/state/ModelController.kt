@@ -80,8 +80,8 @@ sealed class ModelController {
                 timeline = Timeline(
                     duration = it.duration,
                     loop = true,
-                ).also {
-                    it.play()
+                ).also { timeline ->
+                    timeline.play()
                 }
             )
         }

@@ -320,7 +320,7 @@ class ModelLoader {
                     )
                 )
             }
-            node.children.forEach { loadNode(it)?.let { add(it) } }
+            node.children.forEach { loadNode(it)?.let { child -> add(child) } }
         }
         if (children.isEmpty()) {
             return@coroutineScope null

@@ -66,7 +66,7 @@ class InstanceDataBuffer : AutoCloseable {
     }
 
     companion object {
-        private val ITEM_SIZE = 80
+        private const val ITEM_SIZE = 80
         private val MIN_SIZE = ArmorStandClient.INSTANCE_SIZE * ITEM_SIZE
 
         private val POOL = ObjectPool<InstanceDataBuffer>(

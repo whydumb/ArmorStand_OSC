@@ -121,8 +121,8 @@ internal class GltfLoader(
 
     private fun loadTextures() {
         val images = gltf.images ?: listOf()
-        textures = gltf.textures?.map {
-            val image = it.source?.let { index ->
+        textures = gltf.textures?.map { texture ->
+            val image = texture.source?.let { index ->
                 images.getOrNull(index)
                     ?: throw GltfLoadException("Bad texture: image $index not found")
             }
@@ -138,8 +138,8 @@ internal class GltfLoader(
                 )
             }
             Texture(
-                name = it.name,
-                sampler = it.sampler?.let { index ->
+                name = texture.name,
+                sampler = texture.sampler?.let { index ->
                     samplers.getOrNull(index)
                         ?: throw GltfLoadException("Bad texture: sampler $index not found")
                 } ?: defaultSampler,
