@@ -26,7 +26,7 @@ object ModelInstanceManager {
     const val INSTANCE_EXPIRE_MS = 30000
     const val MODEL_EXPIRE_MS = 10000
     private val client = MinecraftClient.getInstance()
-    private val modelDir = FabricLoader.getInstance().gameDir.resolve("models")
+    val modelDir: Path = FabricLoader.getInstance().gameDir.resolve("models")
     private val selfUuid: UUID?
         get() = client.player?.uuid
     var selfPath: Path? = null
@@ -233,8 +233,10 @@ object ModelInstanceManager {
 
     private fun getModelItem(uuid: UUID) = if (uuid == selfUuid) {
         selfItem
-    } else {
+    } else if (ConfigHolder.config.value.showOtherPlayerModel) {
         modelItems[uuid]
+    } else {
+        null
     }
 
     private fun putModelItem(uuid: UUID, item: Item) = if (uuid == selfUuid) {

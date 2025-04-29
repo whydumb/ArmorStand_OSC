@@ -5,11 +5,11 @@ import net.minecraft.network.codec.PacketCodec
 import net.minecraft.network.packet.CustomPayload
 import net.minecraft.util.Identifier
 
-data class ModelUpdateS2CPayload(val path: String?): CustomPayload {
+data class ModelUpdateC2SPayload(val path: String?): CustomPayload {
     companion object {
         private val PAYLOAD_ID = Identifier.of("armorstand", "model_update")
-        val ID = CustomPayload.Id<ModelUpdateS2CPayload>(PAYLOAD_ID)
-        val CODEC: PacketCodec<PacketByteBuf, ModelUpdateS2CPayload> = PacketCodec.of(ModelUpdateS2CPayload::write, ::ModelUpdateS2CPayload)
+        val ID = CustomPayload.Id<ModelUpdateC2SPayload>(PAYLOAD_ID)
+        val CODEC: PacketCodec<PacketByteBuf, ModelUpdateC2SPayload> = PacketCodec.of(ModelUpdateC2SPayload::write, ::ModelUpdateC2SPayload)
     }
 
     constructor(buf: PacketByteBuf): this(

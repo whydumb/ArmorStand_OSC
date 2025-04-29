@@ -14,3 +14,7 @@ accessible field net/minecraft/client/gl/RenderPassImpl samplerUniforms Ljava/ut
 accessible field net/minecraft/client/gl/RenderPassImpl simpleUniforms Ljava/util/HashMap;
 accessible field net/minecraft/client/gl/RenderPassImpl setSamplers Ljava/util/Set;
 accessible field net/minecraft/client/render/entity/EntityRenderer dispatcher Lnet/minecraft/client/render/entity/EntityRenderDispatcher;
+accessible field net/minecraft/client/gui/screen/Screen ROTATING_PANORAMA_RENDERER Lnet/minecraft/client/gui/RotatingCubeMapRenderer;
+accessible field net/minecraft/client/gui/screen/Screen INWORLD_MENU_BACKGROUND_TEXTURE Lnet/minecraft/util/Identifier;
+accessible field net/minecraft/client/gui/widget/EntryListWidget MENU_LIST_BACKGROUND_TEXTURE Lnet/minecraft/util/Identifier;
+accessible field net/minecraft/client/gui/widget/EntryListWidget INWORLD_MENU_LIST_BACKGROUND_TEXTURE Lnet/minecraft/util/Identifier;

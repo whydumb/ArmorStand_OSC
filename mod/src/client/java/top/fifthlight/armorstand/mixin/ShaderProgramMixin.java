@@ -4,8 +4,6 @@ import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import it.unimi.dsi.fastutil.objects.Reference2IntMap;
-import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import net.minecraft.client.gl.GlUniform;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.gl.UniformType;
@@ -63,13 +61,7 @@ public abstract class ShaderProgramMixin implements ShaderProgramExtInternal {
     @Final
     private String debugLabel;
 
-    @Redirect(
-            method = "set",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lcom/mojang/blaze3d/opengl/GlStateManager;glGetProgrami(II)I"
-            )
-    )
+    @Redirect(method = "set", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/opengl/GlStateManager;glGetProgrami(II)I"))
     private int checkActiveUniforms(
             int program,
             int pname,
