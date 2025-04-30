@@ -11,6 +11,7 @@ joml = "1.10.8"
 serialization = "1.8.0"
 fastutil = "8.5.15"
 owo-lib = "0.12.20+1.21.5"
+h2 = "2.3.232"
 
 [libraries]
 minecraft = { group = "com.mojang", name = "minecraft", version.ref = "minecraft" }
@@ -23,6 +24,7 @@ joml = { group = "org.joml", name = "joml", version.ref = "joml" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 fastutil = { group = "it.unimi.dsi", name = "fastutil", version.ref = "fastutil" }
 owo-lib = { group = "io.wispforest", name = "owo-lib", version.ref = "owo-lib" }
+h2 = { group = "com.h2database", name = "h2", version.ref = "h2" }
 
 [plugins]
 fabric-loom = { id = "fabric-loom", version.ref = "fabric-loom" }

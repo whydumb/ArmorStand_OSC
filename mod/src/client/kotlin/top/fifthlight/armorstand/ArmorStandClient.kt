@@ -3,6 +3,9 @@ package top.fifthlight.armorstand
 import com.mojang.logging.LogUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
@@ -15,6 +18,7 @@ import top.fifthlight.armorstand.debug.ObjectCountTrackerFrame
 import top.fifthlight.armorstand.debug.ObjectPoolTracker
 import top.fifthlight.armorstand.debug.ResourceCountTracker
 import top.fifthlight.armorstand.debug.ResourceCountTrackerFrame
+import top.fifthlight.armorstand.manage.ModelManager
 import top.fifthlight.armorstand.model.RenderMaterial
 import top.fifthlight.armorstand.network.PlayerModelUpdateS2CPayload
 import top.fifthlight.armorstand.state.ModelInstanceManager
@@ -50,7 +54,6 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
         }
 
         ConfigHolder.read()
-
         RenderMaterial.initialize()
 
         WorldRenderEvents.BEFORE_ENTITIES.register { context ->
@@ -61,9 +64,15 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
         }
 
         ClientLifecycleEvents.CLIENT_STARTED.register { client ->
-            scope = CoroutineScope(SupervisorJob() + ThreadExecutorDispatcher(MinecraftClient.getInstance()))
-            NetworkModelSyncer.initialize()
-            ModelInstanceManager.initialize()
+            scope = CoroutineScope(SupervisorJob() + ThreadExecutorDispatcher(client))
+            runBlocking {
+                ModelManager.initialize()
+                NetworkModelSyncer.initialize()
+                ModelInstanceManager.initialize()
+            }
+        }
+        ClientLifecycleEvents.CLIENT_STOPPING.register { client ->
+            scope.cancel()
         }
         ClientPlayNetworking.registerGlobalReceiver(PlayerModelUpdateS2CPayload.ID) { payload, context ->
             ModelInstanceManager.updatePlayerModel(payload.uuid, payload.path)

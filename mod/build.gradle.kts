@@ -60,6 +60,9 @@ dependencies {
 	modImplementation(libs.fabric.api)
 	modImplementation(libs.fabric.language.kotlin)
 
+	include(libs.h2)
+	implementation(libs.h2)
+
 	modImplementation(libs.owo.lib)
 
 	listOf(

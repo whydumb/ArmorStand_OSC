@@ -1,3 +1,15 @@
 {
-  "armorstand.screen.config": "盔甲架设置"
+  "armorstand.config": "盔甲架设置",
+  "armorstand.config.show_other_players": "查看其他玩家的模型",
+  "armorstand.config.send_model_data": "发送模型数据到服务器",
+  "armorstand.config.model_scale": "模型缩放：%s",
+  "armorstand.debug_screen": "盔甲架调试屏幕",
+  "armorstand.debug_screen.tip": "以下功能仅用于调试。",
+  "armorstand.debug_screen.database": "数据库测试",
+  "armorstand.debug_database.execute_query": "执行查询",
+  "armorstand.debug_database.query_failed": "查询中出现错误",
+  "armorstand.debug_database.query_failed_with_message": "查询中出现错误：%s",
+  "armorstand.debug_database.querying": "查询中……",
+  "armorstand.debug_database.executed": "执行完毕，已更新 %d 行，耗时：%s",
+  "armorstand.debug_database.queried_time": "耗时: %s"
 }

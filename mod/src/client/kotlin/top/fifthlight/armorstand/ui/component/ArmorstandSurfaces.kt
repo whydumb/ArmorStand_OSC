@@ -8,7 +8,7 @@ import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.gui.widget.EntryListWidget
 import net.minecraft.client.render.RenderLayer
 
-object Surfaces {
+object ArmorstandSurfaces {
     val VANILLA_BLUR = Surface { context, component ->
         val client = MinecraftClient.getInstance()
         val blurSizeInt = client.options.menuBackgroundBlurrinessValue
@@ -99,4 +99,8 @@ object Surfaces {
 
     val LIST_BACKGROUND_WITH_SEPARATOR: Surface
         get() = LIST_BACKGROUND.and(LIST_SEPARATOR)
+
+    fun bottomLine(color: Int) = Surface { context, component ->
+        context.drawHorizontalLine(component.x(), component.x() + component.width(), component.y() + component.height() - 1, color)
+    }
 }
