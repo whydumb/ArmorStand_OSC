@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.launch
+import net.minecraft.util.Util
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.manage.ModelManager
 import top.fifthlight.armorstand.ui.state.ConfigScreenState
@@ -61,5 +62,9 @@ class ConfigViewModel(scope: CoroutineScope) : ViewModel(scope) {
         ConfigHolder.update {
             copy(modelScale = modelScale)
         }
+    }
+
+    fun openModelDir() {
+        Util.getOperatingSystem().open(ModelManager.modelDir.toUri())
     }
 }

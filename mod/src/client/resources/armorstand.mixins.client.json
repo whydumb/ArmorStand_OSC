@@ -19,7 +19,6 @@
     "gl.GlBackendMixin",
     "gl.GlConstExt",
     "gl.GlResourceManagerMixin",
-    "gl.RenderPassImplMixin",
-    "owo.ScissorStackMixin"
+    "gl.RenderPassImplMixin"
   ]
 }

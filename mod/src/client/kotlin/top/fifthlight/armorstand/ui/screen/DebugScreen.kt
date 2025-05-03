@@ -1,56 +1,44 @@
 package top.fifthlight.armorstand.ui.screen
 
-import io.wispforest.owo.ui.component.Components
-import io.wispforest.owo.ui.container.Containers
-import io.wispforest.owo.ui.container.FlowLayout
-import io.wispforest.owo.ui.core.HorizontalAlignment
-import io.wispforest.owo.ui.core.Insets
-import io.wispforest.owo.ui.core.OwoUIAdapter
-import io.wispforest.owo.ui.core.Sizing
-import io.wispforest.owo.ui.core.VerticalAlignment
-import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.screen.ScreenTexts
 import net.minecraft.text.Text
-import top.fifthlight.armorstand.ui.component.ArmorstandSurfaces
+import top.fifthlight.armorstand.ui.component.BorderLayout
+import top.fifthlight.armorstand.ui.component.LinearLayout
+import top.fifthlight.armorstand.ui.dsl.*
+import top.fifthlight.armorstand.ui.util.Dimensions
 
-class DebugScreen(parent: Screen? = null) : BaseArmorStandScreen<FlowLayout>(
+class DebugScreen(parent: Screen? = null) : BaseArmorStandScreen<DebugScreen>(
     title = Text.translatable("armorstand.debug_screen"),
     parent = parent
 ) {
-    override fun createAdapter(): OwoUIAdapter<FlowLayout> {
-        return OwoUIAdapter.create(this, Containers::verticalFlow)
-    }
-
-    private fun functions() = Containers.ltrTextFlow(Sizing.fill(), Sizing.expand())
-        .child(Components.button(Text.translatable("armorstand.debug_screen.database")) {
-            MinecraftClient.getInstance().setScreen(DatabaseScreen(this))
-        })
-        .padding(Insets.horizontal(16))
-
-    private fun mainPanel() = Containers.verticalFlow(Sizing.fill(), Sizing.expand())
-        .child(Components.label(Text.translatable("armorstand.debug_screen.tip")).shadow(true))
-        .child(functions())
-        .gap(8)
-        .horizontalAlignment(HorizontalAlignment.CENTER)
-
-    private fun topPanel() = Containers.horizontalFlow(Sizing.fill(), Sizing.fixed(32))
-        .child(Components.label(this.title).shadow(true))
-        .horizontalAlignment(HorizontalAlignment.CENTER)
-        .verticalAlignment(VerticalAlignment.CENTER)
-
-    private fun bottomPanel() = Containers.horizontalFlow(Sizing.fill(), Sizing.fixed(32))
-        .child(Components.button(ScreenTexts.BACK) {
-            close()
-        }.horizontalSizing(Sizing.fixed(150)))
-        .horizontalAlignment(HorizontalAlignment.CENTER)
-        .verticalAlignment(VerticalAlignment.CENTER)
-
-    override fun build(rootComponent: FlowLayout) = with(rootComponent) {
-        surface(ArmorstandSurfaces.SCREEN_BACKGROUND)
-        child(topPanel())
-        child(mainPanel())
-        child(bottomPanel())
-        Unit
+    override fun ScreenContext<DebugScreen>.createLayout() {
+        borderLayout(
+            dimensions = dimension(),
+            direction = BorderLayout.Direction.VERTICAL,
+        ) {
+            first(linearLayout(
+                direction = LinearLayout.Direction.HORIZONTAL,
+                align = LinearLayout.Align.CENTER,
+                dimensions = Dimensions(height = 32),
+            ) {
+                add(label(title), positioner { alignVerticalCenter() })
+            })
+            center(linearLayout(LinearLayout.Direction.VERTICAL, gap = 8) {
+                add(label(Text.translatable("armorstand.debug_screen.tip")), positioner { alignHorizontalCenter() })
+                add(button(Text.translatable("armorstand.debug_screen.database")) {
+                    client.setScreen(DatabaseScreen(screen))
+                }, positioner { alignHorizontalCenter() })
+            })
+            second(linearLayout(
+                direction = LinearLayout.Direction.HORIZONTAL,
+                align = LinearLayout.Align.CENTER,
+                dimensions = Dimensions(height = 32),
+            ) {
+                add(button(ScreenTexts.BACK) {
+                    close()
+                }, positioner { alignVerticalCenter() })
+            })
+        }
     }
 }

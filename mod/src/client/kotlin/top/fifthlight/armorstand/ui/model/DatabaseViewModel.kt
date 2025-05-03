@@ -2,20 +2,13 @@ package top.fifthlight.armorstand.ui.model
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.fifthlight.armorstand.manage.ModelManager
 import top.fifthlight.armorstand.ui.state.DatabaseScreenState
-import top.fifthlight.armorstand.util.execute
-import top.fifthlight.armorstand.util.query
-import java.sql.Connection
 import java.sql.ResultSet
-import java.util.Properties
-import kotlin.io.use
 import kotlin.time.measureTimedValue
 
 class DatabaseViewModel(scope: CoroutineScope) : ViewModel(scope) {

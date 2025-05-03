@@ -63,8 +63,6 @@ dependencies {
 	include(libs.h2)
 	implementation(libs.h2)
 
-	modImplementation(libs.owo.lib)
-
 	listOf(
 		":model:model-base",
 		":model:model-gltf",

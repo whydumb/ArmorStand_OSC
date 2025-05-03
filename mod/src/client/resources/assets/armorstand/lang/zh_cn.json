@@ -3,6 +3,7 @@
   "armorstand.config.show_other_players": "查看其他玩家的模型",
   "armorstand.config.send_model_data": "发送模型数据到服务器",
   "armorstand.config.model_scale": "模型缩放：%s",
+  "armorstand.config.open_model_directory": "打开模型文件夹",
   "armorstand.debug_screen": "盔甲架调试屏幕",
   "armorstand.debug_screen.tip": "以下功能仅用于调试。",
   "armorstand.debug_screen.database": "数据库测试",

@@ -3,6 +3,7 @@
   "armorstand.config.show_other_players": "Show other players' models",
   "armorstand.config.send_model_data": "Send model data to server",
   "armorstand.config.model_scale": "Model scale: %s",
+  "armorstand.config.open_model_directory": "Open Model Folder",
   "armorstand.debug_screen": "ArmorStand debug screen",
   "armorstand.debug_screen.tip": "Functions below are for debugging only.",
   "armorstand.debug_screen.database": "Database test",
