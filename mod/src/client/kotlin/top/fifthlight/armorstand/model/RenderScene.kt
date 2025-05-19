@@ -18,6 +18,8 @@ class RenderScene(
     val nodeIdTransformMap: Object2IntMap<NodeId>,
     val nodeNameTransformMap: Object2IntMap<String>,
     val humanoidTagTransformMap: Reference2IntMap<HumanoidTag>,
+    val morphedPrimitives: List<RenderPrimitive>,
+    val expressions: List<RenderExpression>,
 ): AbstractRefCount() {
     companion object {
         private val TYPE_ID = Identifier.of("armorstand", "scene")

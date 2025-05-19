@@ -25,6 +25,7 @@ import javax.swing.SwingUtilities
 object ArmorStandClient : ArmorStand(), ClientModInitializer {
     private val LOGGER = LogUtils.getLogger()
     const val INSTANCE_SIZE = 64
+    const val MAX_ENABLED_MORPH_TARGETS = 32
 
     override lateinit var scope: CoroutineScope
         private set
@@ -53,6 +54,9 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
 
         RenderMaterial.initialize()
 
+        WorldRenderEvents.START.register { context ->
+            PlayerRenderer.flipObjectPools()
+        }
         WorldRenderEvents.BEFORE_ENTITIES.register { context ->
             PlayerRenderer.startRenderWorld()
         }

@@ -17,14 +17,15 @@ import top.fifthlight.armorstand.model.ModelLoader
 import top.fifthlight.armorstand.model.RenderScene
 import top.fifthlight.armorstand.util.ModelLoaders
 import top.fifthlight.armorstand.util.RefCount
+import top.fifthlight.armorstand.util.TimeUtil
 import java.nio.file.Path
 import java.util.*
 import kotlin.time.measureTimedValue
 
 object ModelInstanceManager {
     private val LOGGER = LogUtils.getLogger()
-    const val INSTANCE_EXPIRE_MS = 30000
-    const val MODEL_EXPIRE_MS = 10000
+    const val INSTANCE_EXPIRE_NS = 30 * TimeUtil.NANOSECONDS_PER_SECOND
+    const val MODEL_EXPIRE_NS = 10 * TimeUtil.NANOSECONDS_PER_SECOND
     private val client = MinecraftClient.getInstance()
     val modelDir: Path = FabricLoader.getInstance().gameDir.resolve("models")
     private val selfUuid: UUID?
@@ -73,12 +74,12 @@ object ModelInstanceManager {
     }
 
     fun cleanup() {
-        val now = System.currentTimeMillis()
+        val now = System.nanoTime()
         val usedPaths = mutableSetOf<Path>()
         modelItems.values.removeAll { item ->
             when (item) {
                 is Item.Model -> {
-                    if (now - item.lastAccessTime > INSTANCE_EXPIRE_MS) {
+                    if (now - item.lastAccessTime > INSTANCE_EXPIRE_NS) {
                         item.decreaseReferenceCount()
                         true
                     } else {
@@ -97,7 +98,7 @@ object ModelInstanceManager {
             } else {
                 if (path !in usedPaths) {
                     if (cache is ModelCache.Loaded) {
-                        if (now - cache.lastAccessTime < MODEL_EXPIRE_MS) {
+                        if (now - cache.lastAccessTime < MODEL_EXPIRE_NS) {
                             return@removeAll false
                         }
                         cache.decreaseReferenceCount()
@@ -127,7 +128,7 @@ object ModelInstanceManager {
                     null -> Item.Empty
                     else -> Item.Model(
                         path = path,
-                        lastAccessTime = System.currentTimeMillis(),
+                        lastAccessTime = System.nanoTime(),
                         instance = ModelInstance(result.scene),
                         controller = if (result.animation.isNotEmpty()) {
                             ModelController.Predefined(result.animation)
@@ -175,10 +176,10 @@ object ModelInstanceManager {
                         value.exceptionOrNull()?.let { LOGGER.warn("Model load failed", it) }
                         value.getOrNull()
                     }
-                    val result = modelLoadResult?.takeIf { it.scene != null }?.let { result ->
+                    val result = modelLoadResult?.takeIf { it.model != null }?.let { result ->
                         LOGGER.info("Model metadata: ${result.metadata}")
 
-                        val scene = ModelLoader().loadScene(result.scene!!)
+                        val scene = ModelLoader().loadModel(result.model!!)
                         scene.increaseReferenceCount()
 
                         val animations = result.animations?.map { AnimationLoader.load(scene, it) } ?: listOf()
@@ -186,7 +187,7 @@ object ModelInstanceManager {
                         ModelCache.Loaded(
                             scene = scene,
                             animation = animations,
-                            lastAccessTime = System.currentTimeMillis(),
+                            lastAccessTime = System.nanoTime(),
                         )
                     } ?: ModelCache.Failed
                     modelCache[path] = result
@@ -225,11 +226,11 @@ object ModelInstanceManager {
         }
     }
 
-    private fun getModelPath(uuid: UUID) = if (uuid == selfUuid) {
+    private fun getModelPath(uuid: UUID) = selfPath/*if (uuid == selfUuid) {
         selfPath
     } else {
         modelPaths[uuid]
-    }
+    }*/
 
     private fun getModelItem(uuid: UUID) = if (uuid == selfUuid) {
         selfItem

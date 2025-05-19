@@ -138,7 +138,7 @@ object VmdLoader : ModelFileLoader {
 
         return ModelFileLoader.Result(
             metadata = null,
-            scene = null,
+            model = null,
             animations = listOf(Animation(channels = boneChannels)),
         )
     }

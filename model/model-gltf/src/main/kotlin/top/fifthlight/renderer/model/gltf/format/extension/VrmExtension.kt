@@ -12,6 +12,7 @@ internal data class VrmV0Extension(
     val meta: Meta? = null,
     val firstPerson: FirstPerson? = null,
     val humanoid: Humanoid? = null,
+    val blendShapeMaster: BlendShapeMaster? = null,
 ) {
     @Serializable
     data class Meta(
@@ -121,12 +122,32 @@ internal data class VrmV0Extension(
             val node: Int,
         )
     }
+
+    @Serializable
+    data class BlendShapeMaster(
+        val blendShapeGroups: List<Group>? = null,
+    ) {
+        @Serializable
+        data class Group(
+            val name: String? = null,
+            val presetName: String? = null,
+            val binds: List<Bind>? = null,
+        ) {
+            @Serializable
+            data class Bind(
+                val mesh: Int,
+                val index: Int,
+                val weight: Float? = null,
+            )
+        }
+    }
 }
 
 @Serializable
 data class VrmV1Extension(
     val meta: Meta? = null,
     val humanoid: Humanoid? = null,
+    val expressions: Expressions? = null,
 ) {
     @Serializable
     data class Meta(
@@ -244,6 +265,25 @@ data class VrmV1Extension(
         @Serializable
         data class HumanBone(
             val node: Int,
+        )
+    }
+
+    @Serializable
+    data class Expressions(
+        val preset: Map<String, Expression>? = null,
+        val custom: Map<String, Expression>? = null,
+    )
+
+    @Serializable
+    data class Expression(
+        val isBinary: Boolean? = false,
+        val morphTargetBinds: List<MorphTargetBind>? = null,
+    ) {
+        @Serializable
+        data class MorphTargetBind(
+            val node: Int,
+            val index: Int,
+            val weight: Float? = null,
         )
     }
 }

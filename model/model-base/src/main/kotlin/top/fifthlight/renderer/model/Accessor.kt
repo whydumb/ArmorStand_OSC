@@ -32,7 +32,7 @@ data class Accessor(
         }
     }
 
-    inline fun read(order: ByteOrder = ByteOrder.nativeOrder(), crossinline func: (ByteBuffer) -> Unit) {
+    inline fun read(crossinline func: (ByteBuffer) -> Unit) {
         val bufferView = bufferView
         val elementLength = componentType.byteLength * type.components
         if (bufferView == null) {
@@ -41,11 +41,13 @@ data class Accessor(
             return
         }
         val buffer = bufferView.buffer.buffer.slice(byteOffset + bufferView.byteOffset, totalByteLength)
-        buffer.order(order)
+        buffer.order(ByteOrder.LITTLE_ENDIAN)
         val stride = bufferView.byteStride.takeIf { it > 0 } ?: elementLength
         repeat(count) {
             val position = buffer.position()
+            buffer.limit(position + elementLength)
             func(buffer)
+            buffer.limit(buffer.capacity())
             buffer.position(position + stride)
         }
     }

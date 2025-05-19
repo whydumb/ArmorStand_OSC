@@ -53,24 +53,26 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         override fun iterator(): Iterator<RenderNode> = children.iterator()
     }
 
-    class Mesh(
-        val mesh: RenderMesh,
+    class Primitive(
+        val primitive: RenderPrimitive,
         val skinIndex: Int?,
+        val weightsIndex: Int?,
     ) : RenderNode() {
         init {
-            mesh.increaseReferenceCount()
+            primitive.increaseReferenceCount()
         }
 
         override fun onClosed() {
-            mesh.decreaseReferenceCount()
+            primitive.decreaseReferenceCount()
         }
 
         override fun render(instance: ModelInstance, matrixStack: MatrixStack, globalMatrix: Matrix4fc, light: Int) {
             val skinData = skinIndex?.let { instance.skinData[it] }
+            val targetWeights = weightsIndex?.let { instance.targetWeights[it] }
             if (skinData != null) {
-                mesh.render(globalMatrix, light, skinData)
+                primitive.render(globalMatrix, light, skinData, targetWeights)
             } else {
-                mesh.render(matrixStack.peek().positionMatrix, light, skinData)
+                primitive.render(matrixStack.peek().positionMatrix, light, skinData, targetWeights)
             }
         }
 
@@ -82,12 +84,13 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
             onTaskScheduled: (RenderTask<*, *>) -> Unit
         ) {
             val skinData = skinIndex?.let { instance.skinData[it] }
+            val targetWeights = weightsIndex?.let { instance.targetWeights[it] }
             val matrix = if (skinData != null) {
                 globalMatrix
             } else {
                 matrixStack.peek().positionMatrix
             }
-            mesh.schedule(matrix, light, skinData, onTaskScheduled)
+            primitive.schedule(matrix, light, skinData, targetWeights, onTaskScheduled)
         }
 
         override fun iterator() = iteratorOf<RenderNode>()

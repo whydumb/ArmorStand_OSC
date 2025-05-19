@@ -2,6 +2,8 @@ package top.fifthlight.armorstand.model
 
 import net.minecraft.util.Identifier
 import org.joml.Matrix4f
+import top.fifthlight.armorstand.ArmorStandClient
+import top.fifthlight.armorstand.model.RenderPrimitive.TargetWeights
 import top.fifthlight.armorstand.util.ObjectPool
 
 sealed class RenderTask<T: RenderTask<T, K>, K: Any>: AutoCloseable {
@@ -24,17 +26,20 @@ sealed class RenderTask<T: RenderTask<T, K>, K: Any>: AutoCloseable {
             override fun createList() = mutableListOf<RenderTask.Primitive>()
 
             override fun execute(key: RenderPrimitive, tasks: List<RenderTask.Primitive>) {
-                key.renderInstanced(tasks)
+                tasks.chunked(ArmorStandClient.INSTANCE_SIZE) { chunk ->
+                    key.renderInstanced(chunk)
+                }
             }
         }
     }
 
-    data class Primitive(
+    class Primitive(
         var primitive: RenderPrimitive? = null,
         var skinData: RenderSkinData? = null,
         var modelViewProjMatrix: Matrix4f = Matrix4f(),
         var modelViewMatrix: Matrix4f = Matrix4f(),
         var light: Int = 0,
+        var targetWeights: TargetWeights? = null,
     ): RenderTask<Primitive, RenderPrimitive>(), AutoCloseable {
         override val type: Type<Primitive, RenderPrimitive>
             get() = Type.Primitive

@@ -1,15 +1,51 @@
 package top.fifthlight.renderer.model
 
 import top.fifthlight.renderer.model.Accessor.ComponentTypeItem
+import top.fifthlight.renderer.model.Primitive.Attributes.Key
 
 data class Primitive(
     val mode: Mode,
     val material: Material,
-    val attributes: Attributes,
+    val attributes: Attributes.Primitive,
     val indices: Accessor?,
+    val targets: List<Attributes.MorphTarget>,
 ) {
-    data class Attributes(
-        val position: Accessor,
+    init {
+        fun Accessor.check(key: Key, count: Int? = null) {
+            require(key.allowedComponentTypes.any { it.type == componentType && it.normalized == normalized }) {
+                "Bad component type for usage $key: $componentType (normalized: $normalized), " +
+                        "allowed are ${key.allowedComponentTypes.joinToString(", ")}"
+            }
+            require(type in key.allowedAccessorTypes) {
+                "Bad component type for usage $key: ${type}, " +
+                        "allowed are ${key.allowedAccessorTypes.joinToString(", ")}"
+            }
+            count?.let {
+                require(this.count == it) {
+                    "Bad vertex attribute count: ${this.count}, should be $count"
+                }
+            }
+        }
+        with(attributes) {
+            position.check(Key.POSITION)
+            normal?.check(Key.NORMAL, position.count)
+            tangent?.check(Key.TANGENT, position.count)
+            texcoords.forEach { it.check(Key.TEXCOORD, position.count) }
+            colors.forEach { it.check(Key.COLORS, position.count) }
+        }
+        targets.forEach { target ->
+            with(target) {
+                position?.check(Key.NORMAL, attributes.position.count)
+                normal?.check(Key.NORMAL, attributes.position.count)
+                tangent?.check(Key.TANGENT, attributes.position.count)
+                texcoords.forEach { it.check(Key.TEXCOORD, attributes.position.count) }
+                colors.forEach { it.check(Key.COLORS, attributes.position.count) }
+            }
+        }
+    }
+
+    sealed class Attributes(
+        open val position: Accessor? = null,
         val normal: Accessor? = null,
         val tangent: Accessor? = null,
         val texcoords: List<Accessor> = listOf(),
@@ -17,29 +53,25 @@ data class Primitive(
         val joints: List<Accessor> = listOf(),
         val weights: List<Accessor> = listOf(),
     ) {
-        init {
-            fun Accessor.check(key: Key, count: Int? = null) {
-                require(key.allowedComponentTypes.any { it.type == componentType && it.normalized == normalized }) {
-                    "Bad component type for usage $key: $componentType (normalized: $normalized), " +
-                            "allowed are ${key.allowedComponentTypes.joinToString(", ")}"
-                }
-                require(type in key.allowedAccessorTypes) {
-                    "Bad component type for usage $key: ${type}, " +
-                            "allowed are ${key.allowedAccessorTypes.joinToString(", ")}"
-                }
-                count?.let {
-                    require(this.count == it) {
-                        "Bad vertex attribute count: ${this.count}, should be $count"
-                    }
-                }
-            }
+        class MorphTarget(
+            position: Accessor? = null,
+            normal: Accessor? = null,
+            tangent: Accessor? = null,
+            texcoords: List<Accessor> = listOf(),
+            colors: List<Accessor> = listOf(),
+            joints: List<Accessor> = listOf(),
+            weights: List<Accessor> = listOf()
+        ) : Attributes(position, normal, tangent, texcoords, colors, joints, weights)
 
-            position.check(Key.POSITION)
-            normal?.check(Key.NORMAL, position.count)
-            tangent?.check(Key.TANGENT, position.count)
-            texcoords.forEach { it.check(Key.TEXCOORD, position.count) }
-            colors.forEach { it.check(Key.COLORS, position.count) }
-        }
+        class Primitive(
+            override val position: Accessor,
+            normal: Accessor? = null,
+            tangent: Accessor? = null,
+            texcoords: List<Accessor> = listOf(),
+            colors: List<Accessor> = listOf(),
+            joints: List<Accessor> = listOf(),
+            weights: List<Accessor> = listOf()
+        ) : Attributes(position, normal, tangent, texcoords, colors, joints, weights)
 
         enum class Key(
             val allowedComponentTypes: List<ComponentTypeItem>,

@@ -14,6 +14,7 @@ class ModelInstance private constructor(
     val transforms: Array<NodeTransform?>,
     val transformsDirty: Array<Boolean>,
     val skinData: Array<RenderSkinData>,
+    val targetWeights: Array<RenderPrimitive.TargetWeights>,
 ) : AbstractRefCount() {
     companion object {
         private val TYPE_ID = Identifier.of("armorstand", "model_instance")
@@ -29,6 +30,26 @@ class ModelInstance private constructor(
         skinData = Array(scene.skins.size) {
             val skin = scene.skins[it]
             RenderSkinData(skin).also { skinData -> skinData.increaseReferenceCount() }
+        },
+        targetWeights = Array(scene.morphedPrimitives.size) { index ->
+            val primitive = scene.morphedPrimitives[index]
+            val targets = primitive.targets!!
+            val position = RenderPrimitive.TargetWeight(targets.position.targetsCount)
+            val color = RenderPrimitive.TargetWeight(targets.color.targetsCount)
+            val texCoord = RenderPrimitive.TargetWeight(targets.texCoord.targetsCount)
+            for (targetGroup in primitive.targetGroups) {
+                fun processGroup(index: Int?, target: RenderPrimitive.TargetWeight, weight: Float) = index?.let {
+                    target[index] = weight
+                }
+                processGroup(targetGroup.position, position, targetGroup.weight)
+                processGroup(targetGroup.color, color, targetGroup.weight)
+                processGroup(targetGroup.texCoord, texCoord, targetGroup.weight)
+            }
+            RenderPrimitive.TargetWeights(
+                position = position,
+                color = color,
+                texCoord = texCoord,
+            )
         },
     )
 
@@ -63,6 +84,14 @@ class ModelInstance private constructor(
             transforms[index] = newTransform
         }
         transformsDirty[index] = true
+    }
+
+    fun setGroupWeight(morphedPrimitiveIndex: Int, targetGroupIndex: Int, weight: Float) {
+        val group = scene.morphedPrimitives[morphedPrimitiveIndex].targetGroups[targetGroupIndex]
+        val weights = targetWeights[morphedPrimitiveIndex]
+        group.position?.let { weights.position[it] = weight }
+        group.color?.let { weights.color[it] = weight }
+        group.texCoord?.let { weights.texCoord[it] = weight }
     }
 
     fun update() {

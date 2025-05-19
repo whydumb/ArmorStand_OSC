@@ -1,6 +1,7 @@
 package top.fifthlight.armorstand.debug
 
 import top.fifthlight.armorstand.state.ModelInstanceManager
+import top.fifthlight.armorstand.util.TimeUtil
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.event.WindowAdapter
@@ -56,7 +57,7 @@ class ModelManagerDebugFrame : JFrame("Model Manager Status") {
     }
 
     private fun updateData() {
-        val now = System.currentTimeMillis()
+        val now = System.nanoTime()
         itemTableItem.rowCount = 0
         ModelInstanceManager.getItems().forEach { (uuid, item) ->
             val status = when (item) {
@@ -65,7 +66,7 @@ class ModelManagerDebugFrame : JFrame("Model Manager Status") {
                 is ModelInstanceManager.Item.Model -> "Loaded"
             }
             val lastAccessTime = when (item) {
-                is ModelInstanceManager.Item.Model -> "${(now - item.lastAccessTime) / 1000}s"
+                is ModelInstanceManager.Item.Model -> "${(now - item.lastAccessTime) / TimeUtil.NANOSECONDS_PER_SECOND}s"
                 else -> "N/A"
             }
             val timeLeft = if (item is ModelInstanceManager.Item.Model) {
@@ -73,7 +74,7 @@ class ModelManagerDebugFrame : JFrame("Model Manager Status") {
                     "Permanent"
                 } else {
                     val expireTime = now - item.lastAccessTime
-                    "${(ModelInstanceManager.INSTANCE_EXPIRE_MS - expireTime) / 1000}s"
+                    "${(ModelInstanceManager.INSTANCE_EXPIRE_NS - expireTime) / TimeUtil.NANOSECONDS_PER_SECOND}s"
                 }
             } else {
                 "N/A"

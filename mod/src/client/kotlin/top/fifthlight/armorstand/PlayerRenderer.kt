@@ -7,11 +7,16 @@ import net.minecraft.client.util.math.MatrixStack
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.model.TaskMap
 import top.fifthlight.armorstand.state.ModelInstanceManager
+import top.fifthlight.armorstand.util.FramedObjectPool
 import java.util.*
 
 object PlayerRenderer {
     private var renderingWorld = false
     private val taskMap = TaskMap()
+
+    fun flipObjectPools() {
+        FramedObjectPool.frame()
+    }
 
     fun startRenderWorld() {
         renderingWorld = true
@@ -24,7 +29,7 @@ object PlayerRenderer {
         matrixStack: MatrixStack,
         light: Int,
     ): Boolean {
-        val entry = ModelInstanceManager.get(uuid, System.currentTimeMillis())
+        val entry = ModelInstanceManager.get(uuid, System.nanoTime())
         if (entry !is ModelInstanceManager.Item.Model) {
             return false
         }

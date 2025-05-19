@@ -9,7 +9,7 @@ import net.minecraft.client.render.LightmapTextureManager
 import net.minecraft.util.Identifier
 import top.fifthlight.armorstand.ArmorStandClient
 import top.fifthlight.armorstand.extension.BufferTypeExt
-import top.fifthlight.armorstand.util.ObjectPool
+import top.fifthlight.armorstand.util.FramedObjectPool
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -23,26 +23,29 @@ class InstanceDataBuffer : AutoCloseable {
         if (RenderPassImpl.IS_DEVELOPMENT) {
             require(!recycled) { "Using recycled InstanceDataBuffer" }
             require(tasks.isNotEmpty()) { "Tasks is empty" }
+            require(tasks.size <= ArmorStandClient.INSTANCE_SIZE) { "Too many instances: maximum is ${ArmorStandClient.INSTANCE_SIZE}, but got ${tasks.size}" }
         }
 
-        // TODO: split instances to group?
-        val totalSize = (tasks.size * ITEM_SIZE).coerceAtLeast(MIN_SIZE)
+        val totalSize = (tasks.size * ITEM_SIZE).coerceAtLeast(GROUP_SIZE)
         val dataBuffer = (dataBuffer
             ?.takeIf { it.capacity() >= totalSize }
             ?: ByteBuffer.allocateDirect(totalSize).also {
                 it.order(ByteOrder.nativeOrder())
                 dataBuffer = it
             }).also {
-                it.clear()
-                it.limit(totalSize)
-            }
+            it.clear()
+            it.limit(totalSize)
+        }
 
         for ((index, task) in tasks.withIndex()) {
             val baseOffset = index * ITEM_SIZE
             task.modelViewProjMatrix.get(baseOffset, dataBuffer)
             val light = task.light
             dataBuffer.putInt(baseOffset + 64, light and (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE or 0xFF0F))
-            dataBuffer.putInt(baseOffset + 68, (light shr 16) and (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE or 0xFF0F))
+            dataBuffer.putInt(
+                baseOffset + 68,
+                (light shr 16) and (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE or 0xFF0F)
+            )
         }
 
         gpuBuffer?.takeIf { it.size() >= totalSize }?.let {
@@ -67,9 +70,9 @@ class InstanceDataBuffer : AutoCloseable {
 
     companion object {
         private const val ITEM_SIZE = 80
-        private val MIN_SIZE = ArmorStandClient.INSTANCE_SIZE * ITEM_SIZE
+        private const val GROUP_SIZE = ArmorStandClient.INSTANCE_SIZE * ITEM_SIZE
 
-        private val POOL = ObjectPool<InstanceDataBuffer>(
+        private val POOL = FramedObjectPool<InstanceDataBuffer>(
             identifier = Identifier.of("armorstand", "instance_data"),
             create = ::InstanceDataBuffer,
             onAcquired = {

@@ -7,7 +7,7 @@ object ModelDumper {
     fun RenderNode.getNodeDescription(): String = when (this) {
         is RenderNode.Group -> "Group (${children.size} children)"
         is RenderNode.Transform -> "Transform[targetIndex=$transformIndex]"
-        is RenderNode.Mesh -> "Mesh[primitiveSize=${mesh.primitives.size}, skinIndex=$skinIndex]"
+        is RenderNode.Primitive -> "Primitive[material=${primitive.material}, skinIndex=$skinIndex, vertices=${primitive.vertexBuffer.verticesCount}, indices=${primitive.indexBuffer?.length}]"
         is RenderNode.Joint -> "Joint[skinIndex=$skinIndex, jointIndex=$jointIndex]"
     }
 

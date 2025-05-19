@@ -43,15 +43,20 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
     abstract val alphaCutoff: Float
     abstract val doubleSided: Boolean
     abstract val skinned: Boolean
+    abstract val morphed: Boolean
+
     val supportInstancing: Boolean
         get() = descriptor.supportInstancing
+    val supportMorphing: Boolean
+        get() = descriptor.supportMorphing
 
     @JvmInline
     value class PipelineInfo(val bitmap: BitmapItem = BitmapItem()) {
         constructor(
             doubleSided: Boolean = true,
             skinned: Boolean = false,
-            instanced: Boolean = false
+            instanced: Boolean = false,
+            morphed: Boolean = false,
         ) : this(Unit.run {
             var item = BitmapItem()
             if (doubleSided) {
@@ -63,6 +68,9 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
             if (instanced) {
                 item += ELEMENT_INSTANCED
             }
+            if (morphed) {
+                item += ELEMENT_MORPHED
+            }
             item
         })
 
@@ -72,6 +80,8 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
             get() = ELEMENT_SKINNED in bitmap
         val instanced
             get() = ELEMENT_INSTANCED in bitmap
+        val morphed
+            get() = ELEMENT_MORPHED in bitmap
 
         fun nameSuffix() = buildString {
             if (doubleSided) {
@@ -85,10 +95,24 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
             if (instanced) {
                 append("_instanced")
             }
+            if (morphed) {
+                append("_morphed")
+            }
         }
 
         fun pipelineSnippet(): RenderPipeline.Snippet = RenderPipeline.builder().apply {
             withCull(!doubleSided)
+            if (morphed) {
+                withShaderDefine("MORPHED")
+                withShaderDefine("MAX_ENABLED_MORPH_TARGETS", ArmorStandClient.MAX_ENABLED_MORPH_TARGETS)
+                withUniform("TotalVertices", UniformType.INT)
+                withSampler("MorphPositionData")
+                withSampler("MorphColorData")
+                withSampler("MorphTexCoordData")
+                withUniform("MorphTargetSizes", UniformType.IVEC3)
+                withSampler("MorphWeights")
+                withUniformBuffer("MorphIndices")
+            }
             if (skinned) {
                 withShaderDefine("SKINNED")
                 withSampler("Joints")
@@ -98,7 +122,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
                 withShaderDefine("INSTANCE_SIZE", ArmorStandClient.INSTANCE_SIZE)
                 withUniformBuffer("Instances")
                 if (skinned) {
-                    withUniform("ModelJoints", UniformType.INT)
+                    withUniform("TotalJoints", UniformType.INT)
                 }
             } else {
                 withUniform("ProjMat", UniformType.MATRIX4X4)
@@ -110,6 +134,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
             val ELEMENT_DOUBLE_SIDED = BitmapItem.Element.of(0)
             val ELEMENT_SKINNED = BitmapItem.Element.of(1)
             val ELEMENT_INSTANCED = BitmapItem.Element.of(2)
+            val ELEMENT_MORPHED = BitmapItem.Element.of(3)
         }
 
         inline operator fun plus(element: BitmapItem.Element) =
@@ -122,7 +147,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
             element in bitmap
 
         override fun toString(): String {
-            return "PipelineInfo(doubleSided=$doubleSided, skinned=$skinned, instanced=$instanced)"
+            return "PipelineInfo(doubleSided=$doubleSided, skinned=$skinned, instanced=$instanced, morphed=$morphed)"
         }
     }
 
@@ -132,6 +157,8 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         abstract val name: String
         val typeId: Identifier = Identifier.of("armorstand", "material_$name")
         open val supportInstancing: Boolean
+            get() = false
+        open val supportMorphing: Boolean
             get() = false
 
         abstract fun setupPipeline(
@@ -168,11 +195,13 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
     }
 
     abstract val vertexType: VertexType
+
     fun getPipeline(instanced: Boolean): RenderPipeline {
         val info = PipelineInfo(
             doubleSided = doubleSided,
             skinned = skinned,
             instanced = instanced,
+            morphed = morphed,
         )
         return descriptor.pipelines[info.bitmap.inner] ?: error("No pipeline for pipeline info $info")
     }
@@ -193,7 +222,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
 
     abstract override fun onClosed()
 
-    class Pbr private constructor(
+    class Pbr(
         override val name: String?,
         override val baseColor: RgbaColor = RgbaColor(1f, 1f, 1f, 1f),
         override val baseColorTexture: RenderTexture = RenderTexture.WHITE_RGBA_TEXTURE,
@@ -222,6 +251,9 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
 
         override val vertexType: VertexType
             get() = TODO("Not yet implemented")
+
+        override val morphed: Boolean
+            get() = false
 
         override fun setup(renderPass: RenderPass, light: Int) = TODO()
 
@@ -263,6 +295,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         override val alphaCutoff: Float = .5f,
         override val doubleSided: Boolean,
         override val skinned: Boolean,
+        override val morphed: Boolean,
     ) : RenderMaterial<Unlit.Descriptor>() {
         init {
             baseColorTexture.increaseReferenceCount()
@@ -319,10 +352,14 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
             override val supportInstancing: Boolean
                 get() = true
 
+            override val supportMorphing: Boolean
+                get() = true
+
             override val supportedPipelineElements = listOf(
                 PipelineInfo.ELEMENT_DOUBLE_SIDED,
                 PipelineInfo.ELEMENT_SKINNED,
                 PipelineInfo.ELEMENT_INSTANCED,
+                PipelineInfo.ELEMENT_MORPHED,
             )
 
             override fun setupPipeline(
@@ -378,6 +415,8 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         override val doubleSided: Boolean
             get() = false
         override val skinned: Boolean
+            get() = false
+        override val morphed: Boolean
             get() = false
 
         override fun onClosed() = Unit

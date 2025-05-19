@@ -7,16 +7,9 @@ import com.mojang.blaze3d.textures.TextureFormat
 import com.mojang.blaze3d.vertex.VertexFormat
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap
-import kotlinx.coroutines.*
-import top.fifthlight.armorstand.extension.GpuDeviceExt
-import top.fifthlight.armorstand.extension.NativeImageExt
-import top.fifthlight.armorstand.extension.createBuffer
-import top.fifthlight.armorstand.extension.createVertexBuffer
-import top.fifthlight.armorstand.render.IndexBuffer
-import top.fifthlight.armorstand.render.RefCountedGpuBuffer
-import top.fifthlight.armorstand.render.RefCountedGpuTexture
-import top.fifthlight.armorstand.render.VertexBuffer
-import top.fifthlight.armorstand.util.*
+import top.fifthlight.armorstand.extension.*
+import top.fifthlight.armorstand.render.*
+import top.fifthlight.armorstand.util.blaze3d
 import top.fifthlight.renderer.model.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -32,11 +25,11 @@ class ModelLoader {
     )
 
     private lateinit var jointSkins: Map<NodeId, List<JointSkinData>>
-    private fun loadSkins(scene: Scene) {
+    private fun loadSkins(skins: List<Skin>) {
         val jointSkinMap = mutableMapOf<NodeId, MutableList<JointSkinData>>()
         val skinsMap = mutableMapOf<Skin, Pair<Int, RenderSkin>>()
         val skinsList = mutableListOf<RenderSkin>()
-        for ((index, skin) in scene.skins.withIndex()) {
+        for ((index, skin) in skins.withIndex()) {
             val renderSkin = RenderSkin(
                 name = skin.name,
                 inverseBindMatrices = skin.inverseBindMatrices,
@@ -65,16 +58,16 @@ class ModelLoader {
     private val nodeNameTransformMap = Object2IntOpenHashMap<String>()
     private val textureCache = mutableMapOf<Texture, RefCountedGpuTexture>()
     private val vertexBufferCache = mutableMapOf<Buffer, RefCountedGpuBuffer>()
+    private val morphedPrimitives = mutableListOf<RenderPrimitive>()
+    private val morphedPrimitiveNodeMap = mutableMapOf<NodeId, MutableList<Int>>()
+    private val morphedPrimitiveMeshMap = mutableMapOf<MeshId, MutableList<Int>>()
 
-    private suspend fun loadTexture(texture: Material.TextureInfo): RenderTexture? {
+    private fun loadTexture(texture: Material.TextureInfo): RenderTexture? {
         val gpuTexture = texture.texture.let { texture ->
             texture.bufferView?.let { bufferView ->
                 textureCache.getOrPut(texture) {
                     val byteBuffer = bufferView.buffer.buffer.slice(bufferView.byteOffset, bufferView.byteLength)
-                    val nativeImage = withContext(Dispatchers.Default) {
-                        val image = NativeImageExt.read(null, texture.type, byteBuffer)
-                        image
-                    }
+                    val nativeImage = NativeImageExt.read(null, texture.type, byteBuffer)
                     RenderSystem.getDevice().let { device ->
                         val gpuTexture = device.createTexture(
                             null as String?,
@@ -96,7 +89,11 @@ class ModelLoader {
         )
     }
 
-    private suspend fun loadMaterial(material: Material, hasSkinElements: Boolean): RenderMaterial<*>? = when (material) {
+    private fun loadMaterial(
+        material: Material,
+        hasSkinElements: Boolean,
+        hasMorphTarget: Boolean,
+    ): RenderMaterial<*>? = when (material) {
         Material.Default -> RenderMaterial.Fallback
         is Material.Pbr -> RenderMaterial.Unlit(
             // TODO load PBR material
@@ -107,6 +104,7 @@ class ModelLoader {
             alphaCutoff = material.alphaCutoff,
             doubleSided = material.doubleSided,
             skinned = hasSkinElements,
+            morphed = false,
         )
 
         is Material.Unlit -> RenderMaterial.Unlit(
@@ -117,6 +115,7 @@ class ModelLoader {
             alphaCutoff = material.alphaCutoff,
             doubleSided = material.doubleSided,
             skinned = hasSkinElements,
+            morphed = hasMorphTarget,
         )
     }
 
@@ -135,7 +134,8 @@ class ModelLoader {
             val buffer =
                 bufferView.buffer.buffer.slice(bufferView.byteOffset + accessor.byteOffset, accessor.totalByteLength)
             RefCountedGpuBuffer(
-                RenderSystem.getDevice().createBuffer({ bufferView.buffer.name }, type, BufferUsage.STATIC_WRITE, buffer)
+                RenderSystem.getDevice()
+                    .createBuffer({ bufferView.buffer.name }, type, BufferUsage.STATIC_WRITE, buffer)
             )
         } ?: TODO("Create zero filled buffer")
 
@@ -173,7 +173,7 @@ class ModelLoader {
     }
 
     private fun loadVertexElements(
-        attributes: Primitive.Attributes,
+        attributes: Primitive.Attributes.Primitive,
         material: RenderMaterial<*>,
     ): List<VertexBuffer.VertexElement> = buildList {
         fun createElement(
@@ -272,11 +272,140 @@ class ModelLoader {
         )
     }
 
-    private suspend fun loadPrimitive(primitive: Primitive, skin: RenderSkin?): RenderPrimitive? {
+    @ConsistentCopyVisibility
+    private data class BuildingTarget private constructor(
+        val buffer: ByteBuffer,
+        val textureFormat: TextureBufferFormat,
+        val targetsCount: Int,
+    ) {
+        constructor(
+            textureFormat: TextureBufferFormat,
+            itemCount: Int,
+            targetsCount: Int,
+        ) : this(
+            buffer = ByteBuffer.allocateDirect(textureFormat.pixelSize * itemCount * targetsCount)
+                .order(ByteOrder.nativeOrder()),
+            textureFormat = textureFormat,
+            targetsCount = targetsCount,
+        )
+
+        fun toTarget(): RenderPrimitive.Target {
+            require(!buffer.hasRemaining()) { "Has remaining size for morph targets" }
+            buffer.flip()
+            val targetBuffer = if (!buffer.hasRemaining()) {
+                // No targets, but we can't create an empty buffer, so let's create a dummy one
+                ByteBuffer.allocateDirect(textureFormat.pixelSize)
+            } else {
+                buffer
+            }
+            val device = RenderSystem.getDevice()
+            val gpuBuffer = device.createBuffer(
+                { "Morph target buffer" },
+                BufferType.INDICES,
+                BufferUsage.STATIC_WRITE,
+                targetBuffer
+            )
+            val textureBuffer = device.createTextureBuffer(
+                label = "Morph target texture buffer",
+                format = textureFormat,
+                buffer = gpuBuffer,
+            )
+            return RenderPrimitive.Target(
+                data = textureBuffer,
+                targetsCount = targetsCount,
+            )
+        }
+    }
+
+    private fun loadMorphTargets(
+        verticesCount: Int,
+        targets: List<Primitive.Attributes.MorphTarget>,
+        weights: List<Float>?,
+    ): Pair<RenderPrimitive.Targets, List<MorphTargetGroup>> {
+        val positionTarget = BuildingTarget(
+            textureFormat = TextureBufferFormat.RGB32F,
+            itemCount = verticesCount,
+            targetsCount = targets.count { it.position != null },
+        )
+        val colorTarget = BuildingTarget(
+            textureFormat = TextureBufferFormat.RGBA32F,
+            itemCount = verticesCount,
+            targetsCount = targets.count { it.colors.isNotEmpty() },
+        )
+        val texCoordTarget = BuildingTarget(
+            textureFormat = TextureBufferFormat.RG32F,
+            itemCount = verticesCount,
+            targetsCount = targets.count { it.texcoords.isNotEmpty() },
+        )
+        var posIndex = 0
+        var colorIndex = 0
+        var texCoordIndex = 0
+        val groups = mutableListOf<MorphTargetGroup>()
+        for ((index, target) in targets.withIndex()) {
+            val position = target.position?.let { position ->
+                position.read { input ->
+                    positionTarget.buffer.put(input)
+                }
+                posIndex++
+            }
+            val color = target.colors.firstOrNull()?.let { color ->
+                // TODO normalize
+                color.read { input ->
+                    colorTarget.buffer.put(input)
+                }
+                colorIndex++
+            }
+            val texCoord = target.texcoords.firstOrNull()?.let { texCoord ->
+                // TODO normalize
+                when (texCoord.type) {
+                    Accessor.AccessorType.VEC3 ->
+                        texCoord.read { input ->
+                            texCoordTarget.buffer.put(input)
+                            texCoordTarget.buffer.putFloat(1f)
+                        }
+
+                    Accessor.AccessorType.VEC4 ->
+                        texCoord.read { input ->
+                            texCoordTarget.buffer.put(input)
+                        }
+
+                    else -> throw AssertionError("Bad morph target: accessor type of color is ${texCoord.type}")
+                }
+                texCoordIndex++
+            }
+            groups.add(
+                MorphTargetGroup(
+                    position = position,
+                    color = color,
+                    texCoord = texCoord,
+                    weight = weights?.getOrNull(index) ?: 0f,
+                )
+            )
+        }
+        val targets = RenderPrimitive.Targets(
+            position = positionTarget.toTarget(),
+            color = colorTarget.toTarget(),
+            texCoord = texCoordTarget.toTarget(),
+        )
+        return Pair(targets, groups)
+    }
+
+    private fun loadPrimitive(
+        primitive: Primitive,
+        skin: Pair<Int, RenderSkin>?,
+        weights: List<Float>?,
+        nodeId: NodeId,
+        meshId: MeshId,
+    ): RenderNode.Primitive? {
         val hasSkinElements =
             skin != null && primitive.attributes.joints.isNotEmpty() && primitive.attributes.weights.isNotEmpty()
-        val material = loadMaterial(primitive.material, hasSkinElements) ?: RenderMaterial.Fallback
+        val material = loadMaterial(
+            material = primitive.material,
+            hasSkinElements = hasSkinElements,
+            hasMorphTarget = primitive.targets.isNotEmpty()
+        ) ?: RenderMaterial.Fallback
         val vertexElements = loadVertexElements(primitive.attributes, material)
+        val verticesCount = primitive.attributes.position.count
         val vertexBuffer = RenderSystem.getDevice().createVertexBuffer(
             mode = when (primitive.mode) {
                 Primitive.Mode.POINTS -> return null
@@ -288,42 +417,62 @@ class ModelLoader {
                 Primitive.Mode.TRIANGLE_FAN -> VertexFormat.DrawMode.TRIANGLE_FAN
             },
             elements = vertexElements,
-            verticesCount = primitive.attributes.position.count,
+            verticesCount = verticesCount,
         )
+        val (targets, targetGroups) = if (material.morphed) {
+            loadMorphTargets(verticesCount, primitive.targets, weights)
+        } else {
+            Pair(null, listOf())
+        }
         val indexBuffer = primitive.indices?.let { loadIndexBuffer(it) }
-        return RenderPrimitive(
-            vertexBuffer = vertexBuffer,
-            indexBuffer = indexBuffer,
-            material = material,
+        val morphedPrimitiveIndex = morphedPrimitives.size.takeIf { material.morphed }
+        return RenderNode.Primitive(
+            primitive = RenderPrimitive(
+                vertexBuffer = vertexBuffer,
+                indexBuffer = indexBuffer,
+                material = material,
+                targets = targets,
+                targetGroups = targetGroups,
+            ).also {
+                if (material.morphed) {
+                    morphedPrimitiveIndex!!
+                    morphedPrimitiveMeshMap.getOrPut(meshId) { mutableListOf() }.add(morphedPrimitiveIndex)
+                    morphedPrimitiveNodeMap.getOrPut(nodeId) { mutableListOf() }.add(morphedPrimitiveIndex)
+                    morphedPrimitives.add(it)
+                }
+            },
+            skinIndex = skin?.first,
+            weightsIndex = morphedPrimitiveIndex,
         )
     }
 
-    private suspend fun loadMesh(mesh: Mesh, skin: RenderSkin?) = coroutineScope {
-        RenderMesh(primitives = mesh.primitives.map { async { loadPrimitive(it, skin) } }.awaitAll().filterNotNull())
-    }
-
-    private suspend fun loadNode(node: Node): RenderNode? = coroutineScope {
+    private fun loadNode(node: Node): RenderNode? {
         val skinItem = skinsMap[node.skin]
         val jointSkin = jointSkins[node.id]
 
         val children = buildList {
-            jointSkin?.forEach { (skinIndex, jointIndex) -> add(RenderNode.Joint(
-                node.name,
-                skinIndex,
-                jointIndex
-            )) }
-            node.mesh?.let {
+            jointSkin?.forEach { (skinIndex, jointIndex) ->
                 add(
-                    RenderNode.Mesh(
-                        mesh = loadMesh(it, skinItem?.second),
-                        skinIndex = skinItem?.first,
+                    RenderNode.Joint(
+                        name = node.name,
+                        skinIndex = skinIndex,
+                        jointIndex = jointIndex,
                     )
                 )
+            }
+            node.mesh?.let { mesh ->
+                addAll(mesh.primitives.mapNotNull { loadPrimitive(
+                    primitive = it,
+                    skin = skinItem,
+                    weights = mesh.weights,
+                    nodeId = node.id,
+                    meshId = mesh.id,
+                ) })
             }
             node.children.forEach { loadNode(it)?.let { child -> add(child) } }
         }
         if (children.isEmpty()) {
-            return@coroutineScope null
+            return null
         }
 
         var currentNode: RenderNode = if (children.size == 1) {
@@ -350,11 +499,10 @@ class ModelLoader {
             currentNode.parent = it
         }
 
-        currentNode
+        return currentNode
     }
 
-    suspend fun loadScene(scene: Scene): RenderScene {
-        loadSkins(scene)
+    private fun loadScene(scene: Scene, expressions: List<Expression>): RenderScene {
         val rootTransformId = defaultTransforms.size
         defaultTransforms += scene.initialTransform
         val rootNode = RenderNode.Transform(
@@ -369,6 +517,42 @@ class ModelLoader {
             humanoidTagTransformMap = humanoidJointTransformIndices,
             nodeNameTransformMap = nodeNameTransformMap,
             nodeIdTransformMap = nodeIdTransformMap,
+            morphedPrimitives = morphedPrimitives,
+            expressions = expressions.mapNotNull { expression ->
+                RenderExpression(
+                    name = expression.name,
+                    tag = expression.tag,
+                    isBinary = expression.isBinary,
+                    bindings = expression.bindings.flatMap {
+                        when (it) {
+                            is Expression.Binding.MeshMorphTarget -> {
+                                morphedPrimitiveMeshMap[it.meshId]?.map { index ->
+                                    RenderExpression.Binding.MorphTarget(
+                                        morphedPrimitiveIndex = index,
+                                        groupIndex = it.index,
+                                        weight = it.weight,
+                                    )
+                                } ?: listOf()
+                            }
+
+                            is Expression.Binding.NodeMorphTarget -> {
+                                morphedPrimitiveNodeMap[it.nodeId]?.map { index ->
+                                    RenderExpression.Binding.MorphTarget(
+                                        morphedPrimitiveIndex = index,
+                                        groupIndex = it.index,
+                                        weight = it.weight,
+                                    )
+                                } ?: listOf()
+                            }
+                        }
+                    }
+                ).takeIf { it.bindings.isNotEmpty() }
+            }
         )
+    }
+
+    fun loadModel(model: Model): RenderScene {
+        loadSkins(model.skins)
+        return loadScene(model.defaultScene ?: model.scenes.first(), model.expressions)
     }
 }
