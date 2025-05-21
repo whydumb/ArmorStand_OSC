@@ -17,9 +17,6 @@ import kotlin.io.path.outputStream
 @Serializable
 data class GlobalConfig(
     val model: String? = null,
-    val showOtherPlayerModel: Boolean = true,
-    val sendModelData: Boolean = true,
-    val modelScale: Double = 1.0,
 ) {
     val modelPath by lazy { model?.let { Path(it) } }
 }

@@ -1,10 +1,8 @@
 package top.fifthlight.armorstand
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext
-import net.minecraft.client.MinecraftClient
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.client.util.math.MatrixStack
-import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.model.TaskMap
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.armorstand.util.FramedObjectPool
@@ -43,11 +41,6 @@ object PlayerRenderer {
 
         val backupItem = matrixStack.peek().copy()
         matrixStack.pop()
-
-        if (uuid == MinecraftClient.getInstance().player?.uuid) {
-            val scale = ConfigHolder.config.value.modelScale.toFloat()
-            matrixStack.scale(scale, scale, scale)
-        }
 
         if (renderingWorld) {
             instance.schedule(matrixStack, light) { task ->

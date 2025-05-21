@@ -1,6 +1,4 @@
-@file:Suppress("UnstableApiUsage")
-
-import java.util.*
+import java.util.Properties
 
 plugins {
 	alias(libs.plugins.fabric.loom)
@@ -61,18 +59,16 @@ dependencies {
 	modImplementation(libs.fabric.api)
 	modImplementation(libs.fabric.language.kotlin)
 
-	modImplementation(libs.owo.lib)
-
-	listOf(
-		":model:model-base",
-		":model:model-gltf",
-		":model:model-pmx",
-		":model:model-pmd",
-		":model:model-vmd",
-	).forEach { name ->
-		implementation(project(name))
-		include(project(name))
-	}
+	implementation(project(":model:model-base"))
+	implementation(project(":model:model-gltf"))
+	implementation(project(":model:model-pmx"))
+	implementation(project(":model:model-pmd"))
+	implementation(project(":model:model-vmd"))
+	include(project(":model:model-base"))
+	include(project(":model:model-gltf"))
+	include(project(":model:model-pmx"))
+	include(project(":model:model-pmd"))
+	include(project(":model:model-vmd"))
 }
 
 tasks.processResources {

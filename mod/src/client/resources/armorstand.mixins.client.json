@@ -8,18 +8,17 @@
   "client": [
     "BufferTypeMixin",
     "CameraMixin",
+    "gl.GlBackendMixin",
+    "gl.GlConstExt",
+    "gl.GlResourceManagerMixin",
     "PlayerEntityRendererMixin",
     "PlayerEntityRenderStateMixin",
     "PlayerModelMixin",
     "RenderObjectMixin",
+    "gl.RenderPassImplMixin",
     "RenderPipelineBuilderMixin",
     "RenderPipelineMixin",
     "RenderPipelineSnippetMixin",
-    "ShaderProgramMixin",
-    "gl.GlBackendMixin",
-    "gl.GlConstExt",
-    "gl.GlResourceManagerMixin",
-    "gl.RenderPassImplMixin",
-    "owo.ScissorStackMixin"
+    "ShaderProgramMixin"
   ]
 }

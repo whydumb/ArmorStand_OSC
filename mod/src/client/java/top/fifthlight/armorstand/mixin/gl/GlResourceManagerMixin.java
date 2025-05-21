@@ -13,7 +13,6 @@ import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import it.unimi.dsi.fastutil.ints.IntList;
 import net.minecraft.client.gl.*;
-import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.opengl.GL30;
@@ -27,7 +26,6 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.fifthlight.armorstand.extension.RenderObjectExt;
 import top.fifthlight.armorstand.extension.internal.gl.GlResourceManagerExtInternal;
@@ -39,11 +37,14 @@ import top.fifthlight.armorstand.render.gl.GlTextureBuffer;
 import top.fifthlight.armorstand.render.gl.GlVertexBuffer;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Objects;
 
 @Mixin(GlResourceManager.class)
 public abstract class GlResourceManagerMixin implements GlResourceManagerExtInternal {
+    @Final
+    @Shadow
+    private static Logger LOGGER;
+
     @Shadow
     protected abstract boolean setupRenderPass(RenderPassImpl pass);
 
@@ -152,18 +153,27 @@ public abstract class GlResourceManagerMixin implements GlResourceManagerExtInte
         return false;
     }
 
-    @WrapWithCondition(method = "setupRenderPass", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;warn(Ljava/lang/String;Ljava/lang/Object;)V"))
-    private boolean shouldReportDepthTextureProblem(Logger instance, String message, Object locationObj) {
-        var location = (Identifier) locationObj;
-        // Render pipeline owo:pipeline/gui_blur wants a depth texture but none was provided - this is probably a bug
-        return !location.getNamespace().equals("owo");
-    }
+    @Unique
+    private void checkRenderPassUniforms(RenderPassImpl pass) {
+        if (pass.pipeline == null) {
+            throw new IllegalStateException("Can't draw without a render pipeline");
+        }
 
-    @Redirect(method = "setupRenderPass", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/ShaderProgram;getSamplers()Ljava/util/List;", ordinal = 0))
-    private List<String> onCheckSamplers(ShaderProgram instance, RenderPassImpl pass) {
+        //noinspection resource
+        if (pass.pipeline.program() == ShaderProgram.INVALID) {
+            throw new IllegalStateException("Pipeline contains invalid shader program");
+        }
+
+        for (var uniformDescription : pass.pipeline.info().getUniforms()) {
+            var object = pass.simpleUniforms.get(uniformDescription.name());
+            if (object == null && !ShaderProgram.PREDEFINED_UNIFORMS.contains(uniformDescription.name())) {
+                throw new IllegalStateException("Missing uniform " + uniformDescription.name() + " (should be " + uniformDescription.type() + ")");
+            }
+        }
+
         var bufferSamplerUniforms = ((GlRenderPassImplExtInternal) pass).armorStand$getBufferSamplerUniforms();
 
-        //noinspection DataFlowIssue,resource
+        //noinspection resource
         for (var samplerName : pass.pipeline.program().getSamplers()) {
             var sampler = pass.samplerUniforms.get(samplerName);
             var bufferSampler = bufferSamplerUniforms.get(samplerName);
@@ -175,7 +185,18 @@ public abstract class GlResourceManagerMixin implements GlResourceManagerExtInte
                 throw new IllegalStateException("Sampler " + samplerName + " has been closed!");
             }
         }
-        return List.of();
+
+        if (pass.pipeline.info().wantsDepthTexture() && !pass.hasDepth()) {
+            LOGGER.warn("Render pipeline {} wants a depth texture but none was provided - this is probably a bug", pass.pipeline.info().getLocation());
+        }
+    }
+
+    @ModifyExpressionValue(method = "setupRenderPass", at = @At(value = "FIELD", target = "Lnet/minecraft/client/gl/RenderPassImpl;IS_DEVELOPMENT:Z"))
+    private boolean onCheckRenderPassUniforms(boolean isDevelopment, RenderPassImpl pass) {
+        if (isDevelopment) {
+            checkRenderPassUniforms(pass);
+        }
+        return false;
     }
 
     @WrapOperation(method = "setupRenderPass", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/ShaderProgram;getSamplerLocations()Lit/unimi/dsi/fastutil/ints/IntList;"))
