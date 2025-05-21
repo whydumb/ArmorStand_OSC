@@ -36,3 +36,5 @@ fun ByteBuffer.getUByteNormalized() = get().toFloat() / 255f
 fun ByteBuffer.getSByteNormalized() = (get().toFloat() / 127f).coerceAtLeast(-1f)
 fun ByteBuffer.getUShortNormalized() = getShort().toFloat() / 65535f
 fun ByteBuffer.getSShortNormalized() = (getShort().toFloat() / 32767f).coerceAtLeast(-1f)
+@Suppress("FloatingPointLiteralPrecision")
+fun ByteBuffer.getUIntNormalized() = (getInt().toFloat() / 4294967295f).coerceAtLeast(-1f)

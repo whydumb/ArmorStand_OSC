@@ -36,6 +36,7 @@ loom {
 	runs {
 		getByName("client") {
 			runDir("run/client")
+			programArg("--tracy")
 		}
 		getByName("server") {
 			runDir("run/server")

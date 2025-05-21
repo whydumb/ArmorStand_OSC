@@ -349,27 +349,30 @@ class ModelLoader {
                 posIndex++
             }
             val color = target.colors.firstOrNull()?.let { color ->
-                // TODO normalize
-                color.read { input ->
-                    colorTarget.buffer.put(input)
+                when (color.type) {
+                    Accessor.AccessorType.VEC3 -> {
+                        var index = 0
+                        color.readNormalized { input ->
+                            colorTarget.buffer.putFloat(input)
+                            index++
+                            if (index == 3) {
+                                // For padding
+                                colorTarget.buffer.putFloat(0f)
+                            }
+                        }
+                    }
+
+                    Accessor.AccessorType.VEC4 -> color.readNormalized {
+                        colorTarget.buffer.putFloat(it)
+                    }
+
+                    else -> throw AssertionError("Bad morph target: accessor type of color is ${color.type}")
                 }
                 colorIndex++
             }
             val texCoord = target.texcoords.firstOrNull()?.let { texCoord ->
-                // TODO normalize
-                when (texCoord.type) {
-                    Accessor.AccessorType.VEC3 ->
-                        texCoord.read { input ->
-                            texCoordTarget.buffer.put(input)
-                            texCoordTarget.buffer.putFloat(1f)
-                        }
-
-                    Accessor.AccessorType.VEC4 ->
-                        texCoord.read { input ->
-                            texCoordTarget.buffer.put(input)
-                        }
-
-                    else -> throw AssertionError("Bad morph target: accessor type of color is ${texCoord.type}")
+                texCoord.readNormalized {
+                    texCoordTarget.buffer.putFloat(it)
                 }
                 texCoordIndex++
             }
@@ -461,13 +464,15 @@ class ModelLoader {
                 )
             }
             node.mesh?.let { mesh ->
-                addAll(mesh.primitives.mapNotNull { loadPrimitive(
-                    primitive = it,
-                    skin = skinItem,
-                    weights = mesh.weights,
-                    nodeId = node.id,
-                    meshId = mesh.id,
-                ) })
+                addAll(mesh.primitives.mapNotNull {
+                    loadPrimitive(
+                        primitive = it,
+                        skin = skinItem,
+                        weights = mesh.weights,
+                        nodeId = node.id,
+                        meshId = mesh.id,
+                    )
+                })
             }
             node.children.forEach { loadNode(it)?.let { child -> add(child) } }
         }
