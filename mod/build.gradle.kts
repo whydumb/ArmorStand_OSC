@@ -69,6 +69,8 @@ dependencies {
 	include(project(":model:model-pmx"))
 	include(project(":model:model-pmd"))
 	include(project(":model:model-vmd"))
+
+	testImplementation(kotlin("test"))
 }
 
 tasks.processResources {
