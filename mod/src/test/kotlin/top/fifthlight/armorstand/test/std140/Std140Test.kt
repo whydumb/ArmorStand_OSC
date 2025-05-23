@@ -128,14 +128,17 @@ class Std140Test {
     }
 
     private object ArrayLayout : Std140Layout<ArrayLayout>() {
-        var intArray by intArray(4)     // offset: 0, size: 16, align: 4
+        var intArray by intArray(4)         // offset: 0, size: 16, align: 4
         var floatArray by floatArray(4)     // offset: 16, size: 16, align: 4
-        // total size: 32
+        var vec2Array by vec2Array(4)       // offset: 32, size: 32, align: 8
+        var vec3Array by vec3Array(4)       // offset: 64, size: 64, align: 16
+        var vec4Array by vec4Array(4)       // offset: 128, size: 64, align: 16
+        // total size: 192
     }
 
     @Test
     fun testArrayLayout() {
-        assertEquals(32, ArrayLayout.totalSize)
+        assertEquals(192, ArrayLayout.totalSize)
         val buffer = ByteBuffer.allocate(ArrayLayout.totalSize)
         ArrayLayout.withBuffer(buffer) {
             intArray.apply {
@@ -156,8 +159,51 @@ class Std140Test {
                     this[4] = 5.0f
                 }
             }
+            vec2Array.apply {
+                val vec2 = Vector2f()
+                this[0] = vec2.set(1.0f, 2.0f)
+                this[1] = vec2.set(3.0f, 4.0f)
+                this[2] = vec2.set(5.0f, 6.0f)
+                this[3] = vec2.set(7.0f, 8.0f)
+                assertFailsWith(IndexOutOfBoundsException::class) {
+                    this[4] = vec2.set(9.0f, 10.0f)
+                }
+            }
+            vec3Array.apply {
+                val vec3 = Vector3f()
+                this[0] = vec3.set(1.0f, 2.0f, 3.0f)
+                this[1] = vec3.set(4.0f, 5.0f, 6.0f)
+                this[2] = vec3.set(7.0f, 8.0f, 9.0f)
+                this[3] = vec3.set(10.0f, 11.0f, 12.0f)
+                assertFailsWith(IndexOutOfBoundsException::class) {
+                    this[4] = vec3.set(13.0f, 14.0f, 15.0f)
+                }
+            }
+            vec4Array.apply {
+                val vec4 = Vector4f()
+                this[0] = vec4.set(1.0f, 2.0f, 3.0f, 4.0f)
+                this[1] = vec4.set(5.0f, 6.0f, 7.0f, 8.0f)
+                this[2] = vec4.set(9.0f, 10.0f, 11.0f, 12.0f)
+                this[3] = vec4.set(13.0f, 14.0f, 15.0f, 16.0f)
+                assertFailsWith(IndexOutOfBoundsException::class) {
+                    this[4] = vec4.set(17.0f, 18.0f, 19.0f, 20.0f)
+                }
+            }
         }
         buffer.assertInts(0, 1, 2, 3, 4)
         buffer.assertFloats(16, 1.0f, 2.0f, 3.0f, 4.0f)
+        repeat(8) {
+            assertEquals((it + 1).toFloat(), buffer.getFloat(32 + it * 4))
+        }
+        repeat(4) { row ->
+            repeat(3) { column ->
+                assertEquals((row * 3 + column + 1).toFloat(), buffer.getFloat(64 + row * 16 + column * 4))
+            }
+        }
+        repeat(4) { row ->
+            repeat(4) { column ->
+                assertEquals((row * 4 + column + 1).toFloat(), buffer.getFloat(128 + row * 16 + column * 4))
+            }
+        }
     }
 }

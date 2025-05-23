@@ -6,6 +6,7 @@ import it.unimi.dsi.fastutil.ints.AbstractIntList
 import it.unimi.dsi.fastutil.ints.IntList
 import org.joml.*
 import java.nio.ByteBuffer
+import java.util.Objects.checkIndex
 import kotlin.reflect.KProperty
 
 abstract class Std140Layout<L : Std140Layout<L>> {
@@ -109,6 +110,54 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             }
         }
 
+        class IVec2Field<L : Std140Layout<L>>(layout: Std140Layout<L>) : Field<Vector2ic, L>(
+            layout = layout,
+            align = 8,
+            size = 8,
+        ) {
+            override fun setValue(buffer: ByteBuffer, value: Vector2ic) {
+                value.get(offset, buffer)
+            }
+
+            private val vector = Vector2i()
+
+            override fun getValue(buffer: ByteBuffer) = vector.apply {
+                set(offset, buffer)
+            }
+        }
+
+        class IVec3Field<L : Std140Layout<L>>(layout: Std140Layout<L>) : Field<Vector3ic, L>(
+            layout = layout,
+            align = 16,
+            size = 12,
+        ) {
+            override fun setValue(buffer: ByteBuffer, value: Vector3ic) {
+                value.get(offset, buffer)
+            }
+
+            private val vector = Vector3i()
+
+            override fun getValue(buffer: ByteBuffer) = vector.apply {
+                set(offset, buffer)
+            }
+        }
+
+        class IVec4Field<L : Std140Layout<L>>(layout: Std140Layout<L>) : Field<Vector4ic, L>(
+            layout = layout,
+            align = 16,
+            size = 16,
+        ) {
+            override fun setValue(buffer: ByteBuffer, value: Vector4ic) {
+                value.get(offset, buffer)
+            }
+
+            private val vector = Vector4i()
+
+            override fun getValue(buffer: ByteBuffer) = vector.apply {
+                set(offset, buffer)
+            }
+        }
+
         class Mat2Field<L : Std140Layout<L>>(layout: Std140Layout<L>) : Field<Matrix2fc, L>(
             layout = layout,
             align = 8,
@@ -179,7 +228,7 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             size = 4 * length,
         ) {
             override fun setValue(buffer: ByteBuffer, value: IntList) {
-                require(value.size == length) { "List size not match: expected $length, but got ${value.size}" }
+                require(value.size == length) { "List size mismatch: expected $length, but got ${value.size}" }
                 repeat(length) { index ->
                     val item = value.getInt(index)
                     buffer.putInt(offset + index * 4, item)
@@ -196,9 +245,7 @@ abstract class Std140Layout<L : Std140Layout<L>> {
                     get() = length
 
                 override fun getInt(index: Int): Int {
-                    if (index !in 0 until length) {
-                        throw IndexOutOfBoundsException(index)
-                    }
+                    checkIndex(index, length)
                     return requireNotNull(buffer).getInt(offset + index * 4)
                 }
 
@@ -216,7 +263,7 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             size = 4 * length,
         ) {
             override fun setValue(buffer: ByteBuffer, value: FloatList) {
-                require(value.size == length) { "List size not match: expected $length, but got ${value.size}" }
+                require(value.size == length) { "List size mismatch: expected $length, but got ${value.size}" }
                 repeat(length) { index ->
                     val item = value.getFloat(index)
                     buffer.putFloat(offset + index * 4, item)
@@ -233,15 +280,121 @@ abstract class Std140Layout<L : Std140Layout<L>> {
                     get() = length
 
                 override fun getFloat(index: Int): Float {
-                    if (index !in 0 until length) {
-                        throw IndexOutOfBoundsException(index)
-                    }
+                    checkIndex(index, length)
                     return requireNotNull(buffer).getFloat(offset + index * 4)
                 }
 
                 override fun set(index: Int, k: Float): Float = getFloat(index).also {
                     requireNotNull(buffer).putFloat(offset + index * 4, k)
                 }
+            }
+
+            override fun getValue(buffer: ByteBuffer) = list.also { it.buffer = buffer }
+        }
+
+        class Vec2Array<L : Std140Layout<L>>(
+            layout: Std140Layout<L>,
+            private val length: Int
+        ) : Field<MutableList<Vector2fc>, L>(
+            layout = layout,
+            align = 8,
+            size = length * 8,
+        ) {
+            private val vector = Vector2f()
+            private val list = object : AbstractMutableList<Vector2fc>() {
+                var buffer: ByteBuffer? = null
+
+                override fun add(index: Int, element: Vector2fc) = throw UnsupportedOperationException()
+                override fun removeAt(index: Int) = throw UnsupportedOperationException()
+
+                override val size: Int
+                    get() = length
+
+                override fun get(index: Int): Vector2fc {
+                    checkIndex(index, length)
+                    return vector.apply { set(offset + index * 8, buffer) }
+                }
+
+                override fun set(index: Int, element: Vector2fc) = get(index).also {
+                    element.get(offset + index * 8, requireNotNull(buffer))
+                }
+            }
+
+            override fun setValue(buffer: ByteBuffer, value: MutableList<Vector2fc>) {
+                require(value.size == length) { "List size mismatch" }
+                value.forEachIndexed { i, vec -> vec.get(offset + i * 8, buffer) }
+            }
+
+            override fun getValue(buffer: ByteBuffer) = list.also { it.buffer = buffer }
+        }
+
+        class Vec3Array<L : Std140Layout<L>>(
+            layout: Std140Layout<L>,
+            private val length: Int
+        ) : Field<MutableList<Vector3fc>, L>(
+            layout = layout,
+            align = 16,
+            size = length * 16,
+        ) {
+            private val vector = Vector3f()
+            private val list = object : AbstractMutableList<Vector3fc>() {
+                var buffer: ByteBuffer? = null
+
+                override fun add(index: Int, element: Vector3fc) = throw UnsupportedOperationException()
+                override fun removeAt(index: Int) = throw UnsupportedOperationException()
+
+                override val size: Int
+                    get() = length
+
+                override fun get(index: Int): Vector3fc {
+                    checkIndex(index, length)
+                    return vector.apply { set(offset + index * 16, buffer) }
+                }
+
+                override fun set(index: Int, element: Vector3fc) = get(index).also {
+                    element.get(offset + index * 16, requireNotNull(buffer))
+                }
+            }
+
+            override fun setValue(buffer: ByteBuffer, value: MutableList<Vector3fc>) {
+                require(value.size == length) { "List size mismatch" }
+                value.forEachIndexed { i, vec -> vec.get(offset + i * 16, buffer) }
+            }
+
+            override fun getValue(buffer: ByteBuffer) = list.also { it.buffer = buffer }
+        }
+
+        class Vec4Array<L : Std140Layout<L>>(
+            layout: Std140Layout<L>,
+            private val length: Int
+        ) : Field<MutableList<Vector4fc>, L>(
+            layout = layout,
+            align = 16,
+            size = length * 16,
+        ) {
+            private val vector = Vector4f()
+            private val list = object : AbstractMutableList<Vector4fc>() {
+                var buffer: ByteBuffer? = null
+
+                override fun add(index: Int, element: Vector4fc) = throw UnsupportedOperationException()
+                override fun removeAt(index: Int) = throw UnsupportedOperationException()
+
+                override val size: Int
+                    get() = length
+
+                override fun get(index: Int): Vector4fc {
+                    checkIndex(index, length)
+                    return vector.apply { set(offset + index * 16, buffer) }
+                }
+
+                override fun set(index: Int, element: Vector4fc) = get(index).also {
+                    element.get(offset + index * 16, requireNotNull(buffer))
+                }
+            }
+
+            override fun setValue(buffer: ByteBuffer, value: MutableList<Vector4fc>) {
+                require(value.size == length) { "List size mismatch" }
+                value.forEachIndexed { i, vec -> vec.get(offset + i * 16, buffer) }
             }
 
             override fun getValue(buffer: ByteBuffer) = list.also { it.buffer = buffer }
@@ -255,12 +408,20 @@ abstract class Std140Layout<L : Std140Layout<L>> {
     fun vec3() = Field.Vec3Field(this)
     fun vec4() = Field.Vec4Field(this)
 
+    fun ivec2() = Field.IVec2Field(this)
+    fun ivec3() = Field.IVec3Field(this)
+    fun ivec4() = Field.IVec4Field(this)
+
     fun mat2() = Field.Mat2Field(this)
     fun mat3() = Field.Mat3Field(this)
     fun mat4() = Field.Mat4Field(this)
 
     fun intArray(size: Int) = Field.IntArray(this, size)
     fun floatArray(size: Int) = Field.FloatArray(this, size)
+
+    fun vec2Array(size: Int) = Field.Vec2Array(this, size)
+    fun vec3Array(size: Int) = Field.Vec3Array(this, size)
+    fun vec4Array(size: Int) = Field.Vec4Array(this, size)
 
     fun withBuffer(buffer: ByteBuffer, block: L.() -> Unit) {
         try {
