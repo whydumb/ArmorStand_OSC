@@ -7,6 +7,7 @@ load("//rule:extract_access_widener.bzl", "extract_access_widener")
 load("//rule:merge_jar.bzl", "merge_jar")
 load("//rule:exclude_jar.bzl", "exclude_jar")
 load("//rule:generate_remap_classpath.bzl", "generate_remap_classpath")
+load("//:properties.bzl", "mod_version")
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
@@ -146,7 +147,7 @@ expand_template(
     name = "fabric_mod_json",
     template = "src/main/resources/fabric.mod.json",
     substitutions = {
-        "${version}": "0.0.1-dev",
+        "${version}": mod_version,
     },
     out = "_generated/fabric.mod.json",
 )
