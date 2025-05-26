@@ -71,6 +71,8 @@ dependencies {
 	include(project(":model:model-vmd"))
 
 	testImplementation(kotlin("test"))
+	testImplementation(libs.junit.platform.suite.api)
+	testRuntimeOnly(libs.junit.platform.suite.engine)
 }
 
 tasks.processResources {
