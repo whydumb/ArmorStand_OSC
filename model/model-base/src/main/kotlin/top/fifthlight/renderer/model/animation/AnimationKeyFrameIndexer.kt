@@ -3,6 +3,7 @@ package top.fifthlight.renderer.model.animation
 import it.unimi.dsi.fastutil.floats.AbstractFloatList
 import it.unimi.dsi.fastutil.floats.FloatList
 import top.fifthlight.renderer.model.Accessor
+import top.fifthlight.renderer.model.util.sliceWorkaround
 import java.nio.ByteOrder
 
 interface AnimationKeyFrameIndexer {
@@ -138,7 +139,7 @@ private class FloatAccessorList(private val accessor: Accessor) : AbstractFloatL
 
     private val slice = accessor.bufferView?.let { bufferView ->
         bufferView.buffer.buffer
-            .slice(accessor.byteOffset + bufferView.byteOffset, accessor.totalByteLength)
+            .sliceWorkaround(accessor.byteOffset + bufferView.byteOffset, accessor.totalByteLength)
             .order(ByteOrder.LITTLE_ENDIAN)
     }
 

@@ -1,0 +1,23 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
+
+kt_jvm_library(
+    name = "model",
+    srcs = [],
+    visibility = ["//visibility:public"],
+    exports = [
+        "//model/model-base",
+        ":model-formats",
+    ],
+)
+
+kt_jvm_library(
+    name = "model-formats",
+    srcs = [],
+    visibility = ["//visibility:public"],
+    exports = [
+        "//model/model-gltf",
+        "//model/model-pmd",
+        "//model/model-pmx",
+        "//model/model-vmd",
+    ],
+)

@@ -1,0 +1,76 @@
+"ArmorStand module file"
+
+module(
+    name = "armorstand",
+    version = "0.0.1+dev",
+)
+
+bazel_dep(name = "rules_java", version = "8.12.0")
+bazel_dep(name = "rules_kotlin", version = "2.1.4")
+bazel_dep(name = "rules_jvm_external", version = "6.7")
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    artifacts = [
+        # mapping
+        "net.fabricmc:yarn:1.21.5+build.1:v2",
+        "net.fabricmc:intermediary:1.21.5:v2",
+
+        # build dependencies
+        "net.fabricmc:tiny-remapper:0.11.1",
+        "net.fabricmc:mapping-io:0.7.1",
+        "net.fabricmc:mapping-io-extras:0.7.1",
+        "net.fabricmc:access-widener:2.1.0",
+        "org.ow2.asm:asm:9.8",
+        "org.ow2.asm:asm-commons:9.8",
+
+        # mod dependencies
+        "net.fabricmc:fabric-loader:0.16.14",
+        "com.terraformersmc:modmenu:14.0.0-rc.2",
+        "net.fabricmc.fabric-api:fabric-api:0.124.2+1.21.5",
+        "net.fabricmc:fabric-language-kotlin:1.13.1+kotlin.2.1.10",
+        "net.fabricmc:sponge-mixin:0.15.4+mixin.0.8.7",
+        "io.github.llamalad7:mixinextras-fabric:0.4.1",
+        "eu.pb4:placeholder-api:2.6.3+1.21.5",
+
+        # regular dependencies
+        "org.joml:joml:1.10.8",
+        "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1",
+        "it.unimi.dsi:fastutil:8.5.15",
+
+        # test dependencies
+        "org.jetbrains.kotlin:kotlin-test-junit5:2.1.10",
+        "org.junit.jupiter:junit-jupiter-api:5.12.2",
+        "org.junit.jupiter:junit-jupiter-engine:5.12.2",
+        "org.junit.platform:junit-platform-suite-api:1.12.2",
+        "org.junit.platform:junit-platform-suite-engine:1.12.2",
+        "org.junit.platform:junit-platform-console:1.12.2",
+    ],
+    repositories = [
+        "https://repo1.maven.org/maven2",
+        "https://maven.fabricmc.net/",
+        "https://maven.terraformersmc.com/",
+        "https://maven.nucleoid.xyz/",
+    ],
+    lock_file = "//:maven_install.json",
+)
+use_repo(maven, "maven")
+
+minecraft = use_extension("//repo:minecraft_jar.bzl", "minecraft")
+minecraft.minecraft_jar(
+    version = "1.21.5",
+    type = "client",
+    assets = True,
+    mapping = False,
+)
+minecraft.minecraft_jar(
+    version = "1.21.5",
+    type = "server",
+    mapping = False,
+)
+minecraft.exclude_library(names = ["org.ow2.asm:asm:9.6"])
+use_repo(minecraft, "minecraft")
+use_repo(minecraft, "minecraft_assets")
+
+register_toolchains("//:kotlin_toolchain")

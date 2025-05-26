@@ -26,7 +26,9 @@ import top.fifthlight.renderer.model.pmx.format.PmxGlobals
 import top.fifthlight.renderer.model.pmx.format.PmxHeader
 import top.fifthlight.renderer.model.pmx.format.PmxMaterial
 import top.fifthlight.renderer.model.pmx.format.PmxMorph
+import top.fifthlight.renderer.model.util.putWorkaround
 import top.fifthlight.renderer.model.util.readAll
+import top.fifthlight.renderer.model.util.sliceWorkaround
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
@@ -178,7 +180,7 @@ object PmxLoader : ModelFileLoader {
             if (buffer.remaining() < length) {
                 throw PmxLoadException("No enough data for string: want $length bytes, but only have ${buffer.remaining()} bytes")
             }
-            val stringBuffer = buffer.slice(buffer.position(), length).order(ByteOrder.LITTLE_ENDIAN)
+            val stringBuffer = buffer.sliceWorkaround(buffer.position(), length).order(ByteOrder.LITTLE_ENDIAN)
             return decoder.decode(stringBuffer).toString().also {
                 buffer.position(buffer.position() + length)
             }
@@ -197,7 +199,7 @@ object PmxLoader : ModelFileLoader {
             if (globalsCount < 8) {
                 throw PmxLoadException("Bad global count: $globalsCount, at least 8")
             }
-            globals = loadGlobal(buffer.slice(buffer.position(), globalsCount).order(ByteOrder.LITTLE_ENDIAN))
+            globals = loadGlobal(buffer.sliceWorkaround(buffer.position(), globalsCount).order(ByteOrder.LITTLE_ENDIAN))
             buffer.position(buffer.position() + globalsCount)
             return PmxHeader(
                 version = version,
@@ -256,7 +258,7 @@ object PmxLoader : ModelFileLoader {
                 outputBuffer.putFloat(outputPosition, -readFloat())
                 outputPosition += 4
                 // POSITION_NORMAL_UV_JOINT_WEIGHT
-                outputBuffer.put(outputPosition, buffer, inputPosition, copyBaseVertexSize)
+                outputBuffer.putWorkaround(outputPosition, buffer, inputPosition, copyBaseVertexSize)
                 outputPosition += copyBaseVertexSize
                 inputPosition += copyBaseVertexSize
 

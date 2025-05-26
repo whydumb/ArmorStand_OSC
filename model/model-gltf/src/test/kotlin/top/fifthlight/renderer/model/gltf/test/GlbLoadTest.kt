@@ -11,7 +11,9 @@ class GlbLoadTest {
     fun testAlicia() {
         val uri = this.javaClass.classLoader.getResource("AliciaSolid.vrm")!!.toURI()
         if (uri.scheme == "jar") {
-            FileSystems.newFileSystem(uri, mapOf("create" to "true"))
+            runCatching {
+                FileSystems.newFileSystem(uri, mapOf("create" to "true"))
+            }
         }
         val file = uri.toPath()
         measureTime {
@@ -25,7 +27,9 @@ class GlbLoadTest {
     fun testInterpolation() {
         val uri = this.javaClass.classLoader.getResource("InterpolationTest.glb")!!.toURI()
         if (uri.scheme == "jar") {
-            FileSystems.newFileSystem(uri, mapOf("create" to "true"))
+            runCatching {
+                FileSystems.newFileSystem(uri, mapOf("create" to "true"))
+            }
         }
         val file = uri.toPath()
         measureTime {

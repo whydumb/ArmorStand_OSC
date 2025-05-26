@@ -12,6 +12,7 @@ import top.fifthlight.armorstand.model.RenderSkinData.Companion.MAT4X4_SIZE
 import top.fifthlight.armorstand.render.GpuTextureBuffer
 import top.fifthlight.armorstand.render.TextureBufferFormat
 import top.fifthlight.armorstand.util.FramedObjectPool
+import top.fifthlight.renderer.model.util.putWorkaround
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -41,7 +42,7 @@ class MergedSkinData : AutoCloseable {
                 it.limit(totalSize)
             }
         for ((index, skin) in skinData.withIndex()) {
-            matricesBuffer.put(index * jointSize, skin.matricesBuffer, 0, jointSize)
+            matricesBuffer.putWorkaround(index * jointSize, skin.matricesBuffer, 0, jointSize)
         }
 
         gpuBuffer?.takeIf { it.size() >= totalSize }?.let {

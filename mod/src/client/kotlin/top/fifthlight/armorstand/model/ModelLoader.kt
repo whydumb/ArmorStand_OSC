@@ -11,6 +11,7 @@ import top.fifthlight.armorstand.extension.*
 import top.fifthlight.armorstand.render.*
 import top.fifthlight.armorstand.util.blaze3d
 import top.fifthlight.renderer.model.*
+import top.fifthlight.renderer.model.util.sliceWorkaround
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -66,7 +67,7 @@ class ModelLoader {
         val gpuTexture = texture.texture.let { texture ->
             texture.bufferView?.let { bufferView ->
                 textureCache.getOrPut(texture) {
-                    val byteBuffer = bufferView.buffer.buffer.slice(bufferView.byteOffset, bufferView.byteLength)
+                    val byteBuffer = bufferView.buffer.buffer.sliceWorkaround(bufferView.byteOffset, bufferView.byteLength)
                     val nativeImage = NativeImageExt.read(null, texture.type, byteBuffer)
                     RenderSystem.getDevice().let { device ->
                         val gpuTexture = device.createTexture(
@@ -132,7 +133,7 @@ class ModelLoader {
             require(bufferView.byteStride == 0) { "Non-vertex buffer view's byteStride is not zero: ${bufferView.byteStride}" }
             require(accessor.totalByteLength <= bufferView.byteLength) { "Accessor's length larger than underlying buffer view" }
             val buffer =
-                bufferView.buffer.buffer.slice(bufferView.byteOffset + accessor.byteOffset, accessor.totalByteLength)
+                bufferView.buffer.buffer.sliceWorkaround(bufferView.byteOffset + accessor.byteOffset, accessor.totalByteLength)
             RefCountedGpuBuffer(
                 RenderSystem.getDevice()
                     .createBuffer({ bufferView.buffer.name }, type, BufferUsage.STATIC_WRITE, buffer)

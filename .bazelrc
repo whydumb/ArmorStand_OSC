@@ -1,0 +1,2 @@
+common --java_runtime_version=21
+common --java_language_version=21

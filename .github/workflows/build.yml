@@ -7,7 +7,7 @@ name: build
 on: [pull_request, push]
 
 jobs:
-  build:
+  build-with-gradle:
     runs-on: ubuntu-24.04
     steps:
       - name: checkout repository
@@ -26,5 +26,24 @@ jobs:
       - name: capture build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Artifacts
+          name: artifacts-gradle
           path: mod/build/libs/
+  build-with-bazel:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+      - uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+      - name: build
+        run: bazel build @//mod --verbose_failures
+      - name: test
+        run: bazel test @//... --verbose_failures
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-bazel
+          path: bazel-bin/mod/mod.jar

@@ -11,7 +11,9 @@ class PmxLoadTest {
     fun testLoad() {
         val uri = this.javaClass.classLoader.getResource("model.pmx")!!.toURI()
         if (uri.scheme == "jar") {
-            FileSystems.newFileSystem(uri, mapOf("create" to "true"))
+            runCatching {
+                FileSystems.newFileSystem(uri, mapOf("create" to "true"))
+            }
         }
         val file = uri.toPath()
         measureTime {

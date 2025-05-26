@@ -260,7 +260,7 @@ public abstract class GlResourceManagerMixin implements GlResourceManagerExtInte
     }
 
     @Override
-    public void armorStand$drawInstancedBoundObjectWithRenderPass(@NotNull RenderPassImpl pass, int instances, int first, int count, VertexFormat.@Nullable IndexType indexType) {
+    public void armorStand$drawInstancedBoundObjectWithRenderPass(@NotNull RenderPassImpl pass, int instances, int first, int count, @Nullable VertexFormat.IndexType indexType) {
         if (this.setupRenderPass(pass)) {
             if (RenderPassImpl.IS_DEVELOPMENT) {
                 checkRenderPassBuffers(pass, indexType != null);
