@@ -181,7 +181,8 @@ kt_jvm_library(
 remap_jar(
     name = "mod_main",
     inputs = [":mod_main_unmapped"],
-    mapping = ":merged_mapping",
+    classpath = ["//mod:remapped_client_named"],
+    mapping = ":yarn_mapping",
     mixin = True,
     from_namespace = "named",
     to_namespace = "intermediary",
@@ -224,7 +225,8 @@ merge_jar(
 remap_jar(
     name = "mod_client",
     inputs = [":mod_client_unmapped_with_access_widener"],
-    mapping = ":merged_mapping",
+    classpath = ["//mod:remapped_client_named"],
+    mapping = ":yarn_mapping",
     mixin = True,
     from_namespace = "named",
     to_namespace = "intermediary",
