@@ -269,7 +269,7 @@ java_binary(
     data = [
         ":remap_classpath",
         "@minecraft_assets//:assets_%s" % game_version,
-        "//model/model-gltf/src/test/resources:test_models",
+        "//model/model-gltf/src/test/resources:test_models_data",
     ],
     runtime_deps = [
         "//rule/dev_launch_wrapper",

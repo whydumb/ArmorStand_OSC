@@ -1,5 +1,13 @@
+_test_models = ["AliciaSolid.vrm", "InterpolationTest.glb"]
+
 filegroup(
-    name = "test_models",
+    name = "test_models_data",
     visibility = ["//mod:__subpackages__", "//model/model-gltf:__subpackages__"],
-    data = ["AliciaSolid.vrm", "InterpolationTest.glb"],
+    data = _test_models,
+)
+
+filegroup(
+    name = "test_models_srcs",
+    visibility = ["//mod:__subpackages__", "//model/model-gltf:__subpackages__"],
+    srcs = _test_models,
 )
