@@ -7,9 +7,9 @@ import top.fifthlight.renderer.model.Material.TextureInfo
 import top.fifthlight.renderer.model.pmd.format.PmdBone
 import top.fifthlight.renderer.model.pmd.format.PmdHeader
 import top.fifthlight.renderer.model.pmd.format.PmdMaterial
-import top.fifthlight.renderer.model.util.putWorkaround
+
 import top.fifthlight.renderer.model.util.readAll
-import top.fifthlight.renderer.model.util.sliceWorkaround
+
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
@@ -64,10 +64,10 @@ object PmdLoader: ModelFileLoader {
 
         private fun loadString(buffer: ByteBuffer, maxLength: Int): String {
             val bytes = ByteBuffer.allocate(maxLength)
-            bytes.put(buffer.sliceWorkaround(buffer.position(), maxLength))
+            bytes.put(buffer.slice(buffer.position(), maxLength))
             buffer.position(buffer.position() + maxLength)
             val nullIndex = (0 until maxLength).indexOfFirst { bytes.get(it) == 0.toByte() }
-            val stringBytes = bytes.sliceWorkaround(0, nullIndex).order(ByteOrder.LITTLE_ENDIAN)
+            val stringBytes = bytes.slice(0, nullIndex).order(ByteOrder.LITTLE_ENDIAN)
             return decoder.decode(stringBytes).toString()
         }
 
@@ -141,7 +141,7 @@ object PmdLoader: ModelFileLoader {
                 outputBuffer.putFloat(outputPosition, -readFloat())
                 outputPosition += 4
                 // POSITION_NORMAL_UV_JOINT_WEIGHT
-                outputBuffer.putWorkaround(outputPosition, buffer, inputPosition, copyBaseVertexSize)
+                outputBuffer.put(outputPosition, buffer, inputPosition, copyBaseVertexSize)
                 outputPosition += copyBaseVertexSize
                 inputPosition += copyBaseVertexSize
 

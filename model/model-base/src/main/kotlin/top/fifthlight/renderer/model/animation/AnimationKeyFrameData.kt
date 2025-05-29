@@ -4,7 +4,7 @@ import it.unimi.dsi.fastutil.floats.FloatList
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import top.fifthlight.renderer.model.Accessor
-import top.fifthlight.renderer.model.util.sliceWorkaround
+
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -83,7 +83,7 @@ class AccessorAnimationKeyFrameData<T>(
     private val elementLength = itemLength * elements
     private val slice = accessor.bufferView?.let { bufferView ->
         bufferView.buffer.buffer
-            .sliceWorkaround(accessor.byteOffset + bufferView.byteOffset, accessor.totalByteLength)
+            .slice(accessor.byteOffset + bufferView.byteOffset, accessor.totalByteLength)
             .order(ByteOrder.LITTLE_ENDIAN)
     } ?: run {
         ByteBuffer.allocate(itemLength).order(ByteOrder.LITTLE_ENDIAN)

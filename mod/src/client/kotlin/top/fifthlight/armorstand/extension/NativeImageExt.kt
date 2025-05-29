@@ -5,7 +5,6 @@ import org.lwjgl.stb.STBImage
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil
 import top.fifthlight.renderer.model.Texture
-import top.fifthlight.renderer.model.util.sliceWorkaround
 import java.io.IOException
 import java.nio.ByteBuffer
 
@@ -17,7 +16,7 @@ object NativeImageExt {
         textureType?.let { textureType ->
             require(buffer.remaining() >= textureType.magic.size) { "Bad image size: ${buffer.remaining()}, type: $textureType" }
             val magicBuffer = ByteBuffer.wrap(textureType.magic)
-            require(buffer.sliceWorkaround(0, textureType.magic.size).mismatch(magicBuffer) == -1) { "Bad image magic for type $textureType" }
+            require(buffer.slice(0, textureType.magic.size).mismatch(magicBuffer) == -1) { "Bad image magic for type $textureType" }
         }
 
         return MemoryStack.stackPush().use { memoryStack ->

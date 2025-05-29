@@ -1,3 +1,5 @@
 {
-  "armorstand.screen.config": "ArmorStand 配置"
+  "armorstand.name": "ArmorStand",
+  "armorstand.screen.config": "ArmorStand 配置",
+  "armorstand.keybinding.config": "打开 ArmorStand 配置"
 }

@@ -4,7 +4,7 @@ def _generate_remap_classpath_impl(ctx):
 
     ctx.actions.write(
         output = output_file,
-        content = ":".join([file.path for file in merged_deps.transitive_runtime_jars.to_list()])
+        content = ":".join([ctx.attr.prefix + file.path for file in merged_deps.transitive_runtime_jars.to_list()])
     )
 
     return [DefaultInfo(files = depset([output_file]))]
@@ -17,6 +17,10 @@ generate_remap_classpath = rule(
             providers = [JavaInfo],
             doc = "Input files",
         ),
+        "prefix": attr.string(
+            default = "",
+            doc = "Prefix of paths",
+        )
     },
     doc = "Generate remap classpath file for Fabric development environment.",
 )

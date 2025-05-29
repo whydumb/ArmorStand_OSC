@@ -1,17 +1,17 @@
 package top.fifthlight.armorstand.model
 
-import com.mojang.blaze3d.buffers.BufferType
-import com.mojang.blaze3d.buffers.BufferUsage
+import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.systems.RenderSystem
+import com.mojang.blaze3d.textures.GpuTexture
 import com.mojang.blaze3d.textures.TextureFormat
 import com.mojang.blaze3d.vertex.VertexFormat
+import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap
 import top.fifthlight.armorstand.extension.*
 import top.fifthlight.armorstand.render.*
 import top.fifthlight.armorstand.util.blaze3d
 import top.fifthlight.renderer.model.*
-import top.fifthlight.renderer.model.util.sliceWorkaround
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -53,32 +53,37 @@ class ModelLoader {
         jointSkins = jointSkinMap
     }
 
-    private val defaultTransforms = mutableListOf<NodeTransform?>()
-    private val humanoidJointTransformIndices = Reference2IntOpenHashMap<HumanoidTag>()
+    private val nodes = mutableListOf<RenderNode>()
+    private val transformNodeIndices = IntArrayList()
+    private val primitiveNodes = mutableListOf<RenderNode.Primitive>()
+    private val morphedPrimitiveNodeIndices = IntArrayList()
+    private val nodeToMorphedPrimitiveMap = mutableMapOf<NodeId, MutableList<Int>>()
+    private val meshToMorphedPrimitiveMap = mutableMapOf<MeshId, MutableList<Int>>()
     private val nodeIdTransformMap = Object2IntOpenHashMap<NodeId>()
     private val nodeNameTransformMap = Object2IntOpenHashMap<String>()
+    private val humanoidJointTransformIndices = Reference2IntOpenHashMap<HumanoidTag>()
     private val textureCache = mutableMapOf<Texture, RefCountedGpuTexture>()
     private val vertexBufferCache = mutableMapOf<Buffer, RefCountedGpuBuffer>()
-    private val morphedPrimitives = mutableListOf<RenderPrimitive>()
-    private val morphedPrimitiveNodeMap = mutableMapOf<NodeId, MutableList<Int>>()
-    private val morphedPrimitiveMeshMap = mutableMapOf<MeshId, MutableList<Int>>()
 
     private fun loadTexture(texture: Material.TextureInfo): RenderTexture? {
         val gpuTexture = texture.texture.let { texture ->
             texture.bufferView?.let { bufferView ->
                 textureCache.getOrPut(texture) {
-                    val byteBuffer = bufferView.buffer.buffer.sliceWorkaround(bufferView.byteOffset, bufferView.byteLength)
+                    val byteBuffer = bufferView.buffer.buffer.slice(bufferView.byteOffset, bufferView.byteLength)
                     val nativeImage = NativeImageExt.read(null, texture.type, byteBuffer)
                     RenderSystem.getDevice().let { device ->
                         val gpuTexture = device.createTexture(
-                            null as String?,
+                            texture.name,
+                            GpuTexture.USAGE_TEXTURE_BINDING or GpuTexture.USAGE_COPY_DST,
                             TextureFormat.RGBA8,
                             nativeImage.width,
                             nativeImage.height,
+                            1,
                             1
                         )
                         device.createCommandEncoder().writeToTexture(gpuTexture, nativeImage)
-                        RefCountedGpuTexture(gpuTexture)
+                        val textureView = device.createTextureView(gpuTexture)
+                        RefCountedGpuTexture(gpuTexture, textureView)
                     }
                 }
             }
@@ -123,20 +128,20 @@ class ModelLoader {
     private fun loadVertexBuffer(buffer: Buffer): RefCountedGpuBuffer = vertexBufferCache.getOrPut(buffer) {
         RefCountedGpuBuffer(
             RenderSystem.getDevice().let { device ->
-                device.createBuffer({ buffer.name }, BufferType.VERTICES, BufferUsage.STATIC_WRITE, buffer.buffer)
+                device.createBuffer({ buffer.name }, GpuBuffer.USAGE_VERTEX, buffer.buffer)
             }
         )
     }
 
-    private fun loadGenericBuffer(accessor: Accessor, type: BufferType): RefCountedGpuBuffer =
+    private fun loadGenericBuffer(accessor: Accessor, usage: Int): RefCountedGpuBuffer =
         accessor.bufferView?.let { bufferView ->
             require(bufferView.byteStride == 0) { "Non-vertex buffer view's byteStride is not zero: ${bufferView.byteStride}" }
             require(accessor.totalByteLength <= bufferView.byteLength) { "Accessor's length larger than underlying buffer view" }
             val buffer =
-                bufferView.buffer.buffer.sliceWorkaround(bufferView.byteOffset + accessor.byteOffset, accessor.totalByteLength)
+                bufferView.buffer.buffer.slice(bufferView.byteOffset + accessor.byteOffset, accessor.totalByteLength)
             RefCountedGpuBuffer(
                 RenderSystem.getDevice()
-                    .createBuffer({ bufferView.buffer.name }, type, BufferUsage.STATIC_WRITE, buffer)
+                    .createBuffer({ bufferView.buffer.name }, usage, buffer)
             )
         } ?: TODO("Create zero filled buffer")
 
@@ -152,15 +157,14 @@ class ModelLoader {
             buffer = RefCountedGpuBuffer(
                 device.createBuffer(
                     { "Filled buffer for usage $usage and type $componentType $accessorType" },
-                    BufferType.VERTICES,
-                    BufferUsage.STATIC_WRITE,
+                    GpuBuffer.USAGE_VERTEX or GpuBuffer.USAGE_COPY_DST,
                     componentType.byteLength * accessorType.components * elementCount,
                     if (!one) {
-                        GpuDeviceExt.FillType.ZERO_FILLED
+                        CommandEncoderExt.ClearType.ZERO_FILLED
                     } else if (componentType == Accessor.ComponentType.FLOAT) {
-                        GpuDeviceExt.FillType.FLOAT_ONE_FILLED
+                        CommandEncoderExt.ClearType.FLOAT_ONE_FILLED
                     } else {
-                        GpuDeviceExt.FillType.BYTE_ONE_FILLED
+                        CommandEncoderExt.ClearType.BYTE_ONE_FILLED
                     }
                 )
             ),
@@ -250,8 +254,7 @@ class ModelLoader {
             val gpuBuffer = RefCountedGpuBuffer(
                 RenderSystem.getDevice().createBuffer(
                     { "Transformed index buffer ${accessor.name}" },
-                    BufferType.INDICES,
-                    BufferUsage.STATIC_WRITE,
+                    GpuBuffer.USAGE_INDEX,
                     byteBuffer
                 )
             )
@@ -261,7 +264,7 @@ class ModelLoader {
                 type = VertexFormat.IndexType.SHORT,
             )
         }
-        val buffer = loadGenericBuffer(accessor, BufferType.INDICES)
+        val buffer = loadGenericBuffer(accessor, GpuBuffer.USAGE_INDEX)
         return IndexBuffer(
             buffer = buffer,
             length = accessor.count,
@@ -276,15 +279,15 @@ class ModelLoader {
     @ConsistentCopyVisibility
     private data class BuildingTarget private constructor(
         val buffer: ByteBuffer,
-        val textureFormat: TextureBufferFormat,
+        val textureFormat: TextureFormat,
         val targetsCount: Int,
     ) {
         constructor(
-            textureFormat: TextureBufferFormat,
+            textureFormat: TextureFormat,
             itemCount: Int,
             targetsCount: Int,
         ) : this(
-            buffer = ByteBuffer.allocateDirect(textureFormat.pixelSize * itemCount * targetsCount)
+            buffer = ByteBuffer.allocateDirect(textureFormat.pixelSize() * itemCount * targetsCount)
                 .order(ByteOrder.nativeOrder()),
             textureFormat = textureFormat,
             targetsCount = targetsCount,
@@ -295,24 +298,18 @@ class ModelLoader {
             buffer.flip()
             val targetBuffer = if (!buffer.hasRemaining()) {
                 // No targets, but we can't create an empty buffer, so let's create a dummy one
-                ByteBuffer.allocateDirect(textureFormat.pixelSize)
+                ByteBuffer.allocateDirect(textureFormat.pixelSize())
             } else {
                 buffer
             }
             val device = RenderSystem.getDevice()
             val gpuBuffer = device.createBuffer(
                 { "Morph target buffer" },
-                BufferType.INDICES,
-                BufferUsage.STATIC_WRITE,
+                GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER,
                 targetBuffer
             )
-            val textureBuffer = device.createTextureBuffer(
-                label = "Morph target texture buffer",
-                format = textureFormat,
-                buffer = gpuBuffer,
-            )
             return RenderPrimitive.Target(
-                data = textureBuffer,
+                data = gpuBuffer,
                 targetsCount = targetsCount,
             )
         }
@@ -324,17 +321,17 @@ class ModelLoader {
         weights: List<Float>?,
     ): Pair<RenderPrimitive.Targets, List<MorphTargetGroup>> {
         val positionTarget = BuildingTarget(
-            textureFormat = TextureBufferFormat.RGB32F,
+            textureFormat = TextureFormatExt.RGB32F,
             itemCount = verticesCount,
             targetsCount = targets.count { it.position != null },
         )
         val colorTarget = BuildingTarget(
-            textureFormat = TextureBufferFormat.RGBA32F,
+            textureFormat = TextureFormatExt.RGBA32F,
             itemCount = verticesCount,
             targetsCount = targets.count { it.colors.isNotEmpty() },
         )
         val texCoordTarget = BuildingTarget(
-            textureFormat = TextureBufferFormat.RG32F,
+            textureFormat = TextureFormatExt.RG32F,
             itemCount = verticesCount,
             targetsCount = targets.count { it.texcoords.isNotEmpty() },
         )
@@ -429,25 +426,30 @@ class ModelLoader {
             Pair(null, listOf())
         }
         val indexBuffer = primitive.indices?.let { loadIndexBuffer(it) }
-        val morphedPrimitiveIndex = morphedPrimitives.size.takeIf { material.morphed }
+        val morphedPrimitiveIndex = if (material.morphed) {
+            val morphedPrimitiveIndex = morphedPrimitiveNodeIndices.size
+            meshToMorphedPrimitiveMap.getOrPut(meshId) { mutableListOf() }.add(morphedPrimitiveIndex)
+            nodeToMorphedPrimitiveMap.getOrPut(nodeId) { mutableListOf() }.add(morphedPrimitiveIndex)
+            morphedPrimitiveIndex
+        } else {
+            null
+        }
         return RenderNode.Primitive(
+            primitiveIndex = primitiveNodes.size,
             primitive = RenderPrimitive(
                 vertexBuffer = vertexBuffer,
                 indexBuffer = indexBuffer,
                 material = material,
                 targets = targets,
                 targetGroups = targetGroups,
-            ).also {
-                if (material.morphed) {
-                    morphedPrimitiveIndex!!
-                    morphedPrimitiveMeshMap.getOrPut(meshId) { mutableListOf() }.add(morphedPrimitiveIndex)
-                    morphedPrimitiveNodeMap.getOrPut(nodeId) { mutableListOf() }.add(morphedPrimitiveIndex)
-                    morphedPrimitives.add(it)
-                }
-            },
+            ),
             skinIndex = skin?.first,
-            weightsIndex = morphedPrimitiveIndex,
+            morphedPrimitiveIndex = morphedPrimitiveIndex,
         )
+    }
+
+    private fun appendRenderNode(renderNode: RenderNode) {
+        nodes.add(renderNode)
     }
 
     private fun loadNode(node: Node): RenderNode? {
@@ -456,24 +458,31 @@ class ModelLoader {
 
         val children = buildList {
             jointSkin?.forEach { (skinIndex, jointIndex) ->
-                add(
-                    RenderNode.Joint(
-                        name = node.name,
-                        skinIndex = skinIndex,
-                        jointIndex = jointIndex,
-                    )
+                val jointNode = RenderNode.Joint(
+                    name = node.name,
+                    skinIndex = skinIndex,
+                    jointIndex = jointIndex,
                 )
+                add(jointNode)
+                appendRenderNode(jointNode)
             }
             node.mesh?.let { mesh ->
-                addAll(mesh.primitives.mapNotNull {
-                    loadPrimitive(
-                        primitive = it,
+                for (primitive in mesh.primitives) {
+                    val primitiveNode = loadPrimitive(
+                        primitive = primitive,
                         skin = skinItem,
                         weights = mesh.weights,
                         nodeId = node.id,
                         meshId = mesh.id,
-                    )
-                })
+                    ) ?: continue
+                    primitiveNodes.add(primitiveNode)
+                    val renderNodeIndex = nodes.size
+                    if (primitiveNode.primitive.targets != null) {
+                        morphedPrimitiveNodeIndices.add(renderNodeIndex)
+                    }
+                    appendRenderNode(primitiveNode)
+                }
+
             }
             node.children.forEach { loadNode(it)?.let { child -> add(child) } }
         }
@@ -484,13 +493,14 @@ class ModelLoader {
         var currentNode: RenderNode = if (children.size == 1) {
             children.first()
         } else {
-            RenderNode.Group(children).also { group ->
-                children.forEach { it.parent = group }
-            }
+            val groupNode = RenderNode.Group(children)
+            children.forEach { it.parent = groupNode }
+            appendRenderNode(groupNode)
+            groupNode
         }
 
-        val transformIndex = defaultTransforms.size
-        defaultTransforms += node.transform
+        val transformIndex = transformNodeIndices.size
+        transformNodeIndices.add(nodes.size)
         jointSkin?.let {
             for (skinItem in jointSkin) {
                 skinItem.humanoidTag?.let { tag -> humanoidJointTransformIndices.put(tag, transformIndex) }
@@ -500,30 +510,36 @@ class ModelLoader {
         node.name?.let { nodeNameTransformMap.put(it, transformIndex) }
         currentNode = RenderNode.Transform(
             transformIndex = transformIndex,
+            defaultTransform = node.transform,
             child = currentNode,
         ).also {
             currentNode.parent = it
+            appendRenderNode(it)
         }
 
         return currentNode
     }
 
     private fun loadScene(scene: Scene, expressions: List<Expression>): RenderScene {
-        val rootTransformId = defaultTransforms.size
-        defaultTransforms += scene.initialTransform
         val rootNode = RenderNode.Transform(
             child = RenderNode.Group(scene.nodes.mapNotNull { loadNode(it) }),
-            transformIndex = rootTransformId,
+            defaultTransform = scene.initialTransform,
+            transformIndex = transformNodeIndices.size,
         )
+        val rootTransformId = nodes.size
+        transformNodeIndices.add(rootTransformId)
+        appendRenderNode(rootNode)
         return RenderScene(
             rootNode = rootNode,
-            defaultTransforms = defaultTransforms.toTypedArray(),
+            nodes = nodes,
+            transformNodeIndices = transformNodeIndices,
+            primitiveNodes = primitiveNodes,
+            morphedPrimitiveNodeIndices = morphedPrimitiveNodeIndices,
             skins = skinsList,
-            rootTransformId = rootTransformId,
-            humanoidTagTransformMap = humanoidJointTransformIndices,
-            nodeNameTransformMap = nodeNameTransformMap,
-            nodeIdTransformMap = nodeIdTransformMap,
-            morphedPrimitives = morphedPrimitives,
+            rootTransformNodeIndex = rootTransformId,
+            humanoidTagToTransformMap = humanoidJointTransformIndices,
+            nodeNameToTransformMap = nodeNameTransformMap,
+            nodeIdToTransformMap = nodeIdTransformMap,
             expressions = expressions.mapNotNull { expression ->
                 RenderExpression(
                     name = expression.name,
@@ -532,7 +548,7 @@ class ModelLoader {
                     bindings = expression.bindings.flatMap {
                         when (it) {
                             is Expression.Binding.MeshMorphTarget -> {
-                                morphedPrimitiveMeshMap[it.meshId]?.map { index ->
+                                meshToMorphedPrimitiveMap[it.meshId]?.map { index ->
                                     RenderExpression.Binding.MorphTarget(
                                         morphedPrimitiveIndex = index,
                                         groupIndex = it.index,
@@ -542,7 +558,7 @@ class ModelLoader {
                             }
 
                             is Expression.Binding.NodeMorphTarget -> {
-                                morphedPrimitiveNodeMap[it.nodeId]?.map { index ->
+                                nodeToMorphedPrimitiveMap[it.nodeId]?.map { index ->
                                     RenderExpression.Binding.MorphTarget(
                                         morphedPrimitiveIndex = index,
                                         groupIndex = it.index,

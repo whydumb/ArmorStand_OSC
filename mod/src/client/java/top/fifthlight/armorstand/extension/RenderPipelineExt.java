@@ -8,8 +8,5 @@ import java.util.Optional;
 
 public interface RenderPipelineExt {
     @NotNull
-    List<String> armorStand$getUniformBuffers();
-
-    @NotNull
     Optional<VertexType> armorStand$getVertexType();
 }

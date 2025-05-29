@@ -1,6 +1,6 @@
 package top.fifthlight.armorstand
 
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext
+import com.mojang.blaze3d.systems.RenderSystem
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.client.util.math.MatrixStack
 import top.fifthlight.armorstand.model.TaskMap
@@ -28,28 +28,31 @@ object PlayerRenderer {
         light: Int,
     ): Boolean {
         val entry = ModelInstanceManager.get(uuid, System.nanoTime())
-        if (entry !is ModelInstanceManager.Item.Model) {
+        if (entry !is ModelInstanceManager.ModelInstanceItem.Model) {
             return false
         }
 
         val controller = entry.controller
         val instance = entry.instance
 
-        controller.update(vanillaState)
+        controller.update(uuid, vanillaState)
         controller.apply(instance)
         instance.update()
 
         val backupItem = matrixStack.peek().copy()
         matrixStack.pop()
+        matrixStack.push()
 
+        val modelMatrix = matrixStack.peek().positionMatrix
+
+        modelMatrix.mulLocal(RenderSystem.getModelViewStack())
         if (renderingWorld) {
-            instance.schedule(matrixStack, light) { task ->
-                taskMap.addTask(task)
-            }
+            taskMap.addTask(instance.schedule(modelMatrix, light))
         } else {
-            instance.render(matrixStack, light)
+            instance.render(modelMatrix, light)
         }
 
+        matrixStack.pop()
         matrixStack.push()
         matrixStack.peek().apply {
             positionMatrix.set(backupItem.positionMatrix)
@@ -58,7 +61,7 @@ object PlayerRenderer {
         return true
     }
 
-    fun executeDraw(context: WorldRenderContext) {
+    fun executeDraw() {
         renderingWorld = false
         taskMap.executeTasks()
     }

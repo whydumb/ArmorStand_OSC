@@ -41,7 +41,7 @@ data class Accessor(
             repeat(count) { func(buffer) }
             return
         }
-        val buffer = bufferView.buffer.buffer.sliceWorkaround(byteOffset + bufferView.byteOffset, totalByteLength)
+        val buffer = bufferView.buffer.buffer.slice(byteOffset + bufferView.byteOffset, totalByteLength)
         buffer.order(ByteOrder.LITTLE_ENDIAN)
         val stride = bufferView.byteStride.takeIf { it > 0 } ?: elementLength
         repeat(count) { elementIndex ->
@@ -61,7 +61,7 @@ data class Accessor(
             repeat(count * type.components) { func(0f) }
             return
         }
-        val buffer = bufferView.buffer.buffer.sliceWorkaround(bufferView.byteOffset + byteOffset, totalByteLength)
+        val buffer = bufferView.buffer.buffer.slice(bufferView.byteOffset + byteOffset, totalByteLength)
         buffer.order(ByteOrder.LITTLE_ENDIAN)
         val stride = bufferView.byteStride.takeIf { it > 0 } ?: elementLength
         repeat(count) { elementIndex ->

@@ -1,20 +1,23 @@
 package top.fifthlight.armorstand.model
 
-import com.mojang.blaze3d.systems.RenderSystem
-import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.util.Identifier
 import org.joml.Matrix4f
+import org.joml.Matrix4fStack
+import org.joml.Matrix4fc
 import org.joml.Quaternionf
 import org.joml.Vector3f
+import top.fifthlight.armorstand.ArmorStandClient
+import top.fifthlight.armorstand.model.data.ModelMatricesBuffer
+import top.fifthlight.armorstand.model.data.RenderSkinBuffer
+import top.fifthlight.armorstand.model.data.RenderTargetBuffer
 import top.fifthlight.armorstand.util.AbstractRefCount
+import top.fifthlight.armorstand.util.mapToArray
+import top.fifthlight.armorstand.util.mapToArrayIndexed
 import top.fifthlight.renderer.model.NodeTransform
 
-class ModelInstance private constructor(
+class ModelInstance(
     val scene: RenderScene,
-    val transforms: Array<NodeTransform?>,
-    val transformsDirty: Array<Boolean>,
-    val skinData: Array<RenderSkinData>,
-    val targetWeights: Array<RenderPrimitive.TargetWeights>,
+    bufferEntry: ModelBufferManager.BufferEntry,
 ) : AbstractRefCount() {
     companion object {
         private val TYPE_ID = Identifier.of("armorstand", "model_instance")
@@ -23,94 +26,141 @@ class ModelInstance private constructor(
     override val typeId: Identifier
         get() = TYPE_ID
 
-    constructor(scene: RenderScene) : this(
+    val modelData = ModelData(
         scene = scene,
-        transforms = Array(scene.defaultTransforms.size) { scene.defaultTransforms[it] },
-        transformsDirty = Array(scene.defaultTransforms.size) { true },
-        skinData = Array(scene.skins.size) {
-            val skin = scene.skins[it]
-            RenderSkinData(skin).also { skinData -> skinData.increaseReferenceCount() }
-        },
-        targetWeights = Array(scene.morphedPrimitives.size) { index ->
-            val primitive = scene.morphedPrimitives[index]
-            val targets = primitive.targets!!
-            val position = RenderPrimitive.TargetWeight(targets.position.targetsCount)
-            val color = RenderPrimitive.TargetWeight(targets.color.targetsCount)
-            val texCoord = RenderPrimitive.TargetWeight(targets.texCoord.targetsCount)
-            for (targetGroup in primitive.targetGroups) {
-                fun processGroup(index: Int?, target: RenderPrimitive.TargetWeight, weight: Float) = index?.let {
-                    target[index] = weight
-                }
-                processGroup(targetGroup.position, position, targetGroup.weight)
-                processGroup(targetGroup.color, color, targetGroup.weight)
-                processGroup(targetGroup.texCoord, texCoord, targetGroup.weight)
-            }
-            RenderPrimitive.TargetWeights(
-                position = position,
-                color = color,
-                texCoord = texCoord,
-            )
-        },
+        bufferEntry = bufferEntry,
     )
 
     init {
         scene.increaseReferenceCount()
     }
 
-    private val updateMatrixStack = MatrixStack()
-
-    fun setTransformMatrix(index: Int, matrix: Matrix4f) {
-        val transform = transforms[index] ?: NodeTransform.Matrix()
-        if (transform is NodeTransform.Matrix) {
-            transform.matrix.set(matrix)
-        } else {
-            transforms[index] = NodeTransform.Matrix(matrix)
+    class ModelData(
+        scene: RenderScene,
+        private val bufferEntry: ModelBufferManager.BufferEntry,
+    ) : AutoCloseable {
+        init {
+            bufferEntry.increaseReferenceCount()
         }
-        transformsDirty[index] = true
+
+        val transforms = scene.transformNodeIndices.mapToArray { nodeIndex ->
+            val node = scene.nodes[nodeIndex] as RenderNode.Transform
+            node.defaultTransform?.clone()
+        }
+
+        val transformsDirty = Array(scene.transformNodeIndices.size) { true }
+
+        val modelMatricesBuffer =
+            ModelMatricesBuffer(scene, bufferEntry.modelMatricesBuffers.allocateSlot()).also { it.clear() }
+
+        val skinBuffers = scene.skins.mapToArrayIndexed { index, skin ->
+            RenderSkinBuffer(skin, bufferEntry.skinBuffers[index].allocateSlot()).also {
+                it.clear()
+            }
+        }
+
+        val targetBuffers = scene.morphedPrimitiveNodeIndices.mapToArrayIndexed { index, nodeIndex ->
+            val node = scene.nodes[nodeIndex] as RenderNode.Primitive
+            val primitive = node.primitive
+            val targets = primitive.targets!!
+            val targetBuffers = RenderTargetBuffer(
+                targets = targets,
+                weightsSlot = bufferEntry.morphWeightBuffers[index].allocateSlot(),
+                indicesSlot = bufferEntry.morphIndicesBuffers[index].allocateSlot(),
+            )
+            for (targetGroup in primitive.targetGroups) {
+                fun processGroup(index: Int?, channel: RenderTargetBuffer.WeightChannel, weight: Float) =
+                    index?.let {
+                        channel[index] = weight
+                    }
+                processGroup(targetGroup.position, targetBuffers.positionChannel, targetGroup.weight)
+                processGroup(targetGroup.color, targetBuffers.colorChannel, targetGroup.weight)
+                processGroup(targetGroup.texCoord, targetBuffers.texCoordChannel, targetGroup.weight)
+            }
+            targetBuffers
+        }
+
+        override fun close() {
+            // release slots
+            modelMatricesBuffer.close()
+            skinBuffers.forEach { it.close() }
+            targetBuffers.forEach { it.close() }
+            // release underlying slot buffer
+            bufferEntry.decreaseReferenceCount()
+        }
+    }
+
+    fun setTransformMatrix(transformIndex: Int, matrix: Matrix4f) {
+        val transform = modelData.transforms[transformIndex]
+        when (transform) {
+            is NodeTransform.Matrix -> {
+                transform.matrix.set(matrix)
+            }
+
+            else -> {
+                modelData.transforms[transformIndex] = NodeTransform.Matrix(matrix)
+            }
+        }
+        modelData.transformsDirty[transformIndex] = true
     }
 
     inline fun setTransformDecomposed(index: Int, crossinline updater: NodeTransform.Decomposed.() -> Unit) {
-        val transform = transforms[index] ?: NodeTransform.Decomposed()
-        if (transform is NodeTransform.Decomposed) {
-            updater(transform)
-        } else {
-            val prevMatrix = transform.matrix
-            val newTransform = NodeTransform.Decomposed(
-                translation = Vector3f().also { prevMatrix.getTranslation(it) },
-                scale = Vector3f().also { prevMatrix.getScale(it) },
-                rotation = Quaternionf().also { prevMatrix.getNormalizedRotation(it) },
-            )
-            updater(newTransform)
-            transforms[index] = newTransform
+        val transform = modelData.transforms[index]
+        when (transform) {
+            is NodeTransform.Decomposed -> {
+                updater(transform)
+            }
+
+            is NodeTransform.Matrix -> {
+                val prevMatrix = transform.matrix
+                val newTransform = NodeTransform.Decomposed(
+                    translation = Vector3f().also { prevMatrix.getTranslation(it) },
+                    scale = Vector3f().also { prevMatrix.getScale(it) },
+                    rotation = Quaternionf().also { prevMatrix.getNormalizedRotation(it) },
+                )
+                updater(newTransform)
+                modelData.transforms[index] = newTransform
+            }
+
+            null -> {
+                val newTransform = NodeTransform.Decomposed()
+                updater(newTransform)
+                modelData.transforms[index] = newTransform
+            }
         }
-        transformsDirty[index] = true
+        modelData.transformsDirty[index] = true
     }
 
     fun setGroupWeight(morphedPrimitiveIndex: Int, targetGroupIndex: Int, weight: Float) {
-        val group = scene.morphedPrimitives[morphedPrimitiveIndex].targetGroups[targetGroupIndex]
-        val weights = targetWeights[morphedPrimitiveIndex]
-        group.position?.let { weights.position[it] = weight }
-        group.color?.let { weights.color[it] = weight }
-        group.texCoord?.let { weights.texCoord[it] = weight }
+        val nodeIndex = scene.morphedPrimitiveNodeIndices.getInt(morphedPrimitiveIndex)
+        val node = scene.nodes[nodeIndex]
+        require(node is RenderNode.Primitive) { "Node id $morphedPrimitiveIndex is not primitive" }
+        val group = node.primitive.targetGroups[targetGroupIndex]
+        val weightsIndex = requireNotNull(node.morphedPrimitiveIndex) { "Node $nodeIndex don't have target? Check model loader" }
+        val weights = modelData.targetBuffers[weightsIndex]
+        group.position?.let { weights.positionChannel[it] = weight }
+        group.color?.let { weights.colorChannel[it] = weight }
+        group.texCoord?.let { weights.texCoordChannel[it] = weight }
     }
+
+    private val updateMatrixStack = Matrix4fStack(ArmorStandClient.MAX_TRANSFORM_DEPTH)
 
     fun update() {
         scene.update(this, updateMatrixStack)
-        val device = RenderSystem.getDevice()
-        val commandEncoder = device.createCommandEncoder()
-        skinData.forEach { it.upload(device, commandEncoder) }
     }
 
-    fun render(matrixStack: MatrixStack, light: Int) {
-        scene.render(this, matrixStack, light)
+    fun render(modelMatrix: Matrix4fc, light: Int) {
+        scene.render(this, modelMatrix, light)
     }
 
-    fun schedule(matrixStack: MatrixStack, light: Int, onTaskScheduled: (RenderTask<*, *>) -> Unit) {
-        scene.schedule(this, matrixStack, light, onTaskScheduled)
-    }
+    fun schedule(modelMatrix: Matrix4fc, light: Int) = RenderTask.Instance.acquire(
+        instance = this,
+        modelMatrix = modelMatrix,
+        light = light,
+    )
 
     override fun onClosed() {
         scene.decreaseReferenceCount()
-        skinData.forEach { it.decreaseReferenceCount() }
+        modelData.close()
     }
 }

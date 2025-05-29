@@ -5,11 +5,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gl.RenderPassImpl
+import net.minecraft.client.option.KeyBinding
+import org.lwjgl.glfw.GLFW
 import top.fifthlight.armorstand.config.ConfigHolder
+import top.fifthlight.armorstand.config.ConfigScreen
 import top.fifthlight.armorstand.debug.ModelManagerDebugFrame
 import top.fifthlight.armorstand.debug.ObjectCountTrackerFrame
 import top.fifthlight.armorstand.debug.ObjectPoolTracker
@@ -24,8 +29,14 @@ import javax.swing.SwingUtilities
 
 object ArmorStandClient : ArmorStand(), ClientModInitializer {
     private val LOGGER = LogUtils.getLogger()
-    const val INSTANCE_SIZE = 64
+    const val INSTANCE_SIZE = 256
     const val MAX_ENABLED_MORPH_TARGETS = 32
+    const val MAX_TRANSFORM_DEPTH = 64
+    private val configKeyBinding = KeyBinding(
+        "armorstand.keybinding.config",
+        GLFW.GLFW_KEY_I,
+        "armorstand.name"
+    )
 
     override lateinit var scope: CoroutineScope
         private set
@@ -54,6 +65,7 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
 
         RenderMaterial.initialize()
 
+        KeyBindingHelper.registerKeyBinding(configKeyBinding)
         WorldRenderEvents.START.register { context ->
             PlayerRenderer.flipObjectPools()
         }
@@ -61,7 +73,7 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
             PlayerRenderer.startRenderWorld()
         }
         WorldRenderEvents.AFTER_ENTITIES.register { context ->
-            PlayerRenderer.executeDraw(context)
+            PlayerRenderer.executeDraw()
         }
 
         ClientLifecycleEvents.CLIENT_STARTED.register { client ->
@@ -71,6 +83,14 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
         }
         ClientPlayNetworking.registerGlobalReceiver(PlayerModelUpdateS2CPayload.ID) { payload, context ->
             ModelInstanceManager.updatePlayerModel(payload.uuid, payload.path)
+        }
+        ClientTickEvents.START_CLIENT_TICK.register { client ->
+            if (client.currentScreen != null) {
+                return@register
+            }
+            if (configKeyBinding.isPressed) {
+                client.setScreen(ConfigScreen(null))
+            }
         }
     }
 }

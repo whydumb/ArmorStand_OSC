@@ -1,6 +1,7 @@
 package top.fifthlight.armorstand.model
 
 import com.mojang.blaze3d.systems.RenderSystem
+import com.mojang.blaze3d.textures.GpuTexture
 import com.mojang.blaze3d.textures.TextureFormat
 import net.minecraft.client.texture.NativeImage
 import net.minecraft.util.Identifier
@@ -11,6 +12,7 @@ import java.nio.ByteBuffer
 
 class RenderTexture(
     val texture: RefCountedGpuTexture,
+    // TODO: make use of sampler and coordinate, sampler need to extend Blaze3D
     val sampler: Texture.Sampler,
     val coordinate: Int,
 ) : AbstractRefCount() {
@@ -32,11 +34,19 @@ class RenderTexture(
                 repeat(4) { put(0xFFFFFFFFu.toInt()) }
                 flip()
             }
-            val texture = RenderSystem.getDevice().run {
-                createTexture("White RGBA texture", TextureFormat.RGBA8, 1, 1, 1).also {
-                    createCommandEncoder().writeToTexture(it, buffer, NativeImage.Format.RGBA, 0, 0, 0, 1, 1)
-                }
-            }.let { RefCountedGpuTexture(it) }
+            val texture = RenderSystem.getDevice().let { device ->
+                val texture = device.createTexture(
+                    "White RGBA texture",
+                    GpuTexture.USAGE_TEXTURE_BINDING or GpuTexture.USAGE_COPY_DST,
+                    TextureFormat.RGBA8,
+                    1,
+                    1,
+                    1,
+                    1
+                )
+                device.createCommandEncoder().writeToTexture(texture, buffer, NativeImage.Format.RGBA, 0, 0, 0, 0, 1, 1)
+                RefCountedGpuTexture(texture, device.createTextureView(texture))
+            }
             RenderTexture(
                 texture = texture,
                 sampler = Texture.Sampler(),

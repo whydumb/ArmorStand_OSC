@@ -18,24 +18,9 @@ public abstract class RenderPipelineSnippetMixin implements RenderPipelineSnippe
     @Unique
     Optional<VertexType> vertexType = Optional.empty();
 
-    @Unique
-    Optional<List<String>> uniformBuffers = Optional.empty();
-
     @Inject(method = "<init>", at = @At("TAIL"))
     private void onInit(CallbackInfo ci) {
         vertexType = Optional.empty();
-        uniformBuffers = Optional.empty();
-    }
-
-    @Override
-    @NotNull
-    public Optional<List<String>> armorstand$getUniformBuffers() {
-        return uniformBuffers;
-    }
-
-    @Override
-    public void armorStand$setUniformBuffers(@NotNull Optional<List<String>> uniformBuffers) {
-        this.uniformBuffers = uniformBuffers;
     }
 
     @Override

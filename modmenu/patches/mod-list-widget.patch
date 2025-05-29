@@ -1,0 +1,54 @@
+--- orig-sources/com/terraformersmc/modmenu/gui/widget/ModListWidget.java
++++ sources/com/terraformersmc/modmenu/gui/widget/ModListWidget.java
+@@ -1,7 +1,5 @@
+ package com.terraformersmc.modmenu.gui.widget;
+ 
+-import com.mojang.blaze3d.buffers.BufferType;
+-import com.mojang.blaze3d.buffers.BufferUsage;
+ import com.mojang.blaze3d.buffers.GpuBuffer;
+ import com.mojang.blaze3d.pipeline.RenderPipeline;
+ import com.mojang.blaze3d.systems.RenderPass;
+@@ -27,6 +25,7 @@
+ import net.minecraft.util.math.ColorHelper;
+ import net.minecraft.util.math.MathHelper;
+ import org.jetbrains.annotations.Nullable;
++import org.joml.Matrix3x2f;
+ import org.joml.Matrix4f;
+ import org.lwjgl.glfw.GLFW;
+ 
+@@ -80,7 +79,7 @@
+ 		this.setSelected(entry);
+ 		if (entry != null) {
+ 			Mod mod = entry.getMod();
+-			this.client.getNarratorManager().narrate(Text.translatable("narrator.select", mod.getTranslatedName()).getString());
++			this.client.getNarratorManager().narrate(Text.translatable("narrator.select", mod.getTranslatedName()));
+ 		}
+ 	}
+ 
+@@ -230,7 +229,7 @@
+ 				int rowWidth = this.getRowWidth();
+ 				int entryLeft;
+ 				if (this.isSelectedEntry(index)) {
+-					Matrix4f matrix = drawContext.getMatrices().peek().getPositionMatrix();
++					Matrix3x2f matrix = new Matrix3x2f(drawContext.getMatrices());
+ 					entryLeft = getRowLeft() - 2 + entry.getXOffset();
+ 					int selectionRight = this.getRowLeft() + rowWidth + 2;
+ 					float float_2 = this.isFocused() ? 1.0F : 0.5F;
+@@ -256,13 +255,13 @@
+                             RenderSystem.ShapeIndexBuffer autoStorageIndexBuffer = RenderSystem.getSequentialBuffer(pipeline.getVertexFormatMode());
+                             VertexFormat.IndexType indexType = autoStorageIndexBuffer.getIndexType();
+                             GpuBuffer indexBuffer = autoStorageIndexBuffer.getIndexBuffer(builtBuffer.getDrawParameters().indexCount());
+-                            GpuBuffer vertexBuffer = RenderSystem.getDevice().createBuffer(() -> "Mod List", BufferType.VERTICES, BufferUsage.DYNAMIC_WRITE, builtBuffer.getBuffer().remaining());
+-                            RenderSystem.getDevice().createCommandEncoder().writeToBuffer(vertexBuffer, builtBuffer.getBuffer(), 0);
+-                            try (RenderPass renderPass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(framebuffer.getColorAttachment(), OptionalInt.empty(), framebuffer.getDepthAttachment(), OptionalDouble.empty())) {
++                            GpuBuffer vertexBuffer = RenderSystem.getDevice().createBuffer(() -> "Mod List", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_COPY_DST, builtBuffer.getBuffer().remaining());
++                            RenderSystem.getDevice().createCommandEncoder().writeToBuffer(vertexBuffer.slice(), builtBuffer.getBuffer());
++                            try (RenderPass renderPass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "Mod List", framebuffer.getColorAttachmentView(), OptionalInt.empty(), framebuffer.getDepthAttachmentView(), OptionalDouble.empty())) {
+                                 renderPass.setPipeline(pipeline);
+                                 renderPass.setVertexBuffer(0, vertexBuffer);
+                                 renderPass.setIndexBuffer(indexBuffer, indexType);
+-                                renderPass.drawIndexed(0, builtBuffer.getDrawParameters().indexCount());
++                                renderPass.drawIndexed(0, 0, builtBuffer.getDrawParameters().indexCount(), 1);
+                             }
+                         }
+                     }

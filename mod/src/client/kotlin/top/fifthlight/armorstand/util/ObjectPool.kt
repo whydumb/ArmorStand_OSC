@@ -69,9 +69,6 @@ class FramedObjectPool<T : Any>(
 
     fun frame() {
         if (pendingRelease.isNotEmpty()) {
-            ObjectPoolTracker.instance?.compute(identifier) {
-                copy(pooledItem = pooledItem + pendingRelease.size)
-            }
             pool.addAll(pendingRelease)
             pendingRelease.clear()
         }

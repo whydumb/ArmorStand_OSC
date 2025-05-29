@@ -15,6 +15,7 @@ import net.minecraft.client.gui.widget.ThreePartsLayoutWidget
 import net.minecraft.client.input.KeyCodes
 import net.minecraft.screen.ScreenTexts
 import net.minecraft.text.Text
+import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.armorstand.util.ModelLoaders
 import top.fifthlight.armorstand.util.ThreadExecutorDispatcher
 import java.nio.file.FileVisitResult
@@ -24,7 +25,6 @@ import kotlin.io.path.relativeTo
 import kotlin.io.path.visitFileTree
 
 class ConfigScreen(private val parent: Screen? = null) : Screen(Text.translatable("armorstand.screen.config")) {
-    private val modelDir = FabricLoader.getInstance().gameDir.resolve("models")
     private val items = MutableStateFlow(listOf<Path>())
     private val scope = CoroutineScope(ThreadExecutorDispatcher(MinecraftClient.getInstance()))
 
@@ -34,10 +34,10 @@ class ConfigScreen(private val parent: Screen? = null) : Screen(Text.translatabl
     private fun loadItems() {
         val items = runCatching {
             buildList {
-                modelDir.visitFileTree(maxDepth = 4) {
+                ModelInstanceManager.modelDir.visitFileTree(maxDepth = 4) {
                     onVisitFile { path, attributes ->
                         if (path.extension.lowercase() in ModelLoaders.modelExtensions) {
-                            add(path.relativeTo(modelDir))
+                            add(path.relativeTo(ModelInstanceManager.modelDir))
                         }
                         FileVisitResult.CONTINUE
                     }

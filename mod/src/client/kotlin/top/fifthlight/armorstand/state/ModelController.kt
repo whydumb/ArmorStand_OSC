@@ -8,26 +8,30 @@ import top.fifthlight.armorstand.animation.AnimationItem
 import top.fifthlight.armorstand.animation.Timeline
 import top.fifthlight.armorstand.model.ModelInstance
 import top.fifthlight.armorstand.model.RenderExpression
+import top.fifthlight.armorstand.model.RenderNode
 import top.fifthlight.armorstand.model.RenderScene
 import top.fifthlight.armorstand.util.toRadian
 import top.fifthlight.renderer.model.Expression
 import top.fifthlight.renderer.model.HumanoidTag
+import java.util.UUID
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.sin
 
 sealed class ModelController {
-    open fun update(vanillaState: PlayerEntityRenderState) = Unit
+    open fun update(uuid: UUID, vanillaState: PlayerEntityRenderState) = Unit
     abstract fun apply(instance: ModelInstance)
 
     private class JointItem(
         private val initialMatrix: Matrix4fc,
-        private val index: Int,
+        private val transformIndex: Int,
     ) {
         private val targetMatrix = Matrix4f()
 
         inline fun update(instance: ModelInstance, crossinline func: Matrix4f.() -> Unit) {
             targetMatrix.set(initialMatrix)
             func(targetMatrix)
-            instance.setTransformMatrix(index, targetMatrix)
+            instance.setTransformMatrix(transformIndex, targetMatrix)
         }
     }
 
@@ -49,15 +53,17 @@ sealed class ModelController {
 
         companion object {
             private fun RenderScene.getBone(tag: HumanoidTag) =
-                humanoidTagTransformMap.getInt(tag).takeIf { it != -1 }?.let { index ->
+                humanoidTagToTransformMap.getInt(tag).takeIf { it != -1 }?.let { transformIndex ->
+                    val nodeIndex = transformNodeIndices.getInt(transformIndex)
+                    val transformNode = nodes[nodeIndex] as RenderNode.Transform
                     JointItem(
-                        initialMatrix = defaultTransforms[index]?.matrix ?: Matrix4f(),
-                        index = index,
+                        initialMatrix = transformNode.defaultTransform?.matrix ?: Matrix4f(),
+                        transformIndex = transformIndex,
                     )
                 }
         }
 
-        override fun update(vanillaState: PlayerEntityRenderState) {
+        override fun update(uuid: UUID, vanillaState: PlayerEntityRenderState) {
             bodyYaw = MathHelper.PI - vanillaState.bodyYaw.toRadian()
             headYaw = -vanillaState.relativeHeadYaw.toRadian()
             headPitch = -vanillaState.pitch.toRadian()

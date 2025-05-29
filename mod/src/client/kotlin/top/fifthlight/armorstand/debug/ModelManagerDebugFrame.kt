@@ -59,23 +59,21 @@ class ModelManagerDebugFrame : JFrame("Model Manager Status") {
     private fun updateData() {
         val now = System.nanoTime()
         itemTableItem.rowCount = 0
-        ModelInstanceManager.getItems().forEach { (uuid, item) ->
+        ModelInstanceManager.modelInstanceItems.forEach { (uuid, item) ->
             val status = when (item) {
-                is ModelInstanceManager.Item.Empty -> "Empty"
-                is ModelInstanceManager.Item.Loading -> "Loading"
-                is ModelInstanceManager.Item.Model -> "Loaded"
+                is ModelInstanceManager.ModelInstanceItem.Failed -> "Empty"
+                is ModelInstanceManager.ModelInstanceItem.Model -> "Loaded"
             }
             val lastAccessTime = when (item) {
-                is ModelInstanceManager.Item.Model -> "${(now - item.lastAccessTime) / TimeUtil.NANOSECONDS_PER_SECOND}s"
+                is ModelInstanceManager.ModelInstanceItem.Model -> when(item.lastAccessTime) {
+                    -1L -> "Self item"
+                    else -> "${(now - item.lastAccessTime) / TimeUtil.NANOSECONDS_PER_SECOND}s"
+                }
                 else -> "N/A"
             }
-            val timeLeft = if (item is ModelInstanceManager.Item.Model) {
-                if (item.path == ModelInstanceManager.selfPath) {
-                    "Permanent"
-                } else {
-                    val expireTime = now - item.lastAccessTime
-                    "${(ModelInstanceManager.INSTANCE_EXPIRE_NS - expireTime) / TimeUtil.NANOSECONDS_PER_SECOND}s"
-                }
+            val timeLeft = if (item is ModelInstanceManager.ModelInstanceItem.Model) {
+                val expireTime = now - item.lastAccessTime
+                "${(ModelInstanceManager.INSTANCE_EXPIRE_NS - expireTime) / TimeUtil.NANOSECONDS_PER_SECOND}s"
             } else {
                 "N/A"
             }
@@ -89,7 +87,7 @@ class ModelManagerDebugFrame : JFrame("Model Manager Status") {
         }
 
         modelTableItem.rowCount = 0
-        ModelInstanceManager.getCache().forEach { (path, item) ->
+        ModelInstanceManager.modelCaches.forEach { (path, item) ->
             modelTableItem.addRow(arrayOf(
                 path,
                 when (item) {

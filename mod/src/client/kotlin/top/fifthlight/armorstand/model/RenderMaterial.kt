@@ -3,19 +3,23 @@
 package top.fifthlight.armorstand.model
 
 import com.mojang.blaze3d.buffers.GpuBuffer
+import com.mojang.blaze3d.pipeline.BlendFunction
 import com.mojang.blaze3d.pipeline.RenderPipeline
 import com.mojang.blaze3d.systems.RenderPass
+import com.mojang.blaze3d.systems.RenderSystem
+import com.mojang.blaze3d.textures.TextureFormat
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gl.RenderPipelines
 import net.minecraft.client.gl.UniformType
 import net.minecraft.client.render.LightmapTextureManager
 import net.minecraft.util.Identifier
 import top.fifthlight.armorstand.ArmorStandClient
+import top.fifthlight.armorstand.extension.TextureFormatExt
 import top.fifthlight.armorstand.util.AbstractRefCount
 import top.fifthlight.armorstand.util.BitmapItem
-import top.fifthlight.armorstand.extension.setUniform
-import top.fifthlight.armorstand.extension.withUniformBuffer
 import top.fifthlight.armorstand.extension.withVertexType
+import top.fifthlight.armorstand.model.uniform.UniformBuffer
+import top.fifthlight.armorstand.model.uniform.UnlitDataUniformBuffer
 import top.fifthlight.renderer.model.Material.AlphaMode
 import top.fifthlight.renderer.model.Material.AlphaMode.OPAQUE
 import top.fifthlight.renderer.model.RgbColor
@@ -102,31 +106,28 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
 
         fun pipelineSnippet(): RenderPipeline.Snippet = RenderPipeline.builder().apply {
             withCull(!doubleSided)
+            withUniform("Projection", UniformType.UNIFORM_BUFFER)
             if (morphed) {
                 withShaderDefine("MORPHED")
                 withShaderDefine("MAX_ENABLED_MORPH_TARGETS", ArmorStandClient.MAX_ENABLED_MORPH_TARGETS)
-                withUniform("TotalVertices", UniformType.INT)
-                withSampler("MorphPositionData")
-                withSampler("MorphColorData")
-                withSampler("MorphTexCoordData")
-                withUniform("MorphTargetSizes", UniformType.IVEC3)
-                withSampler("MorphWeights")
-                withUniformBuffer("MorphIndices")
+                withUniform("MorphData", UniformType.UNIFORM_BUFFER)
+                withUniform("MorphModelIndices", UniformType.UNIFORM_BUFFER)
+                withUniform("MorphPositionData", UniformType.TEXEL_BUFFER, TextureFormatExt.RGB32F)
+                withUniform("MorphColorData", UniformType.TEXEL_BUFFER, TextureFormatExt.RGBA32F)
+                withUniform("MorphTexCoordData", UniformType.TEXEL_BUFFER, TextureFormatExt.RG32F)
+                withUniform("MorphTargetIndices", UniformType.TEXEL_BUFFER, TextureFormatExt.R32I)
+                withUniform("MorphWeights", UniformType.TEXEL_BUFFER, TextureFormatExt.R32F)
             }
             if (skinned) {
                 withShaderDefine("SKINNED")
-                withSampler("Joints")
+                withUniform("SkinModelIndices", UniformType.UNIFORM_BUFFER)
+                withUniform("Joints", UniformType.TEXEL_BUFFER, TextureFormatExt.RGBA32F)
             }
+            withUniform("InstanceData", UniformType.UNIFORM_BUFFER)
+            withUniform("LocalMatrices", UniformType.TEXEL_BUFFER, TextureFormatExt.RGBA32F)
+            withShaderDefine("INSTANCE_SIZE", ArmorStandClient.INSTANCE_SIZE)
             if (instanced) {
                 withShaderDefine("INSTANCED")
-                withShaderDefine("INSTANCE_SIZE", ArmorStandClient.INSTANCE_SIZE)
-                withUniformBuffer("Instances")
-                if (skinned) {
-                    withUniform("TotalJoints", UniformType.INT)
-                }
-            } else {
-                withUniform("ProjMat", UniformType.MATRIX4X4)
-                withUniform("ModelViewMat", UniformType.MATRIX4X4)
             }
         }.buildSnippet()
 
@@ -164,7 +165,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         abstract fun setupPipeline(
             info: PipelineInfo,
             snippet: RenderPipeline.Snippet,
-            location: Identifier
+            location: Identifier,
         ): RenderPipeline
 
         abstract val supportedPipelineElements: List<BitmapItem.Element>
@@ -209,15 +210,12 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
     override val typeId: Identifier
         get() = descriptor.typeId
 
-    open fun setup(renderPass: RenderPass, light: Int) {
-        renderPass.setPipeline(getPipeline(false))
-    }
-
-    open fun setupInstanced(renderPass: RenderPass) {
-        if (!descriptor.supportInstancing) {
-            throw UnsupportedOperationException("Instanced rendering is not supported for pipeline $name")
-        }
-        renderPass.setPipeline(getPipeline(true))
+    // FIXME: don't use pair, which allocate objects every frame
+    open fun setup(instanced: Boolean = false, renderPassCreator: () -> RenderPass): Pair<RenderPass, UniformBuffer<*, *>?> {
+        val renderPass = renderPassCreator()
+        renderPass.setPipeline(getPipeline(instanced))
+        RenderSystem.bindDefaultUniforms(renderPass)
+        return Pair(renderPass, null)
     }
 
     abstract override fun onClosed()
@@ -255,7 +253,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         override val morphed: Boolean
             get() = false
 
-        override fun setup(renderPass: RenderPass, light: Int) = TODO()
+        override fun setup(instanced: Boolean, renderPassCreator: () -> RenderPass): Pair<RenderPass, UniformBuffer<*, *>?> = TODO()
 
         override fun onClosed() {
             baseColorTexture.decreaseReferenceCount()
@@ -280,7 +278,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
             override fun setupPipeline(
                 info: PipelineInfo,
                 snippet: RenderPipeline.Snippet,
-                location: Identifier
+                location: Identifier,
             ): RenderPipeline {
                 TODO("Not yet implemented")
             }
@@ -311,35 +309,19 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
                 VertexType.POSITION_TEXTURE_COLOR
             }
 
-        override fun setup(renderPass: RenderPass, light: Int) {
-            super.setup(renderPass, light)
-            with(renderPass) {
-                setUniform("BaseColor", baseColor.r, baseColor.g, baseColor.b, baseColor.a)
-                setUniform(
-                    "LightMapUv",
-                    light and (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE or 0xFF0F),
-                    (light shr 16) and (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE or 0xFF0F),
-                    0,
-                )
-                bindSampler("SamplerBaseColor", baseColorTexture.texture.inner)
-                bindSampler(
-                    "SamplerLightMap",
-                    MinecraftClient.getInstance().gameRenderer.lightmapTextureManager.glTexture
-                )
+        override fun setup(instanced: Boolean, renderPassCreator: () -> RenderPass): Pair<RenderPass, UniformBuffer<*, *>?> {
+            val unlitData = UnlitDataUniformBuffer.acquire()
+            unlitData.write {
+                baseColor = this@Unlit.baseColor
             }
-        }
-
-        override fun setupInstanced(renderPass: RenderPass) {
-            super.setupInstanced(renderPass)
+            val (renderPass, _) = super.setup(instanced, renderPassCreator)
             with(renderPass) {
-                setUniform("BaseColor", baseColor.r, baseColor.g, baseColor.b, baseColor.a)
-                setUniform("Instances", null as GpuBuffer?)
-                bindSampler("SamplerBaseColor", baseColorTexture.texture.inner)
-                bindSampler(
-                    "SamplerLightMap",
-                    MinecraftClient.getInstance().gameRenderer.lightmapTextureManager.glTexture
-                )
+                setUniform("UnlitData", unlitData.slice)
+                bindSampler("SamplerBaseColor", baseColorTexture.texture.view)
+                val lightMapTexture = MinecraftClient.getInstance().gameRenderer.lightmapTextureManager.glTextureView
+                bindSampler("SamplerLightMap", lightMapTexture)
             }
+            return Pair(renderPass, unlitData)
         }
 
         override fun onClosed() {
@@ -365,13 +347,16 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
             override fun setupPipeline(
                 info: PipelineInfo,
                 snippet: RenderPipeline.Snippet,
-                location: Identifier
+                location: Identifier,
             ): RenderPipeline =
-                RenderPipeline.builder(snippet).apply {
+                RenderPipeline.builder(
+                    snippet,
+                    RenderPipelines.FOG_SNIPPET,
+                ).apply {
                     withLocation(location)
                     withVertexShader(Identifier.of("armorstand", "core/unlit"))
                     withFragmentShader(Identifier.of("armorstand", "core/unlit"))
-                    withoutBlend()
+                    withBlend(BlendFunction.TRANSLUCENT)
                     withSampler("SamplerBaseColor")
                     withSampler("SamplerLightMap")
                     if (info.skinned) {
@@ -379,20 +364,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
                     } else {
                         withVertexType(VertexType.POSITION_TEXTURE_COLOR)
                     }
-
-                    // Vertex
-                    withUniform("FogShape", UniformType.INT)
-
-                    // Fragment
-                    withUniform("FogStart", UniformType.FLOAT)
-                    withUniform("FogEnd", UniformType.FLOAT)
-                    withUniform("FogColor", UniformType.VEC4)
-                    withUniform("ColorModulator", UniformType.VEC4)
-                    withUniform("BaseColor", UniformType.VEC4)
-
-                    if (!info.instanced) {
-                        withUniform("LightMapUv", UniformType.IVEC3)
-                    }
+                    withUniform("UnlitData", UniformType.UNIFORM_BUFFER)
                 }.build()
         }
     }
@@ -429,26 +401,15 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
             override fun setupPipeline(
                 info: PipelineInfo,
                 snippet: RenderPipeline.Snippet,
-                location: Identifier
-            ): RenderPipeline =
-                RenderPipeline.builder(snippet).apply {
-                    withLocation(location)
-                    withVertexShader("core/position")
-                    withFragmentShader("core/position")
-                    withoutBlend()
+                location: Identifier,
+            ): RenderPipeline = RenderPipeline.builder(snippet, RenderPipelines.POSITION_COLOR_SNIPPET).apply {
+                withLocation(location)
+                withVertexShader("core/position")
+                withFragmentShader("core/position")
+                withoutBlend()
 
-                    withUniform("ProjMat", UniformType.MATRIX4X4)
-                    withUniform("ModelViewMat", UniformType.MATRIX4X4)
-
-                    withUniform("ColorModulator", UniformType.VEC4)
-
-                    withUniform("FogStart", UniformType.FLOAT)
-                    withUniform("FogEnd", UniformType.FLOAT)
-                    withUniform("FogColor", UniformType.VEC4)
-                    withUniform("FogShape", UniformType.INT)
-
-                    withVertexType(VertexType.POSITION)
-                }.build()
+                withVertexType(VertexType.POSITION)
+            }.build()
         }
     }
 }

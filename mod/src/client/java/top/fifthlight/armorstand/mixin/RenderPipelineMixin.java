@@ -13,9 +13,6 @@ import java.util.Optional;
 @Mixin(RenderPipeline.class)
 public abstract class RenderPipelineMixin implements RenderPipelineExtInternal {
     @Unique
-    private List<String> uniformBuffers;
-
-    @Unique
     private Optional<VertexType> vertexType;
 
     @Override
@@ -27,16 +24,5 @@ public abstract class RenderPipelineMixin implements RenderPipelineExtInternal {
     @Override
     public void armorStand$setVertexType(@NotNull Optional<VertexType> type) {
         vertexType = type;
-    }
-
-    @Override
-    @NotNull
-    public List<String> armorStand$getUniformBuffers() {
-        return uniformBuffers;
-    }
-
-    @Override
-    public void armorStand$setUniformBuffers(List<String> uniformBuffers) {
-        this.uniformBuffers = uniformBuffers;
     }
 }

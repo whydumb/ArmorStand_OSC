@@ -5,9 +5,9 @@ load("//rule:remap_jar.bzl", "remap_jar")
 load("//rule:apply_access_widener.bzl", "apply_access_widener")
 load("//rule:extract_access_widener.bzl", "extract_access_widener")
 load("//rule:merge_jar.bzl", "merge_jar")
-load("//rule:exclude_jar.bzl", "exclude_jar")
 load("//rule:generate_remap_classpath.bzl", "generate_remap_classpath")
-load("//:properties.bzl", "mod_version")
+load("//rule:decompile_jar.bzl", "decompile_jar")
+load("//:properties.bzl", "mod_version", "game_version")
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
@@ -54,7 +54,7 @@ merge_mapping(
 
 remap_jar(
     name = "remapped_client_intermediary",
-    inputs = ["@minecraft//:1.21.5_client"],
+    inputs = ["@minecraft//:%s_client" % game_version],
     mapping = ":merged_mapping",
     from_namespace = "official",
     to_namespace = "intermediary",
@@ -62,7 +62,7 @@ remap_jar(
 
 remap_jar(
     name = "remapped_client_named",
-    inputs = ["@minecraft//:1.21.5_client"],
+    inputs = ["@minecraft//:%s_client" % game_version],
     mapping = ":merged_mapping",
     from_namespace = "official",
     to_namespace = "named",
@@ -72,7 +72,7 @@ extract_access_widener(
     name = "access_widener_dep_intermediary",
     inputs = [
         "@maven//:net_fabricmc_fabric_api_fabric_api",
-        "@maven//:com_terraformersmc_modmenu",
+        "@modmenu//:modmenu",
     ],
 )
 
@@ -87,7 +87,7 @@ remap_jar(
         "@maven//:net_fabricmc_fabric_loader",
         "@maven//:net_fabricmc_sponge_mixin",
         "@maven//:io_github_llamalad7_mixinextras_fabric",
-        "@maven//:com_terraformersmc_modmenu",
+        "@modmenu//:modmenu",
         "@maven//:eu_pb4_placeholder_api",
     ],
     mixin = True,
@@ -112,11 +112,16 @@ apply_access_widener(
     ],
 )
 
+decompile_jar(
+    name = "decompile_client_access_widened_named",
+    inputs = [":remapped_client_access_widened_named"],
+)
+
 extract_jar(
     name = "server_jar_file",
-    entry_path = "META-INF/versions/1.21.5/server-1.21.5.jar",
+    entry_path = "META-INF/versions/%s/server-%s.jar" % (game_version, game_version),
     filename = "_minecraft/server.jar",
-    input = "@minecraft//:1.21.5_server",
+    input = "@minecraft//:%s_server" % game_version,
 )
 
 java_import(
@@ -175,14 +180,14 @@ kt_jvm_library(
         "//:kotlin_serialization",
         ":remapped_server_access_widened_named",
         ":remapped_deps",
-        "@minecraft//:1.21.5_server_libraries",
+        "@minecraft//:%s_server_libraries" % game_version,
     ],
 )
 
 remap_jar(
     name = "mod_main",
     inputs = [":mod_main_unmapped"],
-    classpath = ["//mod:remapped_client_named"],
+    classpath = [":remapped_client_named"],
     mapping = ":yarn_mapping",
     mixin = True,
     from_namespace = "named",
@@ -211,7 +216,7 @@ kt_jvm_library(
         ":mod_main_unmapped",
         ":remapped_client_access_widened_named",
         ":remapped_deps",
-        "@minecraft//:1.21.5_client_libraries",
+        "@minecraft//:%s_client_libraries" % game_version,
     ],
 )
 
@@ -226,7 +231,7 @@ merge_jar(
 remap_jar(
     name = "mod_client",
     inputs = [":mod_client_unmapped_with_access_widener"],
-    classpath = ["//mod:remapped_client_named"],
+    classpath = [":remapped_client_named"],
     mapping = ":yarn_mapping",
     mixin = True,
     from_namespace = "named",
@@ -254,6 +259,7 @@ merge_jar(
 
 generate_remap_classpath(
     name = "remap_classpath",
+    prefix = "../../../../../../",
     deps = [":remapped_deps", ":remapped_client_intermediary"],
 )
 
@@ -262,25 +268,29 @@ java_binary(
     srcs = [],
     data = [
         ":remap_classpath",
-        "@minecraft_assets//:assets_1.21.5"
+        "@minecraft_assets//:assets_%s" % game_version,
+        "//model/model-gltf/src/test/resources:test_models",
     ],
     runtime_deps = [
         "//rule/dev_launch_wrapper",
+        "@minecraft//:%s_client_libraries" % game_version,
         ":mod_unmapped",
         ":remapped_client_named",
         ":remapped_deps",
-        "@minecraft//:1.21.5_client_libraries",
         "@maven//:net_fabricmc_yarn_v2",
     ],
     main_class = "top.fifthlight.fabazel.devlaunchwrapper.DevLaunchWrapper",
     jvm_flags = [
         "-Dfabric.development=true",
         "-Dfabric.log.disableAnsi=false",
-        "-Dfabric.remapClasspathFile=remap_classpath.txt",
-        "-Ddev.launch.version=1.21.5",
+        "-Dfabric.remapClasspathFile=../../remap_classpath.txt",
+        "-Ddev.launch.version=%s" % game_version,
         "-Ddev.launch.type=client",
         "-Ddev.launch.assetsPath=../+minecraft+minecraft_assets",
         "-Ddev.launch.mainClass=net.fabricmc.loader.impl.launch.knot.KnotClient",
+        "-Darmorstand.modelDir=model/model-gltf/src/test/resources",
+        "-Darmorstand.debug=true",
+        "-Darmorstand.debug.gui=true",
         "-Xmx4G",
     ],
 )
@@ -291,10 +301,10 @@ java_binary(
     data = [":remap_classpath"],
     runtime_deps = [
         "//rule/dev_launch_wrapper",
+        "@minecraft//:%s_server_libraries" % game_version,
         ":mod_unmapped",
         ":remapped_server_named",
         ":remapped_deps",
-        "@minecraft//:1.21.5_server_libraries",
         "@maven//:net_fabricmc_yarn_v2",
     ],
     main_class = "top.fifthlight.fabazel.devlaunchwrapper.DevLaunchWrapper",
@@ -302,7 +312,7 @@ java_binary(
         "-Dfabric.development=true",
         "-Dfabric.log.disableAnsi=false",
         "-Dfabric.remapClasspathFile=remap_classpath.txt",
-        "-Ddev.launch.version=1.21.5",
+        "-Ddev.launch.version=%s" % game_version,
         "-Ddev.launch.type=server",
         "-Ddev.launch.mainClass=net.fabricmc.loader.impl.launch.knot.KnotServer",
         "-Xmx4G",
@@ -325,7 +335,7 @@ kt_jvm_test(
         "//model",
         ":remapped_client_named",
         ":remapped_deps",
-        "@minecraft//:1.21.5_client_libraries",
+        "@minecraft//:%s_client_libraries" % game_version,
         "@maven//:org_jetbrains_kotlin_kotlin_test_junit5",
         "@maven//:org_junit_jupiter_junit_jupiter_api",
         "@maven//:org_junit_platform_junit_platform_suite_api",

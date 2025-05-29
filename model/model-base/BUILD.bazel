@@ -2,10 +2,7 @@ load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
 
 kt_jvm_library(
     name = "model-base",
-    srcs = glob([
-        "src/main/kotlin/**/*.kt",
-        "src/main/java/**/*.java",
-    ]),
+    srcs = glob(["src/main/kotlin/**/*.kt"]),
     visibility = ["//model:__subpackages__"],
     deps = [
         "@maven//:org_joml_joml",

@@ -54,7 +54,7 @@ dependencies {
 	mappings(variantOf(libs.yarn) { classifier("v2") })
 	modImplementation(libs.fabric.loader)
 
-	modImplementation(libs.modmenu)
+	modCompileOnly(libs.modmenu)
 
 	modImplementation(libs.fabric.api)
 	modImplementation(libs.fabric.language.kotlin)
