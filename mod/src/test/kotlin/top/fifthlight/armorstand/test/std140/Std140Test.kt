@@ -14,12 +14,12 @@ class Std140Test {
         // total size: 8
     }
 
-    private fun ByteBuffer.assertInts(offset: Int, vararg expected: Int) = expected.forEachIndexed { index, float ->
-        assertEquals(expected[index], getInt(offset + index * 4))
+    private fun ByteBuffer.assertInts(offset: Int, stride: Int = 4, vararg expected: Int) = expected.forEachIndexed { index, float ->
+        assertEquals(expected[index], getInt(offset + index * stride))
     }
 
-    private fun ByteBuffer.assertFloats(offset: Int, vararg expected: Float) = expected.forEachIndexed { index, float ->
-        assertEquals(expected[index], getFloat(offset + index * 4))
+    private fun ByteBuffer.assertFloats(offset: Int, stride: Int = 4, vararg expected: Float) = expected.forEachIndexed { index, float ->
+        assertEquals(expected[index], getFloat(offset + index * stride))
     }
 
     @Test
@@ -51,9 +51,9 @@ class Std140Test {
             vec4Field = Vector4f(6.0f, 7.0f, 8.0f, 9.0f)
         }
 
-        buffer.assertFloats(0, 1.0f, 2.0f)
-        buffer.assertFloats(16, 3.0f, 4.0f, 5.0f)
-        buffer.assertFloats(32, 6.0f, 7.0f, 8.0f, 9.0f)
+        buffer.assertFloats(0, 4, 1.0f, 2.0f)
+        buffer.assertFloats(16, 4, 3.0f, 4.0f, 5.0f)
+        buffer.assertFloats(32, 4, 6.0f, 7.0f, 8.0f, 9.0f)
     }
 
     private object MatrixLayout : Std140Layout<MatrixLayout>() {
@@ -85,17 +85,17 @@ class Std140Test {
             )
         }
 
-        buffer.assertFloats(0, 1.0f, 3.0f)
-        buffer.assertFloats(8, 2.0f, 4.0f)
+        buffer.assertFloats(0, 4, 1.0f, 3.0f)
+        buffer.assertFloats(8, 4, 2.0f, 4.0f)
 
-        buffer.assertFloats(16, 5.0f, 8.0f, 11.0f)
-        buffer.assertFloats(32, 6.0f, 9.0f, 12.0f)
-        buffer.assertFloats(48, 7.0f, 10.0f, 13.0f)
+        buffer.assertFloats(16, 4, 5.0f, 8.0f, 11.0f)
+        buffer.assertFloats(32, 4, 6.0f, 9.0f, 12.0f)
+        buffer.assertFloats(48, 4, 7.0f, 10.0f, 13.0f)
 
-        buffer.assertFloats(64, 14.0f, 18.0f, 22.0f, 26.0f)
-        buffer.assertFloats(80, 15.0f, 19.0f, 23.0f, 27.0f)
-        buffer.assertFloats(96, 16.0f, 20.0f, 24.0f, 28.0f)
-        buffer.assertFloats(112, 17.0f, 21.0f, 25.0f, 29.0f)
+        buffer.assertFloats(64, 4, 14.0f, 18.0f, 22.0f, 26.0f)
+        buffer.assertFloats(80, 4, 15.0f, 19.0f, 23.0f, 27.0f)
+        buffer.assertFloats(96, 4, 16.0f, 20.0f, 24.0f, 28.0f)
+        buffer.assertFloats(112, 4, 17.0f, 21.0f, 25.0f, 29.0f)
     }
 
     private object MixedLayout : Std140Layout<MixedLayout>() {
@@ -121,24 +121,24 @@ class Std140Test {
         }
 
         assertEquals(1, buffer.getInt(0))
-        buffer.assertFloats(16, 2.0f, 3.0f, 4.0f)
+        buffer.assertFloats(16, 4, 2.0f, 3.0f, 4.0f)
         assertEquals(5.0f, buffer.getFloat(28))
-        buffer.assertFloats(32, 6.0f, 8.0f)
-        buffer.assertFloats(40, 7.0f, 9.0f)
+        buffer.assertFloats(32, 4, 6.0f, 8.0f)
+        buffer.assertFloats(40, 4, 7.0f, 9.0f)
     }
 
     private object ArrayLayout : Std140Layout<ArrayLayout>() {
-        var intArray by intArray(4)         // offset: 0, size: 16, align: 4
-        var floatArray by floatArray(4)     // offset: 16, size: 16, align: 4
-        var vec2Array by vec2Array(4)       // offset: 32, size: 32, align: 8
-        var vec3Array by vec3Array(4)       // offset: 64, size: 64, align: 16
-        var vec4Array by vec4Array(4)       // offset: 128, size: 64, align: 16
-        // total size: 192
+        var intArray by intArray(4)         // offset: 0, size: 64, align: 16
+        var floatArray by floatArray(4)     // offset: 64, size: 64, align: 16
+        var vec2Array by vec2Array(4)       // offset: 128, size: 64, align: 16
+        var vec3Array by vec3Array(4)       // offset: 192, size: 64, align: 16
+        var vec4Array by vec4Array(4)       // offset: 256, size: 64, align: 16
+        // total size: 320
     }
 
     @Test
     fun testArrayLayout() {
-        assertEquals(192, ArrayLayout.totalSize)
+        assertEquals(320, ArrayLayout.totalSize)
         val buffer = ByteBuffer.allocate(ArrayLayout.totalSize)
         ArrayLayout.withBuffer(buffer) {
             intArray.apply {
@@ -190,19 +190,21 @@ class Std140Test {
                 }
             }
         }
-        buffer.assertInts(0, 1, 2, 3, 4)
-        buffer.assertFloats(16, 1.0f, 2.0f, 3.0f, 4.0f)
-        repeat(8) {
-            assertEquals((it + 1).toFloat(), buffer.getFloat(32 + it * 4))
+        buffer.assertInts(0, 16, 1, 2, 3, 4)
+        buffer.assertFloats(64, 16, 1.0f, 2.0f, 3.0f, 4.0f)
+        repeat(4) { row ->
+            repeat(2) { column ->
+                assertEquals((row * 2 + column + 1).toFloat(), buffer.getFloat(128 + row * 16 + column * 4))
+            }
         }
         repeat(4) { row ->
             repeat(3) { column ->
-                assertEquals((row * 3 + column + 1).toFloat(), buffer.getFloat(64 + row * 16 + column * 4))
+                assertEquals((row * 3 + column + 1).toFloat(), buffer.getFloat(192 + row * 16 + column * 4))
             }
         }
         repeat(4) { row ->
             repeat(4) { column ->
-                assertEquals((row * 4 + column + 1).toFloat(), buffer.getFloat(128 + row * 16 + column * 4))
+                assertEquals((row * 4 + column + 1).toFloat(), buffer.getFloat(256 + row * 16 + column * 4))
             }
         }
     }
