@@ -1,0 +1,13 @@
+load("@aspect_rules_js//js:defs.bzl", "js_binary")
+load("//:properties.bzl", "mod_version", "game_version")
+
+js_binary(
+    name = "upload_modrinth",
+    data = ["//mod:mod"],
+    env = {
+        "MODRINTH_PROJECT_ID": "tLPuDSOw",
+        "MOD_VERSION": mod_version,
+        "GAME_VERSION": game_version,
+    },
+    entry_point = "upload_modrinth.mjs",
+)

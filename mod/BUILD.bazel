@@ -173,7 +173,6 @@ kt_jvm_library(
         allow_empty = True,
     ),
     module_name = "top_fifthlight_armorstand",
-    visibility = ["//visibility:public"],
     resource_strip_prefix = "mod/_generated",
     resources = [":fabric_mod_json"],
     deps = [
@@ -204,7 +203,6 @@ kt_jvm_library(
         allow_empty = True,
     ),
     module_name = "top_fifthlight_armorstand",
-    visibility = ["//visibility:public"],
     resource_strip_prefix = "mod/src/client/resources",
     resources = glob(
         include = ["src/client/resources/**"],
@@ -239,20 +237,21 @@ remap_jar(
 )
 
 merge_jar(
-    name = "mod",
-    deps = [
-        ":mod_client",
-        ":mod_main",
-        "//model",
-    ],
-)
-
-merge_jar(
     name = "mod_unmapped",
     deps = [
         ":mod_main_unmapped",
         ":mod_client_unmapped",
         ":access_widener",
+        "//model",
+    ],
+)
+
+merge_jar(
+    name = "mod",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":mod_client",
+        ":mod_main",
         "//model",
     ],
 )
