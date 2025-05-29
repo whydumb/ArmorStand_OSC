@@ -35,7 +35,7 @@ instance_t get_instance() {
         texelFetch(LocalMatrices, matricesOffset * 4 + 2),
         texelFetch(LocalMatrices, matricesOffset * 4 + 3)
     );
-    instance.model_view_mat = local_matrix * ViewModelMatices[INSTANCE_ID];
+    instance.model_view_mat = ViewModelMatices[INSTANCE_ID] * local_matrix;
     instance.light_map_uv = LightMapUvs[INSTANCE_ID];
     return instance;
 }

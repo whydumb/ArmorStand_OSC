@@ -37,6 +37,8 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
         GLFW.GLFW_KEY_I,
         "armorstand.name"
     )
+    var debug: Boolean = false
+        private set
 
     override lateinit var scope: CoroutineScope
         private set
@@ -45,6 +47,7 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
         super.onInitialize()
         if (System.getProperty("armorstand.debug") == "true") {
             RenderPassImpl.IS_DEVELOPMENT = true
+            debug = true
             if (System.getProperty("armorstand.debug.gui") == "true") {
                 ResourceCountTracker.initialize()
                 ObjectPoolTracker.initialize()

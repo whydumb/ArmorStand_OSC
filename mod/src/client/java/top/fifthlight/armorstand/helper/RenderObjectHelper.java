@@ -8,16 +8,16 @@ import top.fifthlight.armorstand.extension.internal.RenderObjectExtInternal;
 import top.fifthlight.armorstand.render.IndexBuffer;
 import top.fifthlight.armorstand.render.VertexBuffer;
 
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 public class RenderObjectHelper {
-    public static RenderPass.RenderObject create(
+    public static <T> RenderPass.RenderObject<T> create(
             int vertexBufferSlot,
             VertexBuffer vertexBuffer,
             @Nullable IndexBuffer indexBuffer,
             int firstIndex,
             int indexCount,
-            @Nullable Consumer<RenderPass.UniformUploader> uniformUploaderConsumer
+            @Nullable BiConsumer<T, RenderPass.UniformUploader> uniformUploaderConsumer
     ) {
         GpuBuffer indexBufferInner = null;
         VertexFormat.IndexType indexType = null;
@@ -25,7 +25,7 @@ public class RenderObjectHelper {
             indexBufferInner = indexBuffer.getBuffer().getInner();
             indexType = indexBuffer.getType();
         }
-        var renderObject = new RenderPass.RenderObject(
+        var renderObject = new RenderPass.RenderObject<>(
                 vertexBufferSlot,
                 null,
                 indexBufferInner,

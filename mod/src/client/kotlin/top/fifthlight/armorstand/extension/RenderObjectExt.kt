@@ -4,16 +4,17 @@ import com.mojang.blaze3d.systems.RenderPass
 import top.fifthlight.armorstand.helper.RenderObjectHelper
 import top.fifthlight.armorstand.render.IndexBuffer
 import top.fifthlight.armorstand.render.VertexBuffer
+import java.util.function.BiConsumer
 import java.util.function.Consumer
 
-fun RenderObject(
+fun <T> RenderObject(
     vertexBufferSlot: Int,
     vertexBuffer: VertexBuffer,
     indexBuffer: IndexBuffer?,
     firstIndex: Int,
     indexCount: Int,
-    uniformUploaderConsumer: Consumer<RenderPass.UniformUploader>? = null,
-): RenderPass.RenderObject = RenderObjectHelper.create(
+    uniformUploaderConsumer: BiConsumer<T, RenderPass.UniformUploader>? = null,
+): RenderPass.RenderObject<T> = RenderObjectHelper.create(
     vertexBufferSlot,
     vertexBuffer,
     indexBuffer,
@@ -23,5 +24,5 @@ fun RenderObject(
 )
 
 @Suppress("CAST_NEVER_SUCCEEDS")
-val RenderPass.RenderObject.vertexBuffer
+val <T> RenderPass.RenderObject<T>.vertexBuffer
     get() = (this as RenderObjectExt).`armorStand$getVertexBuffer`()

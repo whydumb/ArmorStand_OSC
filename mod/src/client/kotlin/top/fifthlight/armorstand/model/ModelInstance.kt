@@ -50,8 +50,9 @@ class ModelInstance(
 
         val transformsDirty = Array(scene.transformNodeIndices.size) { true }
 
-        val modelMatricesBuffer =
-            ModelMatricesBuffer(scene, bufferEntry.modelMatricesBuffers.allocateSlot()).also { it.clear() }
+        val modelMatricesBuffer = ModelMatricesBuffer(scene, bufferEntry.modelMatricesBuffers.allocateSlot()).also {
+            it.clear()
+        }
 
         val skinBuffers = scene.skins.mapToArrayIndexed { index, skin ->
             RenderSkinBuffer(skin, bufferEntry.skinBuffers[index].allocateSlot()).also {

@@ -7,7 +7,9 @@ import kotlinx.coroutines.launch
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.MinecraftClient
+import net.minecraft.client.gl.RenderPassImpl
 import top.fifthlight.armorstand.ArmorStand
+import top.fifthlight.armorstand.ArmorStandClient
 import top.fifthlight.armorstand.animation.AnimationItem
 import top.fifthlight.armorstand.animation.AnimationLoader
 import top.fifthlight.armorstand.config.ConfigHolder
@@ -111,9 +113,13 @@ object ModelInstanceManager {
             selfPath
         } else {
             modelPaths[uuid] ?: run {
-                selfPath?.let { selfPath ->
-                    modelPaths[uuid] = selfPath
-                    selfPath
+                if (ArmorStandClient.debug) {
+                    selfPath?.let { selfPath ->
+                        modelPaths[uuid] = selfPath
+                        selfPath
+                    }
+                } else {
+                    null
                 }
             }
         }
@@ -167,10 +173,17 @@ object ModelInstanceManager {
     }
 
     fun cleanup(time: Long) {
+        val usedPaths = mutableSetOf<Path>()
+
         // cleaned unused model instances
         modelInstanceItems.entries.removeIf { (uuid, item) ->
             if (uuid == selfUuid) {
-                return@removeIf false
+                if (item.path == selfPath) {
+                    return@removeIf false
+                } else {
+                    (item as? ModelInstanceItem.Model)?.decreaseReferenceCount()
+                    return@removeIf true
+                }
             }
             val pathInvalid = item.path != modelPaths[uuid]
             if (pathInvalid) {
@@ -184,6 +197,8 @@ object ModelInstanceManager {
                     val expired = timeSinceLastUsed > INSTANCE_EXPIRE_NS
                     if (expired) {
                         item.decreaseReferenceCount()
+                    } else {
+                        usedPaths.add(item.path)
                     }
                     expired
                 }
@@ -191,11 +206,15 @@ object ModelInstanceManager {
         }
 
         // cleaned unused model caches
-        modelCaches.keys.removeIf { path ->
+        modelCaches.entries.removeIf { (path, item) ->
             if (path == selfPath) {
                 return@removeIf false
             }
-            path !in modelPaths.values
+            val remove = path !in usedPaths
+            if (remove && item is ModelCache.Loaded) {
+                item.scene.decreaseReferenceCount()
+            }
+            remove
         }
     }
 

@@ -4,6 +4,7 @@ import org.joml.Matrix4f
 import org.joml.Matrix4fc
 import top.fifthlight.armorstand.model.RenderScene
 import top.fifthlight.armorstand.util.SlottedGpuBuffer
+import top.fifthlight.renderer.model.NodeTransform
 
 class ModelMatricesBuffer(
     scene: RenderScene,

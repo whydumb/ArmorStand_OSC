@@ -480,6 +480,7 @@ class ModelLoader {
                     if (primitiveNode.primitive.targets != null) {
                         morphedPrimitiveNodeIndices.add(renderNodeIndex)
                     }
+                    add(primitiveNode)
                     appendRenderNode(primitiveNode)
                 }
 

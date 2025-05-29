@@ -1,4 +1,4 @@
-Minecraft 1.21.5 玩家模型 mod。
+Minecraft 1.21.6 玩家模型 mod。
 
 目前支持 GLB、VRM、PMX、PMD 格式。
 
@@ -8,7 +8,7 @@ Minecraft 1.21.5 玩家模型 mod。
 
 ---
 
-Player model mod for Minecraft 1.21.5.
+Player model mod for Minecraft 1.21.6.
 
 Currently support GLB, VRM, PMX and PMD format.
 

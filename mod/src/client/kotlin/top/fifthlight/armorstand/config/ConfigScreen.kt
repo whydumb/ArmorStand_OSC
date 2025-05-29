@@ -52,7 +52,7 @@ class ConfigScreen(private val parent: Screen? = null) : Screen(Text.translatabl
     }
 
     override fun init() {
-        val list = list ?: ModelList(MinecraftClient.getInstance()).also { list = it }
+        val list = list ?: ModelList().also { list = it }
         layout.addHeader(this.title, this.textRenderer)
         layout.addBody(list)
         layout.addFooter(ButtonWidget.builder(ScreenTexts.DONE) { close() }.width(200).build())
@@ -69,9 +69,7 @@ class ConfigScreen(private val parent: Screen? = null) : Screen(Text.translatabl
         client?.setScreen(parent)
     }
 
-    private inner class ModelList(
-        private val client: MinecraftClient,
-    ) : AlwaysSelectedEntryListWidget<ModelList.Entry>(
+    private inner class ModelList : AlwaysSelectedEntryListWidget<ModelList.Entry>(
         client,
         this@ConfigScreen.width,
         this@ConfigScreen.height - 53,
