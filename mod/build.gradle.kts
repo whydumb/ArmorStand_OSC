@@ -1,6 +1,4 @@
-@file:Suppress("UnstableApiUsage")
-
-import java.util.*
+import java.util.Properties
 
 plugins {
 	alias(libs.plugins.fabric.loom)
@@ -36,6 +34,7 @@ loom {
 	runs {
 		getByName("client") {
 			runDir("run/client")
+			programArg("--tracy")
 		}
 		getByName("server") {
 			runDir("run/server")
@@ -55,7 +54,7 @@ dependencies {
 	mappings(variantOf(libs.yarn) { classifier("v2") })
 	modImplementation(libs.fabric.loader)
 
-	modImplementation(libs.modmenu)
+	modCompileOnly(libs.modmenu)
 
 	modImplementation(libs.fabric.api)
 	modImplementation(libs.fabric.language.kotlin)
@@ -73,6 +72,10 @@ dependencies {
 		implementation(project(name))
 		include(project(name))
 	}
+
+    testImplementation(kotlin("test"))
+    testImplementation(libs.junit.platform.suite.api)
+    testRuntimeOnly(libs.junit.platform.suite.engine)
 }
 
 tasks.processResources {

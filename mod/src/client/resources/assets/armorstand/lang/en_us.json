@@ -12,5 +12,7 @@
   "armorstand.debug_database.query_failed_with_message": "Error occurred: %s",
   "armorstand.debug_database.querying": "Querying…",
   "armorstand.debug_database.executed": "Executed, updated %d rows, duration: %s",
-  "armorstand.debug_database.queried_time": "Duration: %s"
+  "armorstand.debug_database.queried_time": "Duration: %s",
+  "armorstand.name": "ArmorStand",
+  "armorstand.keybinding.config": "Open ArmorStand config"
 }

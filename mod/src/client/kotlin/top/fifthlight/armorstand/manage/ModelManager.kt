@@ -4,26 +4,17 @@ import com.mojang.logging.LogUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import net.fabricmc.loader.api.FabricLoader
-import org.h2.Driver
 import top.fifthlight.armorstand.ArmorStand
 import top.fifthlight.armorstand.util.*
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
-import java.nio.file.FileSystems
-import java.nio.file.FileVisitResult
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.Paths
-import java.nio.file.StandardWatchEventKinds
-import java.nio.file.WatchKey
-import java.nio.file.WatchService
+import java.nio.file.*
 import java.security.MessageDigest
 import java.sql.Connection
 import java.sql.DriverManager
@@ -53,7 +44,7 @@ object ModelManager {
         if (_connection != null) {
             return
         }
-        Driver::class.java
+        Class.forName("org.h2.Driver")
         val databaseRelativePath = databaseFile.relativeTo(Paths.get(".").toAbsolutePath())
         val connection = DriverManager.getConnection(
             "jdbc:h2:./${databaseRelativePath.toString().removeSuffix(".mv.db")}",

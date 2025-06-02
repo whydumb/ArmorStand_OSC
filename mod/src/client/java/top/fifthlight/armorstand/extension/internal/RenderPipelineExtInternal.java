@@ -8,5 +8,4 @@ import java.util.Optional;
 
 public interface RenderPipelineExtInternal extends RenderPipelineExt {
     void armorStand$setVertexType(Optional<VertexType> type);
-    void armorStand$setUniformBuffers(List<String> uniformBuffers);
 }

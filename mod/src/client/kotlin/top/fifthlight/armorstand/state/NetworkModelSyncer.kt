@@ -7,7 +7,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
 import net.fabricmc.fabric.api.networking.v1.PacketSender
 import top.fifthlight.armorstand.ArmorStand
 import top.fifthlight.armorstand.config.ConfigHolder
-import top.fifthlight.armorstand.network.ModelUpdateC2SPayload
+import top.fifthlight.armorstand.network.ModelUpdateS2CPayload
 
 object NetworkModelSyncer {
     private val packetSender = MutableStateFlow<PacketSender?>(null)
@@ -21,9 +21,7 @@ object NetworkModelSyncer {
         }
         ArmorStand.instance.scope.launch {
             ConfigHolder.config.combine(packetSender, ::Pair).collect { (config, sender) ->
-                if (config.sendModelData) {
-                    sender?.sendPacket(ModelUpdateC2SPayload(config.modelPath?.toString()))
-                }
+                sender?.sendPacket(ModelUpdateS2CPayload(config.modelPath?.toString()))
             }
         }
     }

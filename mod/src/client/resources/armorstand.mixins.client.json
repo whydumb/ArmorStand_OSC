@@ -6,7 +6,6 @@
     "defaultRequire": 1
   },
   "client": [
-    "BufferTypeMixin",
     "CameraMixin",
     "PlayerEntityRendererMixin",
     "PlayerEntityRenderStateMixin",
@@ -15,10 +14,13 @@
     "RenderPipelineBuilderMixin",
     "RenderPipelineMixin",
     "RenderPipelineSnippetMixin",
-    "ShaderProgramMixin",
+    "TextureFormatMixin",
+    "gl.BufferManagerMixin",
+    "gl.BufferManagerMixin$ARBBufferManagerMixin",
+    "gl.BufferManagerMixin$DefaultBufferManagerMixin",
     "gl.GlBackendMixin",
-    "gl.GlConstExt",
-    "gl.GlResourceManagerMixin",
+    "gl.GlCommandEncoderMixin",
+    "gl.GlConstMixin",
     "gl.RenderPassImplMixin"
   ]
 }

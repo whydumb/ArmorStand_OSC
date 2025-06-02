@@ -1,5 +1,7 @@
 package top.fifthlight.armorstand.animation
 
+import top.fifthlight.armorstand.util.TimeUtil
+
 class Timeline(
     private val duration: Float,
     private val loop: Boolean = true,
@@ -9,54 +11,52 @@ class Timeline(
     private var pausedTime: Long = 0L
     private var isPaused: Boolean = true
 
-    val currentTime: Float
-        get() {
-            if (isPaused) return pausedTime / 1000f
-
-            val elapsed = (System.currentTimeMillis() - startTime) * speed
-            val totalTime = elapsed + pausedTime
-
-            if (!loop) {
-                return (totalTime / 1000f).coerceAtMost(duration)
-            }
-
-            val loopDuration = (duration * 1000).toLong()
-            if (loopDuration <= 0) return 0f
-
-            val loopedTime = totalTime % loopDuration
-            return (if (loopedTime < 0) loopedTime + loopDuration else loopedTime) / 1000f
-        }
-
     val isPlaying: Boolean
         get() = !isPaused
 
-    val isFinished: Boolean
-        get() = !loop && currentTime >= duration
+    fun isFinished(currentNanos: Long) = !loop && getCurrentTime(currentNanos) >= duration
 
-    fun play() {
+    fun getCurrentTime(currentNanos: Long): Float {
+        if (isPaused) return pausedTime / TimeUtil.NANOSECONDS_PER_SECOND.toFloat()
+
+        val elapsed = (currentNanos - startTime) * speed
+        val totalTime = elapsed + pausedTime
+
+        if (!loop) {
+            return (totalTime / TimeUtil.NANOSECONDS_PER_SECOND).coerceAtMost(duration)
+        }
+
+        val loopDuration = (duration * TimeUtil.NANOSECONDS_PER_SECOND).toLong()
+        if (loopDuration <= 0) return 0f
+
+        val loopedTime = totalTime % loopDuration
+        return (if (loopedTime < 0) loopedTime + loopDuration else loopedTime) / TimeUtil.NANOSECONDS_PER_SECOND
+    }
+
+    fun play(currentNanos: Long) {
         if (isPaused) {
-            startTime = System.currentTimeMillis() - (pausedTime / speed).toLong()
+            startTime = currentNanos - (pausedTime / speed).toLong()
             isPaused = false
         }
     }
 
-    fun pause() {
+    fun pause(currentNanos: Long) {
         if (!isPaused) {
-            pausedTime = (System.currentTimeMillis() - startTime) * speed.toLong()
+            pausedTime = (currentNanos - startTime) * speed.toLong()
             isPaused = true
         }
     }
 
-    fun reset() {
-        startTime = System.currentTimeMillis()
+    fun reset(currentNanos: Long) {
+        startTime = currentNanos
         pausedTime = 0L
     }
 
-    fun seek(time: Float) {
+    fun seek(currentNanos: Long, time: Float) {
         val targetTime = time.coerceIn(0f, duration)
-        pausedTime = (targetTime * 1000).toLong()
+        pausedTime = (targetTime * TimeUtil.NANOSECONDS_PER_SECOND).toLong()
         if (!isPaused) {
-            startTime = System.currentTimeMillis() - (pausedTime / speed).toLong()
+            startTime = currentNanos - (pausedTime / speed).toLong()
         }
     }
 }

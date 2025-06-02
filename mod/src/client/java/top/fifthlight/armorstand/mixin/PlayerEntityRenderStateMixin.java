@@ -3,12 +3,12 @@ package top.fifthlight.armorstand.mixin;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
-import top.fifthlight.armorstand.extension.PlayerEntityRenderStateExt;
+import top.fifthlight.armorstand.extension.internal.PlayerEntityRenderStateExtInternal;
 
 import java.util.UUID;
 
 @Mixin(PlayerEntityRenderState.class)
-public abstract class PlayerEntityRenderStateMixin implements PlayerEntityRenderStateExt {
+public abstract class PlayerEntityRenderStateMixin implements PlayerEntityRenderStateExtInternal {
     @Unique
     private UUID uuid;
 

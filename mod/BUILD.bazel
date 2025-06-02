@@ -1,0 +1,358 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
+load("//rule:extract_jar.bzl", "extract_jar")
+load("//rule:merge_mapping.bzl", "merge_mapping", "merge_mapping_input")
+load("//rule:remap_jar.bzl", "remap_jar")
+load("//rule:apply_access_widener.bzl", "apply_access_widener")
+load("//rule:extract_access_widener.bzl", "extract_access_widener")
+load("//rule:merge_jar.bzl", "merge_jar")
+load("//rule:generate_remap_classpath.bzl", "generate_remap_classpath")
+load("//rule:decompile_jar.bzl", "decompile_jar")
+load("//rule:merge_jij.bzl", "merge_jij")
+load("//:properties.bzl", "mod_version", "game_version")
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
+extract_jar(
+    name = "intermediary_mapping",
+    entry_path = "mappings/mappings.tiny",
+    filename = "_mappings/intermediary.tiny",
+    input = "@maven//:net_fabricmc_intermediary_v2",
+)
+
+extract_jar(
+    name = "yarn_mapping",
+    entry_path = "mappings/mappings.tiny",
+    filename = "_mappings/yarn.tiny",
+    input = "@maven//:net_fabricmc_yarn_v2",
+)
+
+merge_mapping_input(
+    name = "yarn_input",
+    file = ":yarn_mapping",
+    format = "tinyv2",
+)
+
+merge_mapping_input(
+    name = "intermediary_input",
+    file = ":intermediary_mapping",
+    format = "tinyv2",
+    source_namespace = "intermediary",
+)
+
+merge_mapping(
+    name = "merged_mapping",
+    complete_namespace = {
+        "named": "intermediary",
+        "intermediary": "official",
+    },
+    inputs = [
+        ":yarn_input",
+        ":intermediary_input",
+    ],
+    output = "merged.tiny",
+    output_source_namespace = "official",
+)
+
+remap_jar(
+    name = "remapped_client_intermediary",
+    inputs = ["@minecraft//:%s_client" % game_version],
+    mapping = ":merged_mapping",
+    from_namespace = "official",
+    to_namespace = "intermediary",
+)
+
+remap_jar(
+    name = "remapped_client_named",
+    inputs = ["@minecraft//:%s_client" % game_version],
+    mapping = ":merged_mapping",
+    from_namespace = "official",
+    to_namespace = "named",
+)
+
+extract_access_widener(
+    name = "access_widener_dep_intermediary",
+    inputs = [
+        "@maven//:net_fabricmc_fabric_api_fabric_api",
+        "@modmenu//:modmenu",
+    ],
+)
+
+remap_jar(
+    name = "remapped_deps",
+    classpath = [
+        ":remapped_client_intermediary",
+    ],
+    inputs = [
+        "@maven//:net_fabricmc_fabric_api_fabric_api",
+        "@maven//:net_fabricmc_fabric_language_kotlin",
+        "@maven//:net_fabricmc_fabric_loader",
+        "@maven//:net_fabricmc_sponge_mixin",
+        "@maven//:io_github_llamalad7_mixinextras_fabric",
+        "@modmenu//:modmenu",
+        "@maven//:eu_pb4_placeholder_api",
+    ],
+    mixin = True,
+    remap_transitive_deps = True,
+    remove_jar_in_jar = True,
+    mapping = ":merged_mapping",
+    from_namespace = "intermediary",
+    to_namespace = "named",
+)
+
+extract_access_widener(
+    name = "access_widener_dep_named",
+    inputs = [":remapped_deps"],
+)
+
+apply_access_widener(
+    name = "remapped_client_access_widened_named",
+    input = ":remapped_client_named",
+    srcs = [
+        "src/main/resources/armorstand.accesswidener",
+        ":access_widener_dep_named",
+    ],
+)
+
+decompile_jar(
+    name = "decompile_client_access_widened_named",
+    inputs = [":remapped_client_access_widened_named"],
+)
+
+extract_jar(
+    name = "server_jar_file",
+    entry_path = "META-INF/versions/%s/server-%s.jar" % (game_version, game_version),
+    filename = "_minecraft/server.jar",
+    input = "@minecraft//:%s_server" % game_version,
+)
+
+java_import(
+    name = "server_jar",
+    jars = [
+        ":server_jar_file",
+    ],
+)
+
+remap_jar(
+    name = "remapped_server_named",
+    inputs = [":server_jar"],
+    mapping = ":merged_mapping",
+    from_namespace = "official",
+    to_namespace = "named",
+)
+
+apply_access_widener(
+    name = "remapped_server_access_widened_named",
+    input = ":remapped_server_named",
+    srcs = [
+        "src/main/resources/armorstand.accesswidener",
+        ":access_widener_dep_named",
+    ],
+)
+
+expand_template(
+    name = "fabric_mod_json",
+    template = "src/main/resources/fabric.mod.json",
+    substitutions = {
+        "${version}": mod_version,
+    },
+    out = "_generated/fabric.mod.json",
+)
+
+java_library(
+    name = "access_widener",
+    resources = ["src/main/resources/armorstand.accesswidener"],
+    resource_strip_prefix = "mod/src/main/resources/",
+)
+
+kt_jvm_library(
+    name = "mod_main_unmapped",
+    srcs = glob(
+        include = [
+            "src/main/kotlin/**/*.kt",
+            "src/main/java/**/*.java",
+        ],
+        allow_empty = True,
+    ),
+    module_name = "top_fifthlight_armorstand",
+    resource_strip_prefix = "mod/_generated",
+    resources = [":fabric_mod_json"],
+    deps = [
+        "//:kotlin_serialization",
+        ":remapped_server_access_widened_named",
+        ":remapped_deps",
+        "@minecraft//:%s_server_libraries" % game_version,
+    ],
+)
+
+remap_jar(
+    name = "mod_main",
+    inputs = [":mod_main_unmapped"],
+    classpath = [":remapped_client_named"],
+    mapping = ":yarn_mapping",
+    mixin = True,
+    from_namespace = "named",
+    to_namespace = "intermediary",
+)
+
+kt_jvm_library(
+    name = "mod_client_unmapped",
+    srcs = glob(
+        include = [
+            "src/client/kotlin/**/*.kt",
+            "src/client/java/**/*.java",
+        ],
+        allow_empty = True,
+    ),
+    module_name = "top_fifthlight_armorstand",
+    resource_strip_prefix = "mod/src/client/resources",
+    resources = glob(
+        include = ["src/client/resources/**"],
+        allow_empty = True,
+    ),
+    deps = [
+        "//:kotlin_serialization",
+        "//model",
+        ":mod_main_unmapped",
+        ":remapped_client_access_widened_named",
+        ":remapped_deps",
+        "@maven//:com_h2database_h2",
+        "@minecraft//:%s_client_libraries" % game_version,
+    ],
+)
+
+merge_jar(
+    name = "mod_client_unmapped_with_access_widener",
+    deps = [
+        ":mod_client_unmapped",
+        ":access_widener",
+    ],
+)
+
+remap_jar(
+    name = "mod_client",
+    inputs = [":mod_client_unmapped_with_access_widener"],
+    classpath = [":remapped_client_named"],
+    mapping = ":yarn_mapping",
+    mixin = True,
+    from_namespace = "named",
+    to_namespace = "intermediary",
+)
+
+merge_jar(
+    name = "mod_unmapped",
+    deps = [
+        ":mod_main_unmapped",
+        ":mod_client_unmapped",
+        ":access_widener",
+        "//model",
+    ],
+)
+
+merge_jar(
+    name = "mod_without_jij",
+    deps = [
+        ":mod_client",
+        ":mod_main",
+        "//model",
+    ],
+)
+
+merge_jij(
+    name = "mod",
+    visibility = ["//visibility:public"],
+    input = ":mod_without_jij",
+    deps = {
+        "@maven//:com_h2database_h2": "com_h2database_h2:2.3.232",
+    },
+)
+
+generate_remap_classpath(
+    name = "remap_classpath",
+    prefix = "../../../../../../",
+    deps = [":remapped_deps", ":remapped_client_intermediary"],
+)
+
+java_binary(
+    name = "client",
+    srcs = [],
+    data = [
+        ":remap_classpath",
+        "@minecraft_assets//:assets_%s" % game_version,
+        "//model/model-gltf/src/test/resources:test_models_data",
+    ],
+    runtime_deps = [
+        "//rule/dev_launch_wrapper",
+        "@maven//:com_h2database_h2",
+        "@minecraft//:%s_client_libraries" % game_version,
+        ":mod_unmapped",
+        ":remapped_client_named",
+        ":remapped_deps",
+        "@maven//:net_fabricmc_yarn_v2",
+    ],
+    main_class = "top.fifthlight.fabazel.devlaunchwrapper.DevLaunchWrapper",
+    jvm_flags = [
+        "-Dfabric.development=true",
+        "-Dfabric.log.disableAnsi=false",
+        "-Dfabric.remapClasspathFile=../../remap_classpath.txt",
+        "-Ddev.launch.version=%s" % game_version,
+        "-Ddev.launch.type=client",
+        "-Ddev.launch.assetsPath=../+minecraft+minecraft_assets",
+        "-Ddev.launch.mainClass=net.fabricmc.loader.impl.launch.knot.KnotClient",
+        "-Darmorstand.modelDir=model/model-gltf/src/test/resources",
+        "-Darmorstand.debug=true",
+        "-Darmorstand.debug.gui=true",
+        "-Xmx4G",
+    ],
+)
+
+java_binary(
+    name = "server",
+    srcs = [],
+    data = [":remap_classpath"],
+    runtime_deps = [
+        "//rule/dev_launch_wrapper",
+        "@minecraft//:%s_server_libraries" % game_version,
+        ":mod_unmapped",
+        ":remapped_server_named",
+        ":remapped_deps",
+        "@maven//:net_fabricmc_yarn_v2",
+    ],
+    main_class = "top.fifthlight.fabazel.devlaunchwrapper.DevLaunchWrapper",
+    jvm_flags = [
+        "-Dfabric.development=true",
+        "-Dfabric.log.disableAnsi=false",
+        "-Dfabric.remapClasspathFile=remap_classpath.txt",
+        "-Ddev.launch.version=%s" % game_version,
+        "-Ddev.launch.type=server",
+        "-Ddev.launch.mainClass=net.fabricmc.loader.impl.launch.knot.KnotServer",
+        "-Xmx4G",
+    ],
+)
+
+kt_jvm_test(
+	name = "standalone_tests",
+    srcs = [
+        "src/test/kotlin/top/fifthlight/armorstand/test/StandaloneTest.kt",
+        "src/test/kotlin/top/fifthlight/armorstand/test/std140/Std140Test.kt",
+    ],
+    main_class = "org.junit.platform.console.ConsoleLauncher",
+    args = ["execute", "--select-class", "top.fifthlight.armorstand.test.StandaloneTest"],
+    associates = [
+        ":mod_main_unmapped",
+        ":mod_client_unmapped",
+    ],
+    deps = [
+        "//model",
+        ":remapped_client_named",
+        ":remapped_deps",
+        "@minecraft//:%s_client_libraries" % game_version,
+        "@maven//:org_jetbrains_kotlin_kotlin_test_junit5",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_platform_junit_platform_suite_api",
+    ],
+    runtime_deps = [
+        "@maven//:org_junit_jupiter_junit_jupiter_engine",
+        "@maven//:org_junit_platform_junit_platform_suite_engine",
+        "@maven//:org_junit_platform_junit_platform_console",
+    ],
+)

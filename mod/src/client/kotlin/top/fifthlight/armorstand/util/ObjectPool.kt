@@ -9,13 +9,13 @@ interface Pool<T> {
     fun release(obj: T)
 }
 
-class ObjectPool<T: Any>(
-    private val identifier: Identifier,
-    private val create: () -> T,
-    private val onAcquired: (T.() -> Unit)? = null,
-    private val onReleased: (T.() -> Unit)? = null,
+open class ObjectPool<T: Any>(
+    protected val identifier: Identifier,
+    protected val create: () -> T,
+    protected val onAcquired: (T.() -> Unit)? = null,
+    protected val onReleased: (T.() -> Unit)? = null,
 ) : Pool<T> {
-    private val pool = ArrayDeque<T>()
+    protected val pool = ArrayDeque<T>()
 
     override fun acquire(): T {
         return if (pool.isEmpty()) {
@@ -45,5 +45,44 @@ class ObjectPool<T: Any>(
         }
         onReleased?.invoke(obj)
         pool.addLast(obj)
+    }
+}
+
+class FramedObjectPool<T : Any>(
+    identifier: Identifier,
+    create: () -> T,
+    onAcquired: (T.() -> Unit)? = null,
+    onReleased: (T.() -> Unit)? = null,
+) : ObjectPool<T>(identifier, create, onAcquired, onReleased) {
+    private val pendingRelease = ArrayDeque<T>()
+
+    override fun release(obj: T) {
+        ObjectPoolTracker.instance?.compute(identifier) {
+            copy(
+                allocatedItem = allocatedItem - 1,
+                pooledItem = pooledItem + 1,
+            )
+        }
+        onReleased?.invoke(obj)
+        pendingRelease.addLast(obj)
+    }
+
+    fun frame() {
+        if (pendingRelease.isNotEmpty()) {
+            pool.addAll(pendingRelease)
+            pendingRelease.clear()
+        }
+    }
+
+    init {
+        POOLS.add(this)
+    }
+
+    companion object {
+        private val POOLS = mutableListOf<FramedObjectPool<*>>()
+
+        fun frame() {
+            POOLS.forEach { it.frame() }
+        }
     }
 }

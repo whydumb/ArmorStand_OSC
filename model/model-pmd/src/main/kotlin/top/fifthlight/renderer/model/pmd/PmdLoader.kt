@@ -7,7 +7,9 @@ import top.fifthlight.renderer.model.Material.TextureInfo
 import top.fifthlight.renderer.model.pmd.format.PmdBone
 import top.fifthlight.renderer.model.pmd.format.PmdHeader
 import top.fifthlight.renderer.model.pmd.format.PmdMaterial
+
 import top.fifthlight.renderer.model.util.readAll
+
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
@@ -357,11 +359,12 @@ object PmdLoader: ModelFileLoader {
                     id = NodeId(modelId, nodeId),
                     skin = skin,
                     mesh = Mesh(
+                        id = MeshId(modelId, nodeId),
                         primitives = listOf(
                             Primitive(
                                 mode = Primitive.Mode.TRIANGLES,
                                 material = material,
-                                attributes = Primitive.Attributes(
+                                attributes = Primitive.Attributes.Primitive(
                                     position = Accessor(
                                         bufferView = vertexBufferView,
                                         byteOffset = 0,
@@ -416,9 +419,11 @@ object PmdLoader: ModelFileLoader {
                                     normalized = false,
                                     count = pmdMaterial.verticesCount,
                                     type = Accessor.AccessorType.SCALAR,
-                                )
+                                ),
+                                targets = listOf(),
                             )
                         ),
+                        weights = null,
                     )
                 ).also {
                     rootNodes.add(it)
@@ -426,17 +431,22 @@ object PmdLoader: ModelFileLoader {
                 }
             }
 
+            val scene = Scene(
+                nodes = rootNodes,
+                initialTransform = NodeTransform.Decomposed(
+                    scale = Vector3f(0.1f),
+                ),
+            )
+
             return ModelFileLoader.Result(
                 metadata = Metadata(
                     title = header.name,
                     comment = header.comment,
                 ),
-                scene = Scene(
-                    nodes = rootNodes,
+                model = Model(
+                    scenes = listOf(scene),
                     skins = listOf(skin),
-                    initialTransform = NodeTransform.Decomposed(
-                        scale = Vector3f(0.1f),
-                    ),
+                    defaultScene = scene,
                 ),
                 animations = listOf(),
             )

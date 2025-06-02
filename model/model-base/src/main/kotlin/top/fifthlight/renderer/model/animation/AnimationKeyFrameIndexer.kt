@@ -3,6 +3,7 @@ package top.fifthlight.renderer.model.animation
 import it.unimi.dsi.fastutil.floats.AbstractFloatList
 import it.unimi.dsi.fastutil.floats.FloatList
 import top.fifthlight.renderer.model.Accessor
+
 import java.nio.ByteOrder
 
 interface AnimationKeyFrameIndexer {

@@ -14,7 +14,6 @@ import top.fifthlight.renderer.model.util.getUByteNormalized
 import top.fifthlight.renderer.model.util.getUShortNormalized
 import java.net.URI
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.nio.file.Path
 import java.util.*
 
@@ -52,6 +51,7 @@ internal class GltfLoader(
     private val nodes = mutableMapOf<Int, Node>()
     private lateinit var scenes: List<Scene>
     private lateinit var animations: List<Animation>
+    private lateinit var expressions: List<Expression>
 
     private fun loadExternalUri(uri: URI): ByteBuffer = externalBuffers.getOrPut(uri) {
         TODO("URI resources is not supported for now")
@@ -187,7 +187,10 @@ internal class GltfLoader(
     }
 
     private fun loadMeshes() {
-        fun loadAttributes(attributes: Map<GltfAttributeKey, Int>): Primitive.Attributes {
+        fun loadAttributes(
+            attributes: Map<GltfAttributeKey, Int>,
+            morph: Boolean,
+        ): Primitive.Attributes {
             var position: Accessor? = null
             var normal: Accessor? = null
             var tangent: Accessor? = null
@@ -216,16 +219,28 @@ internal class GltfLoader(
                     map[it] ?: throw GltfLoadException("Bad attribute map: missing index $it")
                 }
             }
-            check(position != null) { "No position attribute in primitive" }
-            return Primitive.Attributes(
-                position = position,
-                normal = normal,
-                tangent = tangent,
-                texcoords = loadAttributeMap(texcoords),
-                colors = loadAttributeMap(colors),
-                joints = loadAttributeMap(joints),
-                weights = loadAttributeMap(weights)
-            )
+            if (morph) {
+                return Primitive.Attributes.MorphTarget(
+                    position = position,
+                    normal = normal,
+                    tangent = tangent,
+                    texcoords = loadAttributeMap(texcoords),
+                    colors = loadAttributeMap(colors),
+                    joints = loadAttributeMap(joints),
+                    weights = loadAttributeMap(weights)
+                )
+            } else {
+                check(position != null) { "No position attribute in primitive" }
+                return Primitive.Attributes.Primitive(
+                    position = position,
+                    normal = normal,
+                    tangent = tangent,
+                    texcoords = loadAttributeMap(texcoords),
+                    colors = loadAttributeMap(colors),
+                    joints = loadAttributeMap(joints),
+                    weights = loadAttributeMap(weights)
+                )
+            }
         }
 
         fun loadPrimitive(primitive: GltfPrimitive) = Primitive(
@@ -233,15 +248,21 @@ internal class GltfLoader(
             material = primitive.material?.let {
                 materials.getOrNull(it) ?: throw GltfLoadException("Bad primitive: unknown material $it")
             } ?: Material.Default,
-            attributes = loadAttributes(primitive.attributes),
+            attributes = loadAttributes(primitive.attributes, false) as Primitive.Attributes.Primitive,
             indices = primitive.indices?.let { indices ->
                 accessors.getOrNull(indices)
                     ?: throw GltfLoadException("Bad primitive: unknown accessor index: $indices")
             },
+            targets = primitive.targets?.map { loadAttributes(it, true) as Primitive.Attributes.MorphTarget }
+                ?: listOf(),
         )
 
-        meshes = gltf.meshes?.map { mesh ->
-            Mesh(primitives = mesh.primitives.map { primitive -> loadPrimitive(primitive) })
+        meshes = gltf.meshes?.mapIndexed { index, mesh ->
+            Mesh(
+                id = MeshId(uuid, index),
+                primitives = mesh.primitives.map { primitive -> loadPrimitive(primitive) },
+                weights = mesh.weights,
+            )
         } ?: listOf()
     }
 
@@ -282,7 +303,7 @@ internal class GltfLoader(
                     throw GltfLoadException("Bad size of inverseBindMatrices: get ${accessor.count}, should be ${skin.joints.size}")
                 }
                 buildList<Matrix4f>(accessor.count) {
-                    accessor.read(ByteOrder.LITTLE_ENDIAN) { buffer ->
+                    accessor.read { buffer ->
                         add(Matrix4f().set(buffer))
                     }
                 }
@@ -327,7 +348,6 @@ internal class GltfLoader(
         scenes = gltf.scenes?.map {
             Scene(
                 nodes = it.nodes?.map(::loadNode) ?: listOf(),
-                skins = skins,
             )
         } ?: listOf()
     }
@@ -446,6 +466,85 @@ internal class GltfLoader(
         } ?: listOf()
     }
 
+    private fun loadExpressions() {
+        val vrmV0 = gltf.extensions?.vrmV0?.blendShapeMaster?.blendShapeGroups
+        if (vrmV0 != null) {
+            expressions = vrmV0.mapNotNull { expression ->
+                Expression(
+                    name = expression.name,
+                    tag = when (expression.presetName?.replaceFirstChar(Char::uppercase)) {
+                        "Neutral" -> Expression.Tag.Neutral
+                        "A" -> Expression.Tag.Lip.AA
+                        "E" -> Expression.Tag.Lip.EE
+                        "I" -> Expression.Tag.Lip.IH
+                        "O" -> Expression.Tag.Lip.OH
+                        "U" -> Expression.Tag.Lip.OU
+                        "Blink" -> Expression.Tag.Blink.BLINK
+                        "Blink_L" -> Expression.Tag.Blink.BLINK_LEFT
+                        "Blink_R" -> Expression.Tag.Blink.BLINK_RIGHT
+                        "Fun" -> Expression.Tag.Emotion.RELAXED
+                        "Angry" -> Expression.Tag.Emotion.ANGRY
+                        "Joy" -> Expression.Tag.Emotion.HAPPY
+                        "Sorrow" -> Expression.Tag.Emotion.SAD
+                        "LookUp" -> Expression.Tag.Gaze.LOOK_UP
+                        "LookDown" -> Expression.Tag.Gaze.LOOK_DOWN
+                        "LookLeft" -> Expression.Tag.Gaze.LOOK_LEFT
+                        "LookRight" -> Expression.Tag.Gaze.LOOK_RIGHT
+                        else -> return@mapNotNull null
+                    },
+                    bindings = expression.binds?.map { bind ->
+                        Expression.Binding.MeshMorphTarget(
+                            meshId = MeshId(uuid, bind.mesh),
+                            index = bind.index,
+                            weight = bind.weight?.let { it / 100f } ?: 1f,
+                        )
+                    } ?: listOf()
+                )
+            }
+            return
+        }
+
+        val vrmV1 = gltf.extensions?.vrmV1?.expressions
+        if (vrmV1 != null) {
+            expressions = ((vrmV1.preset?.entries?.asSequence() ?: sequenceOf()) + (vrmV1.custom?.entries?.asSequence() ?: sequenceOf())).mapNotNull { (key, value) ->
+                Expression(
+                    name = key,
+                    isBinary = value.isBinary ?: false,
+                    tag = when (key.replaceFirstChar(Char::lowercase)) {
+                        "neutral" -> Expression.Tag.Neutral
+                        "aa" -> Expression.Tag.Lip.AA
+                        "ee" -> Expression.Tag.Lip.EE
+                        "ih" -> Expression.Tag.Lip.IH
+                        "oh" -> Expression.Tag.Lip.OH
+                        "ou" -> Expression.Tag.Lip.OU
+                        "blink" -> Expression.Tag.Blink.BLINK
+                        "blinkLeft" -> Expression.Tag.Blink.BLINK_LEFT
+                        "blinkRight" -> Expression.Tag.Blink.BLINK_RIGHT
+                        "relaxed" -> Expression.Tag.Emotion.RELAXED
+                        "angry" -> Expression.Tag.Emotion.ANGRY
+                        "happy" -> Expression.Tag.Emotion.HAPPY
+                        "sad" -> Expression.Tag.Emotion.SAD
+                        "surprised" -> Expression.Tag.Emotion.SURPRISED
+                        "lookUp" -> Expression.Tag.Gaze.LOOK_UP
+                        "lookDown" -> Expression.Tag.Gaze.LOOK_DOWN
+                        "lookLeft" -> Expression.Tag.Gaze.LOOK_LEFT
+                        "lookRight" -> Expression.Tag.Gaze.LOOK_RIGHT
+                        else -> return@mapNotNull null
+                    },
+                    bindings = value.morphTargetBinds?.map { bind ->
+                        Expression.Binding.NodeMorphTarget(
+                            nodeId = NodeId(uuid, bind.node),
+                            index = bind.index,
+                            weight = bind.weight?.let { it / 100f } ?: 1f,
+                        )
+                    } ?: listOf()
+                )
+            }.toList()
+            return
+        }
+        expressions = listOf()
+    }
+
     fun load(json: String): ModelFileLoader.Result {
         if (loaded) {
             throw GltfLoadException("Already loaded. Please don't load again.")
@@ -464,14 +563,23 @@ internal class GltfLoader(
         loadSkins()
         loadScenes()
         loadAnimations()
+        loadExpressions()
 
         val metadata = gltf.extensions?.vrmV0?.meta?.toMetadata { textures.getOrNull(it) }
             ?: gltf.extensions?.vrmV1?.meta?.toMetadata { textures.getOrNull(it) }
 
-        val sceneIndex = gltf.scene ?: 0
+        val model = Model(
+            scenes = scenes,
+            defaultScene = gltf.scene?.let {
+                scenes.getOrNull(it) ?: throw GltfLoadException("Bad model: unknown scene index ${gltf.scene}")
+            },
+            skins = skins,
+            expressions = expressions,
+        )
+
         return ModelFileLoader.Result(
             metadata = metadata,
-            scene = scenes.getOrNull(sceneIndex),
+            model = model,
             animations = animations,
         )
     }

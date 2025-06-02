@@ -12,5 +12,7 @@
   "armorstand.debug_database.query_failed_with_message": "查询中出现错误：%s",
   "armorstand.debug_database.querying": "查询中……",
   "armorstand.debug_database.executed": "执行完毕，已更新 %d 行，耗时：%s",
-  "armorstand.debug_database.queried_time": "耗时: %s"
+  "armorstand.debug_database.queried_time": "耗时: %s",
+  "armorstand.name": "盔甲架",
+  "armorstand.keybinding.config": "打开盔甲架配置"
 }

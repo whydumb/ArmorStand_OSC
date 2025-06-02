@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.floats.FloatList
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import top.fifthlight.renderer.model.Accessor
+
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 

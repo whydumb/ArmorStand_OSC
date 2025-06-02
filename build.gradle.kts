@@ -23,9 +23,5 @@ subprojects {
             name = "Terraformers"
             url = uri("https://maven.terraformersmc.com/")
         }
-        maven {
-            name = "Wisp Forest"
-            url = uri("https://maven.wispforest.io/releases/")
-        }
     }
 }

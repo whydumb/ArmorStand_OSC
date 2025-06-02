@@ -9,7 +9,4 @@ import java.util.Optional;
 public interface RenderPipelineSnippetExt {
     @NotNull
     Optional<VertexType> armorstand$getVertexType();
-
-    @NotNull
-    Optional<List<String>> armorstand$getUniformBuffers();
 }

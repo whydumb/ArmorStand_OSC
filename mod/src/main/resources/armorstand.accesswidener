@@ -1,9 +1,7 @@
 accessWidener v2 named
 accessible method net/minecraft/client/gl/ShaderProgram <init> (ILjava/lang/String;)V
 accessible field net/minecraft/client/gl/GlGpuBuffer id I
-accessible field com/mojang/blaze3d/opengl/GlStateManager activeTexture I
-accessible field com/mojang/blaze3d/opengl/GlStateManager TEXTURES [Lcom/mojang/blaze3d/opengl/GlStateManager$Texture2DState;
-accessible class com/mojang/blaze3d/opengl/GlStateManager$Texture2DState
+accessible field net/minecraft/client/gl/GlGpuBuffer backingBuffer Ljava/nio/ByteBuffer;
 accessible field net/minecraft/client/texture/NativeImage MEMORY_POOL Lcom/mojang/jtracy/MemoryPool;
 accessible method net/minecraft/client/texture/NativeImage$Format fromChannelCount (I)Lnet/minecraft/client/texture/NativeImage$Format;
 mutable field net/minecraft/client/gl/RenderPassImpl IS_DEVELOPMENT Z
@@ -20,3 +18,6 @@ accessible method net/minecraft/client/gui/screen/Screen remove (Lnet/minecraft/
 accessible field net/minecraft/client/gui/widget/EntryListWidget MENU_LIST_BACKGROUND_TEXTURE Lnet/minecraft/util/Identifier;
 accessible field net/minecraft/client/gui/widget/EntryListWidget INWORLD_MENU_LIST_BACKGROUND_TEXTURE Lnet/minecraft/util/Identifier;
 accessible field net/minecraft/client/gui/widget/CheckboxWidget checked Z
+accessible class net/minecraft/client/gl/BufferManager$ARBBufferManager
+accessible class net/minecraft/client/gl/BufferManager$DefaultBufferManager
+accessible method net/minecraft/client/gl/GlCommandEncoder drawBoundObjectWithRenderPass (Lnet/minecraft/client/gl/RenderPassImpl;IIILcom/mojang/blaze3d/vertex/VertexFormat$IndexType;I)V

@@ -1,5 +1,6 @@
 package top.fifthlight.renderer.model
 
+import top.fifthlight.renderer.model.util.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -32,7 +33,7 @@ data class Accessor(
         }
     }
 
-    inline fun read(order: ByteOrder = ByteOrder.nativeOrder(), crossinline func: (ByteBuffer) -> Unit) {
+    inline fun read(crossinline func: (ByteBuffer) -> Unit) {
         val bufferView = bufferView
         val elementLength = componentType.byteLength * type.components
         if (bufferView == null) {
@@ -41,12 +42,41 @@ data class Accessor(
             return
         }
         val buffer = bufferView.buffer.buffer.slice(byteOffset + bufferView.byteOffset, totalByteLength)
-        buffer.order(order)
+        buffer.order(ByteOrder.LITTLE_ENDIAN)
         val stride = bufferView.byteStride.takeIf { it > 0 } ?: elementLength
-        repeat(count) {
-            val position = buffer.position()
+        repeat(count) { elementIndex ->
+            val newPosition = elementIndex * stride
+            buffer.position(newPosition)
+            buffer.limit(newPosition + elementLength)
             func(buffer)
-            buffer.position(position + stride)
+            buffer.limit(buffer.capacity())
+        }
+    }
+
+    inline fun readNormalized(crossinline func: (Float) -> Unit) {
+        require(this.normalized) { "Read normalized data from a not normalized accessor" }
+        val bufferView = bufferView
+        val elementLength = componentType.byteLength * type.components
+        if (bufferView == null) {
+            repeat(count * type.components) { func(0f) }
+            return
+        }
+        val buffer = bufferView.buffer.buffer.slice(bufferView.byteOffset + byteOffset, totalByteLength)
+        buffer.order(ByteOrder.LITTLE_ENDIAN)
+        val stride = bufferView.byteStride.takeIf { it > 0 } ?: elementLength
+        repeat(count) { elementIndex ->
+            buffer.position(elementIndex * stride)
+            repeat(type.components) {
+                val value = when (componentType) {
+                    ComponentType.BYTE -> buffer.getSByteNormalized()
+                    ComponentType.UNSIGNED_BYTE -> buffer.getUByteNormalized()
+                    ComponentType.SHORT -> buffer.getSShortNormalized()
+                    ComponentType.UNSIGNED_SHORT -> buffer.getUShortNormalized()
+                    ComponentType.UNSIGNED_INT -> buffer.getUIntNormalized()
+                    ComponentType.FLOAT -> buffer.getFloat()
+                }
+                func(value)
+            }
         }
     }
 

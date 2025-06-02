@@ -8,7 +8,9 @@ import top.fifthlight.renderer.model.BufferView
 import top.fifthlight.renderer.model.HumanoidTag
 import top.fifthlight.renderer.model.Material
 import top.fifthlight.renderer.model.Mesh
+import top.fifthlight.renderer.model.MeshId
 import top.fifthlight.renderer.model.Metadata
+import top.fifthlight.renderer.model.Model
 import top.fifthlight.renderer.model.ModelFileLoader
 import top.fifthlight.renderer.model.Node
 import top.fifthlight.renderer.model.NodeId
@@ -23,7 +25,10 @@ import top.fifthlight.renderer.model.pmx.format.PmxBone
 import top.fifthlight.renderer.model.pmx.format.PmxGlobals
 import top.fifthlight.renderer.model.pmx.format.PmxHeader
 import top.fifthlight.renderer.model.pmx.format.PmxMaterial
+import top.fifthlight.renderer.model.pmx.format.PmxMorph
+
 import top.fifthlight.renderer.model.util.readAll
+
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
@@ -59,7 +64,7 @@ object PmxLoader : ModelFileLoader {
     private const val VERTEX_ATTRIBUTE_SIZE = BASE_VERTEX_ATTRIBUTE_SIZE + SKIN_VERTEX_ATTRIBUTE_SIZE
 
     private class Context(
-        private val basePath: Path
+        private val basePath: Path,
     ) {
         private lateinit var globals: PmxGlobals
         private val decoder by lazy {
@@ -68,16 +73,17 @@ object PmxLoader : ModelFileLoader {
                 .onUnmappableCharacter(CodingErrorAction.REPORT)
         }
 
-        private lateinit var vertexBuffer: ByteBuffer
+        private lateinit var vertexAttributes: Primitive.Attributes.Primitive
         private var vertices: Int = -1
 
-        private lateinit var indexBuffer: ByteBuffer
+        private lateinit var indexBufferView: BufferView
         private lateinit var indexBufferType: Accessor.ComponentType
         private var indices: Int = -1
 
         private lateinit var textures: List<Texture>
         private lateinit var materials: List<PmxMaterial>
         private lateinit var bones: List<PmxBone>
+        private lateinit var morphTargets: List<Primitive.Attributes>
         private val childBoneMap = mutableMapOf<Int, MutableList<Int>>()
         private val rootBones = mutableListOf<Int>()
 
@@ -340,8 +346,66 @@ object PmxLoader : ModelFileLoader {
                 inputPosition += 4
             }
             require(outputPosition == outputBuffer.capacity()) { "Bug: Not filled the entire output buffer" }
-            vertexBuffer = outputBuffer
+
+            val vertexBuffer = Buffer(
+                name = "Vertex Buffer",
+                buffer = outputBuffer
+            )
+            val vertexBufferView = BufferView(
+                buffer = vertexBuffer,
+                byteLength = outputBuffer.remaining(),
+                byteOffset = 0,
+                byteStride = VERTEX_ATTRIBUTE_SIZE,
+            )
             vertices = vertexCount
+            vertexAttributes = Primitive.Attributes.Primitive(
+                position = Accessor(
+                    bufferView = vertexBufferView,
+                    byteOffset = 0,
+                    componentType = Accessor.ComponentType.FLOAT,
+                    normalized = false,
+                    count = vertexCount,
+                    type = Accessor.AccessorType.VEC3,
+                ),
+                normal = Accessor(
+                    bufferView = vertexBufferView,
+                    byteOffset = 3 * 4,
+                    componentType = Accessor.ComponentType.FLOAT,
+                    normalized = false,
+                    count = vertexCount,
+                    type = Accessor.AccessorType.VEC3,
+                ),
+                texcoords = listOf(
+                    Accessor(
+                        bufferView = vertexBufferView,
+                        byteOffset = (3 + 3) * 4,
+                        componentType = Accessor.ComponentType.FLOAT,
+                        normalized = false,
+                        count = vertexCount,
+                        type = Accessor.AccessorType.VEC2,
+                    )
+                ),
+                joints = listOf(
+                    Accessor(
+                        bufferView = vertexBufferView,
+                        byteOffset = (3 + 3 + 2) * 4,
+                        componentType = Accessor.ComponentType.UNSIGNED_INT,
+                        normalized = false,
+                        count = vertexCount,
+                        type = Accessor.AccessorType.VEC4,
+                    )
+                ),
+                weights = listOf(
+                    Accessor(
+                        bufferView = vertexBufferView,
+                        byteOffset = (3 + 3 + 2 + 4) * 4,
+                        componentType = Accessor.ComponentType.FLOAT,
+                        normalized = false,
+                        count = vertexCount,
+                        type = Accessor.AccessorType.VEC4,
+                    )
+                )
+            )
             buffer.position(inputPosition)
         }
 
@@ -395,7 +459,18 @@ object PmxLoader : ModelFileLoader {
 
                 else -> throw AssertionError()
             }
-            indexBuffer = outputBuffer
+            outputBuffer.flip()
+            val indexBuffer = Buffer(
+                name = "Index Buffer",
+                buffer = outputBuffer,
+            )
+            val bufferView = BufferView(
+                buffer = indexBuffer,
+                byteLength = outputBuffer.remaining(),
+                byteOffset = 0,
+                byteStride = 0,
+            )
+            indexBufferView = bufferView
             indices = surfaceCount
         }
 
@@ -634,6 +709,40 @@ object PmxLoader : ModelFileLoader {
             }
         }
 
+        private fun loadMorphTargets(buffer: ByteBuffer) {
+            val morphTargetCount = buffer.getInt()
+            if (morphTargetCount < 0) {
+                throw PmxLoadException("Bad PMX model: morph targets count less than zero")
+            }
+            morphTargets = (0 until morphTargetCount).map { index ->
+                val nameLocal = loadString(buffer)
+                val nameUniversal = loadString(buffer)
+                val panelType =
+                    buffer.get().toInt().let { type -> PmxMorph.PanelType.entries.firstOrNull { it.value == type } }
+                        ?: throw PmxLoadException("Unknown panel type")
+                val morphType =
+                    buffer.get().toInt().let { type -> PmxMorph.Type.entries.firstOrNull { it.value == type } }
+                        ?: throw PmxLoadException("Unknown panel type")
+                val offsetSize = buffer.getInt()
+                if (offsetSize < 1) {
+                    throw PmxLoadException("Bad morph offset size: $offsetSize")
+                }
+                when (morphType) {
+                    PmxMorph.Type.GROUP -> TODO()
+                    PmxMorph.Type.VERTEX -> TODO()
+                    PmxMorph.Type.BONE -> TODO()
+                    PmxMorph.Type.UV -> TODO()
+                    PmxMorph.Type.UV_EXT1 -> TODO()
+                    PmxMorph.Type.UV_EXT2 -> TODO()
+                    PmxMorph.Type.UV_EXT3 -> TODO()
+                    PmxMorph.Type.UV_EXT4 -> TODO()
+                    PmxMorph.Type.MATERIAL -> TODO()
+                    PmxMorph.Type.FLIP -> TODO()
+                    PmxMorph.Type.IMPULSE -> TODO()
+                }
+            }
+        }
+
         fun load(buffer: ByteBuffer): ModelFileLoader.Result {
             val header = loadHeader(buffer)
             loadVertices(buffer)
@@ -641,6 +750,7 @@ object PmxLoader : ModelFileLoader {
             loadTextures(buffer)
             loadMaterials(buffer)
             loadBones(buffer)
+            // loadMorphTargets(buffer)
 
             val modelId = UUID.randomUUID()
             val rootNodes = mutableListOf<Node>()
@@ -683,27 +793,6 @@ object PmxLoader : ModelFileLoader {
                 },
             )
 
-            val vertexBuffer = Buffer(
-                name = "Vertex Buffer",
-                buffer = vertexBuffer
-            )
-            val vertexBufferView = BufferView(
-                buffer = vertexBuffer,
-                byteLength = vertices * VERTEX_ATTRIBUTE_SIZE,
-                byteOffset = 0,
-                byteStride = VERTEX_ATTRIBUTE_SIZE,
-            )
-            val indexBuffer = Buffer(
-                name = "Index Buffer",
-                buffer = indexBuffer,
-            )
-            val indexBufferView = BufferView(
-                buffer = indexBuffer,
-                byteLength = indices * indexBufferType.byteLength,
-                byteOffset = 0,
-                byteStride = 0,
-            )
-
             var indexOffset = 0
             materials.forEach { pmxMaterial ->
                 val nodeId = nextNodeId++
@@ -722,58 +811,12 @@ object PmxLoader : ModelFileLoader {
                     id = NodeId(modelId, nodeId),
                     skin = skin,
                     mesh = Mesh(
+                        id = MeshId(modelId, nodeId),
                         primitives = listOf(
                             Primitive(
                                 mode = Primitive.Mode.TRIANGLES,
                                 material = material,
-                                attributes = Primitive.Attributes(
-                                    position = Accessor(
-                                        bufferView = vertexBufferView,
-                                        byteOffset = 0,
-                                        componentType = Accessor.ComponentType.FLOAT,
-                                        normalized = false,
-                                        count = vertices,
-                                        type = Accessor.AccessorType.VEC3,
-                                    ),
-                                    normal = Accessor(
-                                        bufferView = vertexBufferView,
-                                        byteOffset = 3 * 4,
-                                        componentType = Accessor.ComponentType.FLOAT,
-                                        normalized = false,
-                                        count = vertices,
-                                        type = Accessor.AccessorType.VEC3,
-                                    ),
-                                    texcoords = listOf(
-                                        Accessor(
-                                            bufferView = vertexBufferView,
-                                            byteOffset = (3 + 3) * 4,
-                                            componentType = Accessor.ComponentType.FLOAT,
-                                            normalized = false,
-                                            count = vertices,
-                                            type = Accessor.AccessorType.VEC2,
-                                        )
-                                    ),
-                                    joints = listOf(
-                                        Accessor(
-                                            bufferView = vertexBufferView,
-                                            byteOffset = (3 + 3 + 2) * 4,
-                                            componentType = Accessor.ComponentType.UNSIGNED_INT,
-                                            normalized = false,
-                                            count = vertices,
-                                            type = Accessor.AccessorType.VEC4,
-                                        )
-                                    ),
-                                    weights = listOf(
-                                        Accessor(
-                                            bufferView = vertexBufferView,
-                                            byteOffset = (3 + 3 + 2 + 4) * 4,
-                                            componentType = Accessor.ComponentType.FLOAT,
-                                            normalized = false,
-                                            count = vertices,
-                                            type = Accessor.AccessorType.VEC4,
-                                        )
-                                    )
-                                ),
+                                attributes = vertexAttributes,
                                 indices = Accessor(
                                     bufferView = indexBufferView,
                                     byteOffset = indexOffset * indexBufferType.byteLength,
@@ -781,15 +824,25 @@ object PmxLoader : ModelFileLoader {
                                     normalized = false,
                                     count = pmxMaterial.surfaceCount,
                                     type = Accessor.AccessorType.SCALAR,
-                                )
+                                ),
+                                // targets = morphTargets,
+                                targets = listOf(),
                             )
                         ),
+                        weights = null,
                     )
                 ).also {
                     rootNodes.add(it)
                     indexOffset += pmxMaterial.surfaceCount
                 }
             }
+
+            val scene = Scene(
+                nodes = rootNodes,
+                initialTransform = NodeTransform.Decomposed(
+                    scale = Vector3f(0.1f),
+                ),
+            )
 
             return ModelFileLoader.Result(
                 metadata = Metadata(
@@ -798,12 +851,10 @@ object PmxLoader : ModelFileLoader {
                     comment = header.commentLocal,
                     commentUniversal = header.commentUniversal,
                 ),
-                scene = Scene(
-                    nodes = rootNodes,
+                model = Model(
+                    scenes = listOf(scene),
                     skins = listOf(skin),
-                    initialTransform = NodeTransform.Decomposed(
-                        scale = Vector3f(0.1f),
-                    ),
+                    defaultScene = scene,
                 ),
                 animations = listOf(),
             )

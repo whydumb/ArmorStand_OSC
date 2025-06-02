@@ -9,6 +9,6 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 public class CameraMixin {
     @ModifyArg(method = "update", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;clipToSpace(F)F"))
     public float thirdPersonDistance(float f) {
-        return f * 0.5f;
+        return f * 0.25f;
     }
 }

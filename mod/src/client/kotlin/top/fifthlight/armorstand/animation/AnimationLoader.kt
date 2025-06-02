@@ -12,10 +12,10 @@ object AnimationLoader {
         animation: Animation,
     ): AnimationItem {
         fun findTargetTransformIndex(channel: AnimationChannel<*>): Int? =
-            channel.targetNode?.id.let { nodeId -> scene.nodeIdTransformMap.getInt(nodeId).takeIf { it >= 0 } }
-                ?: channel.targetNodeName?.let { name -> scene.nodeNameTransformMap.getInt(name).takeIf { it >= 0 } }
+            channel.targetNode?.id.let { nodeId -> scene.nodeIdToTransformMap.getInt(nodeId).takeIf { it >= 0 } }
+                ?: channel.targetNodeName?.let { name -> scene.nodeNameToTransformMap.getInt(name).takeIf { it >= 0 } }
                 ?: channel.targetHumanoidTag?.let { humanoid ->
-                    scene.humanoidTagTransformMap.getInt(humanoid).takeIf { it >= 0 }
+                    scene.humanoidTagToTransformMap.getInt(humanoid).takeIf { it >= 0 }
                 }
 
         @Suppress("UNCHECKED_CAST")

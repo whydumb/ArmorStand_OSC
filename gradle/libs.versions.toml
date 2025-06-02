@@ -1,16 +1,17 @@
 [versions]
 fabric-loom = "1.11.0-alpha.17"
 kotlin = "2.1.10"
-minecraft = "1.21.5"
-yarn = "1.21.5+build.1"
-fabric-loader = "0.16.10"
+minecraft = "1.21.6-pre1"
+yarn = "1.21.6-pre1+build.1"
+fabric-loader = "0.16.14"
 modmenu = "14.0.0-rc.2"
-fabric-api = "0.119.5+1.21.5"
+fabric-api = "0.125.2+1.21.6"
 fabric-language-kotlin = "1.13.1+kotlin.2.1.10"
 joml = "1.10.8"
-serialization = "1.8.0"
+serialization = "1.8.1"
 fastutil = "8.5.15"
 h2 = "2.3.232"
+junit-platform = "1.12.2"
 
 [libraries]
 minecraft = { group = "com.mojang", name = "minecraft", version.ref = "minecraft" }
@@ -23,6 +24,8 @@ joml = { group = "org.joml", name = "joml", version.ref = "joml" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 fastutil = { group = "it.unimi.dsi", name = "fastutil", version.ref = "fastutil" }
 h2 = { group = "com.h2database", name = "h2", version.ref = "h2" }
+junit-platform-suite-api = { group = "org.junit.platform", name = "junit-platform-suite-api", version.ref = "junit-platform" }
+junit-platform-suite-engine = { group = "org.junit.platform", name = "junit-platform-suite-engine", version.ref = "junit-platform" }
 
 [plugins]
 fabric-loom = { id = "fabric-loom", version.ref = "fabric-loom" }

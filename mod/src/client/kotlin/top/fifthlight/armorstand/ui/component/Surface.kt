@@ -1,6 +1,7 @@
 package top.fifthlight.armorstand.ui.component
 
 import net.minecraft.client.MinecraftClient
+import net.minecraft.client.gl.RenderPipelines
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.gui.widget.EntryListWidget
@@ -48,7 +49,7 @@ fun interface Surface {
             regionHeight: Int = textureHeight,
         ) = Surface { context, x, y, width, height ->
             context.drawTexture(
-                RenderLayer::getGuiTextured,
+                RenderPipelines.GUI_TEXTURED,
                 identifier,
                 x,
                 y,
@@ -68,7 +69,7 @@ fun interface Surface {
         }.let { texture ->
             Surface { context, x, y, width, height ->
                 context.drawTexture(
-                    RenderLayer::getGuiTextured,
+                    RenderPipelines.GUI_TEXTURED,
                     texture,
                     x,
                     y,
@@ -89,7 +90,7 @@ fun interface Surface {
         }.let { texture ->
             Surface { context, x, y, width, height ->
                 context.drawTexture(
-                    RenderLayer::getGuiTextured,
+                    RenderPipelines.GUI_TEXTURED,
                     texture,
                     x,
                     y + height - 2,

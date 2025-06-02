@@ -5,6 +5,7 @@ import top.fifthlight.renderer.model.HumanoidTag
 import top.fifthlight.renderer.model.ModelFileLoader
 import top.fifthlight.renderer.model.animation.*
 import top.fifthlight.renderer.model.util.readAll
+
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
@@ -138,7 +139,7 @@ object VmdLoader : ModelFileLoader {
 
         return ModelFileLoader.Result(
             metadata = null,
-            scene = null,
+            model = null,
             animations = listOf(Animation(channels = boneChannels)),
         )
     }

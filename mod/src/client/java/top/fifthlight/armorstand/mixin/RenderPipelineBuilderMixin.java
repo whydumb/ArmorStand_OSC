@@ -26,13 +26,10 @@ import java.util.Optional;
 public abstract class RenderPipelineBuilderMixin implements RenderPipelineBuilderExtInternal {
     @Unique
     Optional<VertexType> vertexType;
-    @Unique
-    Optional<List<String>> uniformBuffers;
 
     @Inject(method = "<init>", at = @At("TAIL"))
     private void onInit(CallbackInfo ci) {
         vertexType = Optional.empty();
-        uniformBuffers = Optional.empty();
     }
 
     @Override
@@ -46,14 +43,6 @@ public abstract class RenderPipelineBuilderMixin implements RenderPipelineBuilde
         this.vertexType = Optional.of(type);
     }
 
-    @Override
-    public void armorStand$withUniformBuffer(@NotNull String name) {
-        if (uniformBuffers.isEmpty()) {
-            uniformBuffers = Optional.of(new ArrayList<>());
-        }
-        uniformBuffers.get().add(name);
-    }
-
     @Inject(method = "withSnippet", at = @At("HEAD"))
     void withSnippet(@NotNull RenderPipeline.Snippet snippet, CallbackInfo ci) {
         var snippetInternal = ((RenderPipelineSnippetExtInternal) (Object) snippet);
@@ -62,21 +51,12 @@ public abstract class RenderPipelineBuilderMixin implements RenderPipelineBuilde
         if (vertexType.isPresent()) {
             this.vertexType = vertexType;
         }
-        snippetInternal.armorstand$getUniformBuffers()
-                .ifPresent(uniformBuffers -> {
-                    if (this.uniformBuffers.isPresent()) {
-                        this.uniformBuffers.get().addAll(uniformBuffers);
-                    } else {
-                        this.uniformBuffers = Optional.of(new ArrayList<>(uniformBuffers));
-                    }
-                });
     }
 
     @ModifyReturnValue(method = "buildSnippet", at = @At("RETURN"))
     public RenderPipeline.Snippet buildSnippet(@NotNull RenderPipeline.Snippet original) {
         var snippetExt = ((RenderPipelineSnippetExtInternal) (Object) original);
         snippetExt.armorStand$setVertexType(vertexType);
-        snippetExt.armorStand$setUniformBuffers(uniformBuffers.map(Collections::unmodifiableList));
         return original;
     }
 
@@ -118,7 +98,6 @@ public abstract class RenderPipelineBuilderMixin implements RenderPipelineBuilde
     @ModifyReturnValue(method = "build", at = @At("RETURN"))
     public RenderPipeline afterBuilt(RenderPipeline original) {
         ((RenderPipelineExtInternal) original).armorStand$setVertexType(vertexType);
-        ((RenderPipelineExtInternal) original).armorStand$setUniformBuffers(uniformBuffers.orElse(Collections.emptyList()));
         return original;
     }
 }

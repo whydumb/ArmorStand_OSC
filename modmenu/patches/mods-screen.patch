@@ -1,0 +1,39 @@
+--- orig-sources/com/terraformersmc/modmenu/gui/ModsScreen.java
++++ sources/com/terraformersmc/modmenu/gui/ModsScreen.java
+@@ -17,6 +17,7 @@
+ import com.terraformersmc.modmenu.util.mod.ModBadgeRenderer;
+ import net.fabricmc.loader.api.FabricLoader;
+ import net.minecraft.SharedConstants;
++import net.minecraft.client.gl.RenderPipelines;
+ import net.minecraft.client.gui.DrawContext;
+ import net.minecraft.client.gui.screen.ConfirmLinkScreen;
+ import net.minecraft.client.gui.screen.ConfirmScreen;
+@@ -203,7 +204,7 @@
+ 				final Mod mod = Objects.requireNonNull(selected).getMod();
+ 				boolean isMinecraft = selected.getMod().getId().equals("minecraft");
+ 				if (isMinecraft) {
+-					var url = SharedConstants.getGameVersion().isStable() ? Urls.JAVA_FEEDBACK : Urls.SNAPSHOT_FEEDBACK;
++					var url = SharedConstants.getGameVersion().stable() ? Urls.JAVA_FEEDBACK : Urls.SNAPSHOT_FEEDBACK;
+ 					ConfirmLinkScreen.open(this, url, true);
+ 				} else {
+ 					var url = mod.getWebsite();
+@@ -387,9 +388,8 @@
+ 				DrawingUtil.drawRandomVersionBackground(mod, drawContext, x, RIGHT_PANE_Y, 32, 32);
+ 			}
+ 
+-			RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+ 			GlStateManager._enableBlend();
+-			drawContext.drawTexture(RenderLayer::getGuiTextured, this.selected.getIconTexture(), x, RIGHT_PANE_Y, 0.0F, 0.0F, 32, 32, 32, 32);
++			drawContext.drawTexture(RenderPipelines.GUI_TEXTURED, this.selected.getIconTexture(), x, RIGHT_PANE_Y, 0.0F, 0.0F, 32, 32, 32, 32);
+ 			GlStateManager._disableBlend();
+ 			int lineSpacing = textRenderer.fontHeight + 1;
+ 			int imageOffset = 36;
+@@ -413,7 +413,7 @@
+ 			if (mouseX > x + imageOffset && mouseY > RIGHT_PANE_Y + 1 &&
+ 				mouseY < RIGHT_PANE_Y + 1 + textRenderer.fontHeight &&
+ 				mouseX < x + imageOffset + textRenderer.getWidth(trimmedName)) {
+-				this.setTooltip(ModMenuScreenTexts.modIdTooltip(mod.getId()));
++				drawContext.drawTooltip(ModMenuScreenTexts.modIdTooltip(mod.getId()), mouseX, mouseY);
+ 			}
+ 
+ 			if (this.init || modBadgeRenderer == null || modBadgeRenderer.getMod() != mod) {

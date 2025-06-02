@@ -1,41 +1,44 @@
 package top.fifthlight.armorstand.state
 
 import com.mojang.logging.LogUtils
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.MinecraftClient
+import net.minecraft.client.gl.RenderPassImpl
 import top.fifthlight.armorstand.ArmorStand
+import top.fifthlight.armorstand.ArmorStandClient
 import top.fifthlight.armorstand.animation.AnimationItem
 import top.fifthlight.armorstand.animation.AnimationLoader
 import top.fifthlight.armorstand.config.ConfigHolder
+import top.fifthlight.armorstand.model.ModelBufferManager
 import top.fifthlight.armorstand.model.ModelInstance
 import top.fifthlight.armorstand.model.ModelLoader
 import top.fifthlight.armorstand.model.RenderScene
 import top.fifthlight.armorstand.util.ModelLoaders
 import top.fifthlight.armorstand.util.RefCount
+import top.fifthlight.armorstand.util.TimeUtil
 import java.nio.file.Path
 import java.util.*
 import kotlin.time.measureTimedValue
 
 object ModelInstanceManager {
     private val LOGGER = LogUtils.getLogger()
-    const val INSTANCE_EXPIRE_MS = 30000
-    const val MODEL_EXPIRE_MS = 10000
+    const val INSTANCE_EXPIRE_NS: Long = 30L * TimeUtil.NANOSECONDS_PER_SECOND
+    const val MODEL_EXPIRE_NS: Long = 10L * TimeUtil.NANOSECONDS_PER_SECOND
     private val client = MinecraftClient.getInstance()
-    val modelDir: Path = FabricLoader.getInstance().gameDir.resolve("models")
+    val modelDir: Path = System.getProperty("armorstand.modelDir")?.let {
+        Path.of(it).toAbsolutePath()
+    } ?: FabricLoader.getInstance().gameDir.resolve("models")
     private val selfUuid: UUID?
         get() = client.player?.uuid
     var selfPath: Path? = null
         private set
-    private var selfItem: Item = Item.Empty
     private val modelPaths = mutableMapOf<UUID, Path>()
-    private val modelItems = mutableMapOf<UUID, Item>()
-    private val modelCache = mutableMapOf<Path, ModelCache>()
-    private val modelLoadJobs = mutableMapOf<Path, Job>()
+    val modelCaches = mutableMapOf<Path, ModelCache>()
+    val modelInstanceItems = mutableMapOf<UUID, ModelInstanceItem>()
 
     sealed class ModelCache {
         data object Failed : ModelCache()
@@ -43,107 +46,53 @@ object ModelInstanceManager {
         data class Loaded(
             val scene: RenderScene,
             val animation: List<AnimationItem>,
-            var lastAccessTime: Long,
         ) : RefCount by scene, ModelCache()
     }
 
-    sealed interface Item {
-        data object Empty : Item
+    sealed interface ModelInstanceItem {
+        val path: Path
 
-        data object Loading : Item
+        data class Failed(
+            override val path: Path,
+        ) : ModelInstanceItem
 
         class Model(
-            val path: Path,
+            override val path: Path,
             var lastAccessTime: Long,
             val instance: ModelInstance,
             val controller: ModelController,
-        ) : RefCount by instance, Item
+        ) : RefCount by instance, ModelInstanceItem
     }
 
-    fun initialize() {
-        ArmorStand.instance.scope.launch {
-            ConfigHolder.config
-                .map { it.modelPath }
-                .distinctUntilChanged()
-                .collect { updateSelfPath(it) }
+    private fun loadModel(path: Path): ModelCache {
+        val (result, duration) = measureTimedValue {
+            val modelLoadResult = runCatching {
+                ModelLoaders.probeAndLoad(modelDir.resolve(path).toAbsolutePath())
+            }.let { value ->
+                value.exceptionOrNull()?.let { LOGGER.warn("Model load failed", it) }
+                value.getOrNull()
+            }
+            val result = modelLoadResult?.takeIf { it.model != null }?.let { result ->
+                LOGGER.info("Model metadata: ${result.metadata}")
+
+                val scene = ModelLoader().loadModel(result.model!!)
+                val animations = result.animations?.map { AnimationLoader.load(scene, it) } ?: listOf()
+
+                ModelCache.Loaded(
+                    scene = scene,
+                    animation = animations,
+                )
+            } ?: ModelCache.Failed
+            result
         }
-        WorldRenderEvents.AFTER_ENTITIES.register {
-            cleanup()
-        }
+        LOGGER.info("Model $path loaded, duration: $duration")
+        return result
     }
 
-    fun cleanup() {
-        val now = System.currentTimeMillis()
-        val usedPaths = mutableSetOf<Path>()
-        modelItems.values.removeAll { item ->
-            when (item) {
-                is Item.Model -> {
-                    if (now - item.lastAccessTime > INSTANCE_EXPIRE_MS) {
-                        item.decreaseReferenceCount()
-                        true
-                    } else {
-                        usedPaths.add(item.path)
-                        false
-                    }
-                }
-
-                else -> false
-            }
-        }
-
-        modelCache.entries.removeAll { (path, cache) ->
-            if (path == selfPath) {
-                false
-            } else {
-                if (path !in usedPaths) {
-                    if (cache is ModelCache.Loaded) {
-                        if (now - cache.lastAccessTime < MODEL_EXPIRE_MS) {
-                            return@removeAll false
-                        }
-                        cache.decreaseReferenceCount()
-                    }
-                    true
-                } else {
-                    if (cache is ModelCache.Loaded) {
-                        cache.lastAccessTime = now
-                    }
-                    false
-                }
-            }
-        }
-    }
-
-    fun updateSelfPath(path: Path?) {
-        selfPath = path
-        (selfItem as? Item.Model)?.decreaseReferenceCount()
-        selfItem = Item.Empty
-        if (path != null) {
-            loadModel(path) { result ->
-                // Preload the model
-                if (selfPath != path) {
-                    return@loadModel
-                }
-                selfItem = when (val result = result as? ModelCache.Loaded) {
-                    null -> Item.Empty
-                    else -> Item.Model(
-                        path = path,
-                        lastAccessTime = System.currentTimeMillis(),
-                        instance = ModelInstance(result.scene),
-                        controller = if (result.animation.isNotEmpty()) {
-                            ModelController.Predefined(result.animation)
-                        } else {
-                            ModelController.LiveUpdated(result.scene)
-                        }
-                    ).also {
-                        it.increaseReferenceCount()
-                    }
-                }
-                // If not in game, manually trigger cleanup
-                if (selfUuid == null) {
-                    cleanup()
-                }
-            }
-        }
+    private fun loadCache(path: Path): ModelCache = modelCaches.getOrPut(path) {
+        val item = loadModel(path)
+        (item as? ModelCache.Loaded)?.increaseReferenceCount()
+        item
     }
 
     fun updatePlayerModel(uuid: UUID, path: String?) {
@@ -151,136 +100,133 @@ object ModelInstanceManager {
             return
         }
         if (path == null) {
-            removeModelItem(uuid)
             modelPaths.remove(uuid)
         } else {
             // TODO SAFETY path sanitizing
-            if (uuid != selfUuid) {
-                modelPaths[uuid] = Path.of(path)
-            }
+            modelPaths[uuid] = Path.of(path)
         }
     }
 
-    private fun loadModel(path: Path, onLoaded: (ModelCache) -> Unit = {}) {
-        (modelCache[path] as? ModelCache.Loaded)?.let {
-            onLoaded(it)
-            return
-        }
-        modelLoadJobs.getOrPut(path) {
-            ArmorStand.instance.scope.launch {
-                val (result, duration) = measureTimedValue {
-                    val modelLoadResult = runCatching {
-                        ModelLoaders.probeAndLoad(modelDir.resolve(path).toAbsolutePath())
-                    }.let { value ->
-                        value.exceptionOrNull()?.let { LOGGER.warn("Model load failed", it) }
-                        value.getOrNull()
-                    }
-                    val result = modelLoadResult?.takeIf { it.scene != null }?.let { result ->
-                        LOGGER.info("Model metadata: ${result.metadata}")
-
-                        val scene = ModelLoader().loadScene(result.scene!!)
-                        scene.increaseReferenceCount()
-
-                        val animations = result.animations?.map { AnimationLoader.load(scene, it) } ?: listOf()
-
-                        ModelCache.Loaded(
-                            scene = scene,
-                            animation = animations,
-                            lastAccessTime = System.currentTimeMillis(),
-                        )
-                    } ?: ModelCache.Failed
-                    modelCache[path] = result
-                    modelLoadJobs.remove(path)
-                    result
-                }
-                LOGGER.info("Model $path loaded, duration: $duration")
-                onLoaded(result)
-            }
-        }
-    }
-
-    private fun loadItem(uuid: UUID, path: Path, time: Long): Item {
-        if (uuid == selfUuid) {
-            return selfItem
-        }
-        val cache = modelCache[path]
-        if (cache == null) {
-            loadModel(path)
-            return Item.Loading.also {
-                putModelItem(uuid, it)
-            }
-        }
-        if (cache !is ModelCache.Loaded) {
-            return Item.Empty
-        }
-        cache.lastAccessTime = time
-        val scene = cache.scene
-        return Item.Model(
-            path = path,
-            lastAccessTime = time,
-            instance = ModelInstance(scene),
-            controller = ModelController.LiveUpdated(scene)
-        ).also {
-            it.increaseReferenceCount()
-        }
-    }
-
-    private fun getModelPath(uuid: UUID) = if (uuid == selfUuid) {
-        selfPath
-    } else {
-        modelPaths[uuid]
-    }
-
-    private fun getModelItem(uuid: UUID) = if (uuid == selfUuid) {
-        selfItem
-    } else if (ConfigHolder.config.value.showOtherPlayerModel) {
-        modelItems[uuid]
-    } else {
-        null
-    }
-
-    private fun putModelItem(uuid: UUID, item: Item) = if (uuid == selfUuid) {
-        selfItem = item
-    } else {
-        modelItems[uuid] = item
-    }
-
-    private fun removeModelItem(uuid: UUID) = if (uuid == selfUuid) {
-        selfItem.also {
-            (it as? Item.Model)?.decreaseReferenceCount()
-            selfItem = Item.Empty
-        }
-    } else {
-        modelItems.remove(uuid)?.let {
-            (it as? Item.Model)?.decreaseReferenceCount()
-        }
-    }
-
-    fun get(uuid: UUID, time: Long): Item = when (val item = getModelItem(uuid)) {
-        is Item.Model -> getModelPath(uuid).let { path ->
-            if (item.path == path) {
-                item.also { it.lastAccessTime = time }
-            } else {
-                Item.Empty
-            }
-        }
-
-        Item.Loading, Item.Empty, null -> run {
-            val path = getModelPath(uuid)
-            if (path == null) {
-                return Item.Empty
-            }
-            loadItem(uuid, path, time)
-        }
-    }
-
-    fun getItems() = modelItems.toMap().let {
-        if (selfUuid != null) {
-            it + Pair(selfUuid, selfItem)
+    fun get(uuid: UUID, time: Long): ModelInstanceItem? {
+        val isSelf = uuid == selfUuid
+        val path = if (isSelf) {
+            selfPath
         } else {
-            it
+            modelPaths[uuid] ?: run {
+                if (ArmorStandClient.debug) {
+                    selfPath?.let { selfPath ->
+                        modelPaths[uuid] = selfPath
+                        selfPath
+                    }
+                } else {
+                    null
+                }
+            }
+        }
+
+        if (path == null) {
+            return null
+        }
+
+        val lastAccessTime = if (isSelf) {
+            -1
+        } else {
+            time
+        }
+
+        val item = modelInstanceItems[uuid]
+        if (item != null) {
+            if (item.path == path) {
+                (item as? ModelInstanceItem.Model)?.let {
+                    it.lastAccessTime = lastAccessTime
+                }
+                return item
+            } else {
+                val prevItem = modelInstanceItems.remove(uuid)
+                (prevItem as? ModelInstanceItem.Model)?.decreaseReferenceCount()
+            }
+        }
+
+        val newItem = when (val cache = loadCache(path)) {
+            ModelCache.Failed -> ModelInstanceItem.Failed(path = path)
+            is ModelCache.Loaded -> {
+                val scene = cache.scene
+                val animation = cache.animation.takeIf { it.isNotEmpty() }
+                ModelInstanceItem.Model(
+                    path = path,
+                    lastAccessTime = lastAccessTime,
+                    instance = ModelInstance(scene, ModelBufferManager.getEntry(scene)),
+                    controller = when (animation) {
+                        null -> ModelController.LiveUpdated(scene)
+                        else -> ModelController.Predefined(animation)
+                    },
+                ).also {
+                    it.increaseReferenceCount()
+                }
+            }
+        }
+        val prevItem = modelInstanceItems.remove(uuid)
+        (prevItem as? ModelInstanceItem.Model)?.decreaseReferenceCount()
+        modelInstanceItems[uuid] = newItem
+        LOGGER.info("Loaded model $path for uuid $uuid")
+        return newItem
+    }
+
+    fun cleanup(time: Long) {
+        val usedPaths = mutableSetOf<Path>()
+
+        // cleaned unused model instances
+        modelInstanceItems.entries.removeIf { (uuid, item) ->
+            if (uuid == selfUuid) {
+                if (item.path == selfPath) {
+                    return@removeIf false
+                } else {
+                    (item as? ModelInstanceItem.Model)?.decreaseReferenceCount()
+                    return@removeIf true
+                }
+            }
+            val pathInvalid = item.path != modelPaths[uuid]
+            if (pathInvalid) {
+                (item as? ModelInstanceItem.Model)?.decreaseReferenceCount()
+                return@removeIf true
+            }
+            when (item) {
+                is ModelInstanceItem.Failed -> false
+                is ModelInstanceItem.Model -> {
+                    val timeSinceLastUsed = time - item.lastAccessTime
+                    val expired = timeSinceLastUsed > INSTANCE_EXPIRE_NS
+                    if (expired) {
+                        item.decreaseReferenceCount()
+                    } else {
+                        usedPaths.add(item.path)
+                    }
+                    expired
+                }
+            }
+        }
+
+        // cleaned unused model caches
+        modelCaches.entries.removeIf { (path, item) ->
+            if (path == selfPath) {
+                return@removeIf false
+            }
+            val remove = path !in usedPaths
+            if (remove && item is ModelCache.Loaded) {
+                item.scene.decreaseReferenceCount()
+            }
+            remove
         }
     }
 
-    fun getCache() = modelCache.toMap()
+    fun initialize() {
+        ArmorStand.instance.scope.launch {
+            ConfigHolder.config
+                .map { it.modelPath }
+                .distinctUntilChanged()
+                .collect { selfPath = it }
+        }
+        WorldRenderEvents.AFTER_ENTITIES.register {
+            cleanup(System.nanoTime())
+        }
+    }
 }

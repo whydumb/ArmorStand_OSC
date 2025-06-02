@@ -1,25 +1,21 @@
 package top.fifthlight.armorstand.extension
 
-import com.mojang.blaze3d.buffers.BufferType
-import com.mojang.blaze3d.buffers.BufferUsage
 import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.systems.GpuDevice
 import com.mojang.blaze3d.vertex.VertexFormat.DrawMode
-import top.fifthlight.armorstand.extension.GpuDeviceExt.FillType
-import top.fifthlight.armorstand.render.GpuTextureBuffer
-import top.fifthlight.armorstand.render.TextureBufferFormat
 import top.fifthlight.armorstand.render.VertexBuffer
 import top.fifthlight.armorstand.render.VertexBuffer.VertexElement
 import java.util.function.Supplier
 
 fun GpuDevice.createBuffer(
-    labelGetter: Supplier<String?>?,
-    type: BufferType?,
-    usage: BufferUsage?,
+    labelGetter: Supplier<String>?,
+    usage: Int,
     size: Int,
-    fillType: FillType?
-): GpuBuffer =
-    (this as GpuDeviceExt).`armorStand$createBuffer`(labelGetter, type, usage, size, fillType)
+    clearType: CommandEncoderExt.ClearType
+): GpuBuffer = createBuffer(labelGetter, usage, size).also { buffer ->
+    val commandEncoder = createCommandEncoder()
+    commandEncoder.clearBuffer(buffer.slice(), clearType)
+}
 
 fun GpuDevice.createVertexBuffer(
     mode: DrawMode?,
@@ -27,6 +23,3 @@ fun GpuDevice.createVertexBuffer(
     verticesCount: Int
 ): VertexBuffer =
     (this as GpuDeviceExt).`armorStand$createVertexBuffer`(mode, elements, verticesCount)
-
-fun GpuDevice.createTextureBuffer(label: String?, format: TextureBufferFormat, buffer: GpuBuffer): GpuTextureBuffer =
-    (this as GpuDeviceExt).`armorStand$createTextureBuffer`(label, format, buffer)

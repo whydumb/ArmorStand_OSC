@@ -4,14 +4,13 @@
 
 uniform sampler2D SamplerBaseColor;
 
-uniform vec4 ColorModulator;
-uniform float FogStart;
-uniform float FogEnd;
-uniform vec4 FogColor;
+layout(std140) uniform UnlitData {
+    vec4 BaseColor;
+};
 
-uniform vec4 BaseColor;
+in float sphericalVertexDistance;
+in float cylindricalVertexDistance;
 
-in float vertexDistance;
 in vec4 vertexColor;
 in vec4 lightMapColor;
 in vec2 texCoord0;
@@ -28,7 +27,7 @@ void main() {
         discard;
     }
 #endif
-    color *= vertexColor * BaseColor * ColorModulator;
+    color *= vertexColor * BaseColor;
     color *= lightMapColor;
-    fragColor = linear_fog(color, vertexDistance, FogStart, FogEnd, FogColor);
+    fragColor = apply_fog(color, sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, FogColor);
 }

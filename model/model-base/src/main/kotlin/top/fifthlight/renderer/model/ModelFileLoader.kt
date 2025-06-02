@@ -19,7 +19,7 @@ interface ModelFileLoader {
 
     data class Result(
         val metadata: Metadata?,
-        val scene: Scene? = null,
+        val model: Model? = null,
         val animations: List<Animation>?,
     )
 }
