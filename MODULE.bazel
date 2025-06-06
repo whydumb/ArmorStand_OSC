@@ -16,8 +16,8 @@ maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(
     artifacts = [
         # mapping
-        "net.fabricmc:yarn:1.21.6-pre2+build.2:v2",
-        "net.fabricmc:intermediary:1.21.6-pre2:v2",
+        "net.fabricmc:yarn:1.21.6-pre3+build.1:v2",
+        "net.fabricmc:intermediary:1.21.6-pre3:v2",
 
         # build dependencies
         "net.fabricmc:tiny-remapper:0.11.1",
@@ -67,13 +67,13 @@ use_repo(maven, "maven")
 
 minecraft = use_extension("//repo:minecraft_jar.bzl", "minecraft")
 minecraft.minecraft_jar(
-    version = "1.21.6-pre2",
+    version = "1.21.6-pre3",
     type = "client",
     assets = True,
     mapping = False,
 )
 minecraft.minecraft_jar(
-    version = "1.21.6-pre2",
+    version = "1.21.6-pre3",
     type = "server",
     mapping = False,
 )

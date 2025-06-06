@@ -5,7 +5,6 @@ import top.fifthlight.armorstand.helper.RenderObjectHelper
 import top.fifthlight.armorstand.render.IndexBuffer
 import top.fifthlight.armorstand.render.VertexBuffer
 import java.util.function.BiConsumer
-import java.util.function.Consumer
 
 fun <T> RenderObject(
     vertexBufferSlot: Int,

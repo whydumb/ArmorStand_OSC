@@ -2,15 +2,17 @@ package top.fifthlight.armorstand.manage
 
 import com.mojang.logging.LogUtils
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
-import net.fabricmc.loader.api.FabricLoader
+import net.minecraft.util.Identifier
 import top.fifthlight.armorstand.ArmorStand
+import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.armorstand.util.*
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
@@ -25,44 +27,16 @@ import kotlin.time.measureTime
 
 object ModelManager {
     private val LOGGER = LogUtils.getLogger()
-    val modelDir: Path = FabricLoader.getInstance().gameDir.resolve("models").toAbsolutePath()
+    val modelDir: Path
+        get() = ModelInstanceManager.modelDir
     private const val DATABASE_NAME = ".cache"
     private val databaseFile = modelDir.resolve("$DATABASE_NAME.mv.db").toAbsolutePath()
     private const val DATABASE_VERSION = 0
-    private val databaseDispatcher = Dispatchers.IO.limitedParallelism(1)
-
-    private var _connection: Connection? = null
+    private var connectionPool: Pool<Connection>? = null
 
     suspend fun <T> transaction(block: suspend Connection.() -> T): T {
-        val connection = _connection ?: error("Database is not connected")
-        return withContext(databaseDispatcher) {
-            connection.transaction { block() }
-        }
-    }
-
-    private fun connect(scope: CoroutineScope) {
-        if (_connection != null) {
-            return
-        }
-        Class.forName("org.h2.Driver")
-        val databaseRelativePath = databaseFile.relativeTo(Paths.get(".").toAbsolutePath())
-        val connection = DriverManager.getConnection(
-            "jdbc:h2:./${databaseRelativePath.toString().removeSuffix(".mv.db")}",
-            Properties()
-        )
-        _connection = connection
-        scope.launch {
-            try {
-                awaitCancellation()
-            } finally {
-                LOGGER.info("Database closed")
-                connection.close()
-            }
-        }
-        runCatching {
-            Files.setAttribute(databaseFile, "dos:hidden", true)
-        }
-        LOGGER.info("Opened database")
+        val connectionPool = connectionPool ?: error("Database is not connected")
+        return connectionPool.transaction(block)
     }
 
     private fun Connection.checkVersionMatches(): Boolean {
@@ -85,46 +59,39 @@ object ModelManager {
         return true
     }
 
-    private suspend fun createTables() {
-        transaction {
-            if (checkVersionMatches()) {
-                return@transaction
-            }
-            execute("DROP TABLE IF EXISTS version;")
-            execute("DROP TABLE IF EXISTS model;")
-            execute("CREATE TABLE version (version INTEGER);")
-            prepare("INSERT INTO version (version) VALUES (?);") { setInt(1, DATABASE_VERSION) }
-            execute("CREATE TABLE model (path VARCHAR PRIMARY KEY, lastChanged BIGINT NOT NULL, sha256 BINARY(32) NOT NULL);")
-            LOGGER.info("Created tables")
-        }
-    }
+    private fun ResultSet.readModelItem() = ModelItem(
+        path = Path.of(getString(1)).normalize(),
+        lastChanged = getLong(2),
+        sha256 = getBytes(3),
+    )
 
-    private fun ResultSet.readModelItem(): ModelItem? {
-        val path = Path.of(getString(1)).normalize()
-        if (!modelDir.resolve(path).exists()) {
-            return null
-        }
-        val lastChanged = getLong(2)
-        val sha256 = getBytes(3)
-        return ModelItem(
-            path = path,
-            lastChanged = lastChanged,
-            sha256 = sha256,
-        )
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    fun getModel(): Flow<List<ModelItem>> = lastScanTime.mapLatest {
-        if (it == null) {
+    private suspend fun waitUntilFirstScan(): Instant {
+        if (_lastScanTime.value == null) {
             scheduleScan()
-            awaitCancellation()
-        } else {
-            transaction {
-                query("SELECT path, lastChanged, sha256 FROM model ORDER BY lastChanged DESC").use { result ->
-                    buildList {
-                        while (result.next()) {
-                            result.readModelItem()?.let { add(it) }
-                        }
+        }
+        return _lastScanTime.mapNotNull { it }.first()
+    }
+
+    suspend fun getTotalModels(): Int {
+        waitUntilFirstScan()
+        return transaction {
+            query("SELECT COUNT(*) FROM model").use { result ->
+                result.skipToInitialRow()
+                result.getInt(1)
+            }
+        }
+    }
+
+    suspend fun getModel(offset: Int, length: Int): List<ModelItem> {
+        waitUntilFirstScan()
+        return transaction {
+            prepareQuery("SELECT path, lastChanged, sha256 FROM model ORDER BY lastChanged DESC LIMIT ? OFFSET ?") {
+                setInt(1, length)
+                setInt(2, offset)
+            }.use { result ->
+                buildList {
+                    while (result.next()) {
+                        add(result.readModelItem())
                     }
                 }
             }
@@ -171,14 +138,29 @@ object ModelManager {
         return digest.digest()
     }
 
-    private val lastScanTime = MutableStateFlow<Instant?>(null)
+    private val _lastScanTime = MutableStateFlow<Instant?>(null)
+    val lastScanTime = _lastScanTime.asStateFlow()
     private suspend fun doScan() = withContext(Dispatchers.IO) {
+        transaction {
+            execute("DROP TABLE IF EXISTS scanned_model_paths")
+            execute(
+                """
+                    CREATE TEMPORARY TABLE scanned_model_paths(
+                        path VARCHAR PRIMARY KEY
+                    )
+                """
+            )
+        }
+
         suspend fun processFile(relativePath: Path) {
             val pathStr = relativePath.normalize().toString()
             val path = modelDir.resolve(relativePath)
             val lastChanged = path.getLastModifiedTime().toMillis()
             transaction {
                 LOGGER.trace("Process file {}", relativePath)
+                prepare("INSERT INTO scanned_model_paths (path) VALUES (?)") {
+                    setString(1, pathStr)
+                }
                 prepareQuery("SELECT COUNT(*) FROM model WHERE path = ? AND lastChanged = ? LIMIT 1;") {
                     setString(1, pathStr)
                     setLong(2, lastChanged)
@@ -189,10 +171,8 @@ object ModelManager {
                         return@transaction
                     }
                 }
-            }
-            val sha256 = calculateSha256(path)
-            LOGGER.trace("SHA-256 for file {} is {}", relativePath, sha256.toHexString())
-            transaction {
+                val sha256 = calculateSha256(path)
+                LOGGER.trace("SHA-256 for file {} is {}", relativePath, sha256.toHexString())
                 prepare("DELETE FROM model WHERE path = ?;") {
                     setString(1, pathStr)
                 }
@@ -225,7 +205,19 @@ object ModelManager {
                 }
             }
         }
-        lastScanTime.value = Clock.System.now()
+
+        transaction {
+            execute(
+                """
+                    DELETE FROM model
+                    WHERE NOT EXISTS
+                    (SELECT 1 FROM scanned_model_paths WHERE scanned_model_paths.path = model.path)
+                """
+            )
+            execute("DROP TABLE scanned_model_paths")
+        }
+
+        _lastScanTime.value = Clock.System.now()
         LOGGER.info("Finish scanning models, took $time")
     }
 
@@ -308,22 +300,70 @@ object ModelManager {
         }
     }
 
+    private fun Connection.createTables() {
+        transaction {
+            if (checkVersionMatches()) {
+                return@transaction
+            }
+            execute("DROP TABLE IF EXISTS version;")
+            execute("DROP TABLE IF EXISTS model;")
+            execute("CREATE TABLE version (version INTEGER);")
+            prepare("INSERT INTO version (version) VALUES (?);") { setInt(1, DATABASE_VERSION) }
+            execute(
+                """
+                CREATE TABLE model (
+                    path VARCHAR PRIMARY KEY,
+                    lastChanged BIGINT NOT NULL,
+                    sha256 BINARY(32) NOT NULL
+                );
+                """
+            )
+            LOGGER.info("Created tables")
+        }
+    }
+
     suspend fun initialize() = withContext(Dispatchers.IO) {
         modelDir.createDirectories()
-        val scope = ArmorStand.instance.scope
-        try {
-            connect(scope)
+
+        Class.forName("org.h2.Driver")
+        val databaseRelativePath = databaseFile.relativeTo(Paths.get(".").toAbsolutePath())
+        val jdbcUrl = "jdbc:h2:./${databaseRelativePath.toString().removeSuffix(".mv.db")}"
+        val connectionPool = ThreadSafeObjectPool(
+            ObjectPool<Connection>(
+                identifier = Identifier.of("armorstand", "database_connection"),
+                create = {
+                    DriverManager.getConnection(jdbcUrl)
+                },
+                onAcquired = {
+                    autoCommit = false
+                    isReadOnly = false
+                },
+            )
+        )
+        val connection = try {
+            connectionPool.acquire()
         } catch (ex: Exception) {
             try {
-                LOGGER.warn("Failed to open database, delete existing database and retry")
+                LOGGER.warn("Failed to open database, delete existing database and retry", ex)
                 databaseFile.deleteIfExists()
-                connect(scope)
+                connectionPool.acquire()
             } catch (ex: Exception) {
                 throw RuntimeException("Failed to open model database", ex)
             }
         }
-        createTables()
-        listenModelDir(scope)
+        try {
+            runCatching {
+                Files.setAttribute(databaseFile, "dos:hidden", true)
+            }
+            connection.createTables()
+        } finally {
+            connectionPool.release(connection)
+        }
+        this@ModelManager.connectionPool = connectionPool
+
+        LOGGER.info("Initialized database")
+
+        listenModelDir(ArmorStand.instance.scope)
         scheduleScan()
     }
 }

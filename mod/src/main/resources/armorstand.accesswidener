@@ -10,13 +10,11 @@ accessible field net/minecraft/client/gl/RenderPassImpl vertexBuffers [Lcom/moja
 accessible field net/minecraft/client/gl/RenderPassImpl pipeline Lnet/minecraft/client/gl/CompiledShaderPipeline;
 accessible field net/minecraft/client/gl/RenderPassImpl samplerUniforms Ljava/util/HashMap;
 accessible field net/minecraft/client/gl/RenderPassImpl simpleUniforms Ljava/util/HashMap;
-accessible field net/minecraft/client/gl/RenderPassImpl setSamplers Ljava/util/Set;
 accessible field net/minecraft/client/render/entity/EntityRenderer dispatcher Lnet/minecraft/client/render/entity/EntityRenderDispatcher;
-accessible method net/minecraft/client/gui/screen/Screen addDrawableChild (Lnet/minecraft/client/gui/Element;)Lnet/minecraft/client/gui/Element;
-accessible method net/minecraft/client/gui/screen/Screen addDrawable (Lnet/minecraft/client/gui/Drawable;)Lnet/minecraft/client/gui/Drawable;
-accessible method net/minecraft/client/gui/screen/Screen remove (Lnet/minecraft/client/gui/Element;)V
 accessible field net/minecraft/client/gui/widget/EntryListWidget MENU_LIST_BACKGROUND_TEXTURE Lnet/minecraft/util/Identifier;
 accessible field net/minecraft/client/gui/widget/EntryListWidget INWORLD_MENU_LIST_BACKGROUND_TEXTURE Lnet/minecraft/util/Identifier;
+accessible field net/minecraft/client/gui/widget/TabNavigationWidget grid Lnet/minecraft/client/gui/widget/DirectionalLayoutWidget;
+accessible field net/minecraft/client/gui/widget/TabNavigationWidget tabButtons Lcom/google/common/collect/ImmutableList;
 accessible field net/minecraft/client/gui/widget/CheckboxWidget checked Z
 accessible class net/minecraft/client/gl/BufferManager$ARBBufferManager
 accessible class net/minecraft/client/gl/BufferManager$DefaultBufferManager

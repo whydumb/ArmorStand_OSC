@@ -104,7 +104,7 @@ object TinyRemapperWorker {
                     .assumeArchive(true)
                     .build()
                     .use { output ->
-                    var nonClassFilesProcessors = buildList {
+                    val nonClassFilesProcessors = buildList {
                         if (removeJarInJar) {
                             add(JarInJarRemover)
                         }

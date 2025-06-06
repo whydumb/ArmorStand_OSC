@@ -5,12 +5,12 @@ import net.minecraft.client.gl.RenderPipelines
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.gui.widget.EntryListWidget
-import net.minecraft.client.render.RenderLayer
 import net.minecraft.util.Identifier
-import java.util.function.Function
 
 fun interface Surface {
     fun draw(context: DrawContext, x: Int, y: Int, width: Int, height: Int)
+
+    operator fun plus(other: Surface) = combine(this, other)
 
     companion object {
         val empty = Surface { context, x, y, width, height -> }
@@ -21,12 +21,12 @@ fun interface Surface {
             }
         }
 
-        fun color(color: Int) = Surface { context, x, y, width, height ->
-            context.fill(x, y, x + width, y + height, color)
+        fun color(color: UInt) = Surface { context, x, y, width, height ->
+            context.fill(x, y, x + width, y + height, color.toInt())
         }
 
-        fun border(color: Int) = Surface { context, x, y, width, height ->
-            context.drawBorder(x, y, width, height, color)
+        fun border(color: UInt) = Surface { context, x, y, width, height ->
+            context.drawBorder(x, y, width, height, color.toInt())
         }
 
         fun padding(padding: Insets, surface: Surface) = Surface { context, x, y, width, height ->

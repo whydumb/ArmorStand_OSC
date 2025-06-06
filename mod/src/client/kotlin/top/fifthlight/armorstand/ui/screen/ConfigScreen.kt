@@ -2,19 +2,22 @@ package top.fifthlight.armorstand.ui.screen
 
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import net.minecraft.client.gui.Element
 import net.minecraft.client.gui.screen.Screen
-import net.minecraft.client.gui.widget.TabButtonWidget
+import net.minecraft.client.gui.tab.TabManager
+import net.minecraft.client.gui.widget.*
 import net.minecraft.screen.ScreenTexts
 import net.minecraft.text.Text
+import net.minecraft.util.Formatting
 import org.lwjgl.glfw.GLFW
-import top.fifthlight.armorstand.ui.component.BorderLayout
-import top.fifthlight.armorstand.ui.component.Insets
-import top.fifthlight.armorstand.ui.component.LinearLayout
-import top.fifthlight.armorstand.ui.component.Surface
-import top.fifthlight.armorstand.ui.dsl.*
+import top.fifthlight.armorstand.ui.component.*
 import top.fifthlight.armorstand.ui.model.ConfigViewModel
-import top.fifthlight.armorstand.ui.state.ConfigScreenState
-import top.fifthlight.armorstand.ui.util.Dimensions
+import top.fifthlight.armorstand.ui.util.autoWidthButton
+import top.fifthlight.armorstand.ui.util.checkbox
+import top.fifthlight.armorstand.ui.util.slider
+import top.fifthlight.armorstand.ui.util.textField
+import top.fifthlight.armorstand.util.ceilDiv
 
 class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, ConfigViewModel>(
     parent = parent,
@@ -29,159 +32,286 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
         return super.keyPressed(keyCode, scanCode, modifiers)
     }
 
-    override fun ScreenContext<ConfigScreen>.createLayout() {
-        borderLayout(
-            dimensions = dimension(),
-            direction = BorderLayout.Direction.VERTICAL,
-        ) {
-            first(
-                linearLayout(
-                    direction = LinearLayout.Direction.HORIZONTAL,
-                    align = LinearLayout.Align.CENTER,
-                    dimensions = Dimensions(height = 32),
-                ) {
-                    add(label(title), positioner { alignVerticalCenter() })
+    private val topBar by lazy {
+        TextWidget(width, 32, title, currentClient.textRenderer)
+    }
+
+    private val closeButton = ButtonWidget.builder(ScreenTexts.BACK) { close() }.build()
+
+    private val openModelDirectoryButton =
+        ButtonWidget.builder(Text.translatable("armorstand.config.open_model_directory")) {
+            viewModel.openModelDir()
+        }.build()
+
+    private val sortButton by lazy {
+        autoWidthButton(Text.literal("Sort: A-Z")) {
+
+        }
+    }
+
+    private val refreshButton by lazy {
+        autoWidthButton(Text.literal("Refresh")) {
+            viewModel.refreshModels()
+        }
+    }
+
+    private val searchBox by lazy {
+        textField(
+            placeHolder = Text.literal("Search…").formatted(Formatting.ITALIC).formatted(Formatting.GRAY),
+            text = viewModel.uiState.map { it.searchString }.distinctUntilChanged(),
+            onChanged = viewModel::updateSearchString,
+        )
+    }
+
+    private val pager by lazy {
+        PagingWidget(
+            textRenderer = textRenderer,
+            currentPage = viewModel.uiState.value.currentOffset,
+            totalPages = viewModel.uiState.value.totalItems,
+            onPrevPage = {
+                viewModel.updatePageIndex(-1)
+            },
+            onNextPage = {
+                viewModel.updatePageIndex(1)
+            },
+        ).also { pager ->
+            scope.launch {
+                viewModel.uiState.map { state ->
+                    Triple(state.currentOffset, state.totalItems, state.pageSize)
+                }.distinctUntilChanged().collect { (currentOffset, totalItems, pageSize) ->
+                    pageSize?.let { pageSize ->
+                        pager.currentPage = (currentOffset / pageSize) + 1
+                        pager.totalPages = totalItems ceilDiv pageSize
+                        pager.refresh()
+                    }
                 }
-            )
-            center(
-                borderLayout(direction = BorderLayout.Direction.HORIZONTAL) {
-                    val margin = 8
-                    val padding = 8
-                    val gap = 8
-                    val currentWidth = width / 2 - margin * 2
-                    val currentHeight = height - 32 * 2
-                    first(
-                        linearLayout(
-                            direction = LinearLayout.Direction.VERTICAL,
-                            dimensions = Dimensions(width = currentWidth, height = currentHeight),
-                            padding = Insets(padding),
-                            gap = gap,
-                            surface = Surface.listBackgroundWithSeparator(),
-                        ) {
-                            val currentWidth = currentWidth - padding * 2
-                            val currentHeight = currentHeight - padding * 2
+            }
+        }
+    }
 
-                            val toolbarActions = listOf(
-                                autoWidthButton(Text.literal("Sort: A-Z")) {
-
-                                },
-                                autoWidthButton(Text.literal("Refresh")) {
-
-                                },
-                            )
-
-                            fun searchBox(width: Int) = button(
-                                text = Text.literal("Search"),
-                                dimensions = Dimensions(width = width, height = 20),
+    private val modelGrid by lazy {
+        GridLayout(
+            cellWidth = 64,
+            cellHeight = 80,
+            padding = Insets(horizonal = 8),
+            verticalGap = 8,
+        ).also { grid ->
+            scope.launch {
+                viewModel.uiState.map { it.currentPageItems }.distinctUntilChanged().collect { items ->
+                    grid.forEachChild { remove(it) }
+                    grid.clear()
+                    items?.let {
+                        for (item in items) {
+                            val button = ModelButton(
+                                message = Text.literal(item.path.fileName.toString()),
+                                textRenderer = textRenderer,
+                                padding = Insets(8),
                             ) {
+                                viewModel.selectModel(item.path)
+                            }
+                            grid.add(button)
+                        }
+                        grid.refreshPositions()
+                        grid.forEachChild { addDrawableChild(it) }
+                    }
+                }
+            }
+        }
+    }
 
-                            }
-                            if (currentWidth >= 400) {
-                                add(
-                                    linearLayout(
-                                        direction = LinearLayout.Direction.HORIZONTAL,
-                                        dimensions = Dimensions(width = currentWidth, height = 20),
-                                        gap = gap,
-                                    ) {
-                                        val searchWidth =
-                                            currentWidth - toolbarActions.sumOf { it.width } - toolbarActions.size * gap
-                                        add(searchBox(searchWidth), positioner { alignVerticalCenter() })
-                                        toolbarActions.forEach { add(it, positioner { alignVerticalCenter() }) }
-                                    }
-                                )
-                            } else {
-                                add(searchBox(currentWidth))
-                                add(
-                                    linearLayout(
-                                        direction = LinearLayout.Direction.HORIZONTAL,
-                                        dimensions = Dimensions(width = currentWidth, height = 20),
-                                        align = LinearLayout.Align.END,
-                                        gap = gap,
-                                    ) {
-                                        toolbarActions.forEach { add(it, positioner { alignVerticalCenter() }) }
-                                    }
-                                )
-                            }
-                        }, positioner { margin(margin, 0) }
-                    )
-                    second(
-                        linearLayout(
-                            direction = LinearLayout.Direction.VERTICAL,
-                            dimensions = Dimensions(width = currentWidth, height = currentHeight),
-                            surface = Surface.listBackgroundWithSeparator(),
-                        ) {
-                            val tabAreaHeight = currentHeight
-                            add(dynamicLinearLayout(
+    private val loadingOverlay by lazy {
+        LoadingOverlay(modelGrid).also { overlay ->
+            scope.launch {
+                viewModel.uiState.collect { state ->
+                    overlay.loading = state.currentPageItems == null
+                }
+            }
+        }
+    }
+
+    private val previewTab = LayoutScreenTab(
+        title = Text.literal("Preview"),
+        padding = Insets(8),
+        layout = BorderLayout(
+            direction = BorderLayout.Direction.VERTICAL,
+        ).apply {
+            setCenterElement(
+                ModelWidget(
+                    surface = Surface.color(0xFF383838u) + Surface.border(0xFF161616u)
+                ),
+            )
+            val gap = 8
+            val padding = 8
+            val options = listOf(
+                checkbox(
+                    text = Text.translatable("armorstand.config.send_model_data"),
+                    value = viewModel.uiState.map { it.sendModelData },
+                    onValueChanged = viewModel::updateSendModelData,
+                ),
+                checkbox(
+                    text = Text.translatable("armorstand.config.show_other_players"),
+                    value = viewModel.uiState.map { it.showOtherPlayerModel },
+                    onValueChanged = viewModel::updateShowOtherPlayerModel,
+                ),
+                slider(
+                    textFactory = { Text.translatable("armorstand.config.model_scale", it) },
+                    min = 0.0,
+                    max = 4.0,
+                    value = viewModel.uiState.map { it.modelScale },
+                    onValueChanged = viewModel::updateModelScale,
+                ),
+            )
+            val optionsHeight = options.sumOf { it.height } + gap * (options.size - 1) + padding
+            setSecondElement(
+                LinearLayout(
+                    direction = LinearLayout.Direction.VERTICAL,
+                    height = optionsHeight,
+                    padding = Insets(top = padding),
+                    gap = gap,
+                ).apply {
+                    options.forEach { add(it, expand = true) }
+                }
+            )
+        },
+    )
+
+    private val metadataTab = LayoutScreenTab(
+        title = Text.literal("Metadata"),
+        padding = Insets(8),
+        layout = LinearLayout().apply {
+
+        },
+    )
+
+    private val tabManager = TabManager(
+        { addDrawableChild(it) },
+        { remove(it) },
+    )
+
+    private var tabNavigationWidget = TabNavigationWidget.builder(tabManager, width)
+        .tabs(previewTab, metadataTab)
+        .build()
+
+    private var initialized = false
+    override fun init() {
+        val layout = BorderLayout(
+            width = width,
+            height = height,
+            direction = BorderLayout.Direction.VERTICAL,
+        )
+        layout.setFirstElement(topBar) { topBar, width, height -> topBar.width = width }
+        val padding = 8
+        val gap = 8
+        layout.setCenterElement(
+            SpreadLayout(
+                width = width,
+                height = height - 32 * 2,
+                padding = Insets(horizonal = padding),
+                gap = gap,
+            ).apply {
+                add(
+                    BorderLayout(
+                        direction = BorderLayout.Direction.VERTICAL,
+                        surface = Surface.listBackgroundWithSeparator(),
+                    ).apply {
+                        setFirstElement(
+                            LinearLayout(
                                 direction = LinearLayout.Direction.VERTICAL,
-                                dimensions = Dimensions(width = currentWidth, height = tabAreaHeight),
-                                gap = gap,
                                 padding = Insets(padding),
-                                data = viewModel.uiState.map { it.selectedTab }.distinctUntilChanged(),
-                            ) { selectedTab ->
-                                val currentWidth = currentWidth - padding * 2
-                                val currentHeight = tabAreaHeight - padding * 2
-                                when (selectedTab) {
-                                    ConfigScreenState.SelectedTab.PREVIEW -> {
-                                        val configElements = listOf(
-                                            checkbox(
-                                                text = Text.translatable("armorstand.config.send_model_data"),
-                                                value = viewModel.uiState.map { it.sendModelData },
-                                                onValueChanged = viewModel::updateSendModelData,
-                                            ),
-                                            checkbox(
-                                                text = Text.translatable("armorstand.config.show_other_players"),
-                                                value = viewModel.uiState.map { it.showOtherPlayerModel },
-                                                onValueChanged = viewModel::updateShowOtherPlayerModel,
-                                            ),
-                                            slider(
-                                                textFactory = { Text.translatable("armorstand.config.model_scale", it) },
-                                                dimensions = Dimensions(width = currentWidth, height = 20),
-                                                min = 0.0,
-                                                max = 4.0,
-                                                value = viewModel.uiState.map { it.modelScale },
-                                                onValueChanged = viewModel::updateModelScale,
-                                            ),
-                                        )
-                                        val previewHeight =
-                                            currentHeight - configElements.sumOf { it.height } - configElements.size * gap
-                                        add(
-                                            linearLayout(
-                                                direction = LinearLayout.Direction.VERTICAL,
-                                                dimensions = Dimensions(width = currentWidth, height = previewHeight),
-                                                surface = Surface.combine(
-                                                    Surface.color(0xFF383838u.toInt()),
-                                                    Surface.border(0xFF161616u.toInt()),
-                                                ),
-                                                align = LinearLayout.Align.CENTER,
-                                            ) {
-                                                add(label(text = Text.literal("PREVIEW")), positioner { alignHorizontalCenter() })
+                                gap = gap,
+                            ).apply {
+                                val toolbarActions = listOf(sortButton, refreshButton)
+                                if (this@ConfigScreen.width >= 600) {
+                                    add(
+                                        widget = BorderLayout(
+                                            height = 20,
+                                            direction = BorderLayout.Direction.HORIZONTAL,
+                                        ).apply {
+                                            setCenterElement(searchBox)
+                                            setSecondElement(
+                                                LinearLayout(
+                                                    direction = LinearLayout.Direction.HORIZONTAL,
+                                                    align = LinearLayout.Align.END,
+                                                    height = 20,
+                                                    gap = gap,
+                                                    padding = Insets(left = padding),
+                                                ).apply {
+                                                    toolbarActions.forEach {
+                                                        add(it, Positioner.create().apply { alignVerticalCenter() })
+                                                    }
+                                                    pack()
+                                                }
+                                            )
+                                        },
+                                        expand = true,
+                                    )
+                                } else {
+                                    add(searchBox, expand = true)
+                                    add(
+                                        widget = LinearLayout(
+                                            direction = LinearLayout.Direction.HORIZONTAL,
+                                            height = 20,
+                                            align = LinearLayout.Align.END,
+                                            gap = gap,
+                                        ).apply {
+                                            toolbarActions.forEach {
+                                                add(it, Positioner.create().apply { alignVerticalCenter() })
                                             }
-                                        )
-                                        configElements.forEach { add(it) }
-                                    }
-                                    ConfigScreenState.SelectedTab.METADATA -> {
-
-                                    }
+                                        },
+                                        expand = true,
+                                    )
                                 }
-                            })
-                        }, positioner { margin(margin, 0) })
-                }
-            )
-            second(
-                linearLayout(
-                    direction = LinearLayout.Direction.HORIZONTAL,
-                    align = LinearLayout.Align.CENTER,
-                    dimensions = Dimensions(height = 32),
-                    gap = 8,
-                ) {
-                    add(button(ScreenTexts.BACK) {
-                        close()
-                    }, positioner { alignVerticalCenter() })
-                    add(button(Text.translatable("armorstand.config.open_model_directory")) {
-                        viewModel.openModelDir()
-                    }, positioner { alignVerticalCenter() })
-                }
-            )
+                                pack()
+                            }
+                        )
+                        setCenterElement(loadingOverlay)
+                        setSecondElement(pager, Positioner.create().margin(padding))
+                        addDrawable(this)
+                        addDrawable(loadingOverlay)
+                    }
+                )
+                add(
+                    TabNavigationWrapper(
+                        tabManager = tabManager,
+                        inner = tabNavigationWidget,
+                        surface = Surface.combine(
+                            Surface.padding(Insets(bottom = 2), Surface.listBackground()),
+                            Surface.footerSeparator(),
+                        ),
+                    ).also {
+                        addDrawableChild(it)
+                    }
+                )
+            }
+        )
+        layout.setSecondElement(
+            LinearLayout(
+                width = width,
+                height = 32,
+                direction = LinearLayout.Direction.HORIZONTAL,
+                align = LinearLayout.Align.CENTER,
+                gap = gap,
+            ).apply {
+                add(closeButton, Positioner.create().apply { alignVerticalCenter() })
+                add(openModelDirectoryButton, Positioner.create().apply { alignVerticalCenter() })
+            }
+        )
+
+        layout.refreshPositions()
+
+        val (rows, columns) = modelGrid.calculateSize()
+        viewModel.updatePageSize((rows * columns).takeIf { it > 0 })
+        modelGrid.forEachChild { remove(it) }
+
+        layout.forEachChild { addDrawableChild(it) }
+
+        pager.init()
+        addDrawableChild(pager)
+        if (!initialized) {
+            initialized = true
+            tabNavigationWidget.selectTab(0, false)
+        } else {
+            tabManager.currentTab?.forEachChild { addDrawableChild(it) }
         }
     }
 }

@@ -14,9 +14,7 @@ import top.fifthlight.armorstand.util.toRadian
 import top.fifthlight.renderer.model.Expression
 import top.fifthlight.renderer.model.HumanoidTag
 import java.util.UUID
-import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.sin
 
 sealed class ModelController {
     open fun update(uuid: UUID, vanillaState: PlayerEntityRenderState) = Unit

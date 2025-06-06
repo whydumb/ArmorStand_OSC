@@ -6,15 +6,24 @@ import java.sql.ResultSet
 
 fun ResultSet.skipToInitialRow() = require(next()) { "No initial row" }
 
-suspend inline fun <T> Connection.transaction(crossinline block: suspend Connection.() -> T): T {
+inline fun <T> Connection.transaction(crossinline block: Connection.() -> T): T {
     val originalAutoCommit = autoCommit
     try {
         autoCommit = false
         val result = block()
-        commit()
+        try {
+            commit()
+        } catch (ex: Throwable) {
+            // will be caught by outer try block
+            throw ex
+        }
         return result
-    } catch (ex: Exception) {
-        rollback()
+    } catch (ex: Throwable) {
+        try {
+            rollback()
+        } catch (rollbackEx: Throwable) {
+            ex.addSuppressed(rollbackEx)
+        }
         throw ex
     } finally {
         autoCommit = originalAutoCommit
@@ -23,7 +32,7 @@ suspend inline fun <T> Connection.transaction(crossinline block: suspend Connect
 
 fun Connection.execute(statement: String) = createStatement().use { it.execute(statement) }
 
-fun Connection.query(statement: String) = createStatement().executeQuery(statement)
+fun Connection.query(statement: String): ResultSet = createStatement().executeQuery(statement)
 
 inline fun Connection.prepare(statement: String, crossinline block: PreparedStatement.() -> Unit) =
     prepareStatement(statement).use {

@@ -14,5 +14,6 @@
   "armorstand.debug_database.executed": "执行完毕，已更新 %d 行，耗时：%s",
   "armorstand.debug_database.queried_time": "耗时: %s",
   "armorstand.name": "盔甲架",
-  "armorstand.keybinding.config": "打开盔甲架配置"
+  "armorstand.keybinding.config": "打开盔甲架配置",
+  "armorstand.page.switcher": "%d / %d"
 }

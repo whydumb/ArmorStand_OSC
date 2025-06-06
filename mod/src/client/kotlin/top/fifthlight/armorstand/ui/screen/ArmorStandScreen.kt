@@ -14,8 +14,8 @@ abstract class ArmorStandScreen<T: ArmorStandScreen<T, M>, M: ViewModel>(
     viewModelFactory: (CoroutineScope) -> M,
     title: Text,
 ): BaseArmorStandScreen<T>(parent, title) {
-    protected val scope = CoroutineScope(ThreadExecutorDispatcher(MinecraftClient.getInstance()) + SupervisorJob())
-    protected val viewModel = viewModelFactory(scope)
+    val scope = CoroutineScope(ThreadExecutorDispatcher(MinecraftClient.getInstance()) + SupervisorJob())
+    val viewModel = viewModelFactory(scope)
 
     override fun close() {
         super.close()

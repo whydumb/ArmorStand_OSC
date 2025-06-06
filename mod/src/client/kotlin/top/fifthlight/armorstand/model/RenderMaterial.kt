@@ -2,16 +2,13 @@
 
 package top.fifthlight.armorstand.model
 
-import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.pipeline.BlendFunction
 import com.mojang.blaze3d.pipeline.RenderPipeline
 import com.mojang.blaze3d.systems.RenderPass
 import com.mojang.blaze3d.systems.RenderSystem
-import com.mojang.blaze3d.textures.TextureFormat
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gl.RenderPipelines
 import net.minecraft.client.gl.UniformType
-import net.minecraft.client.render.LightmapTextureManager
 import net.minecraft.util.Identifier
 import top.fifthlight.armorstand.ArmorStandClient
 import top.fifthlight.armorstand.extension.TextureFormatExt

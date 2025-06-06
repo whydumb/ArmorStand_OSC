@@ -9,7 +9,7 @@ import javax.swing.*
 import javax.swing.table.DefaultTableModel
 
 class ObjectCountTrackerFrame : JFrame("Object Count Tracker") {
-    private val tableModel = object : DefaultTableModel(arrayOf("Object ID", "Allocated", "Pooled"), 0) {
+    private val tableModel = object : DefaultTableModel(arrayOf("Object ID", "Allocated", "Pooled", "Failed"), 0) {
         override fun isCellEditable(row: Int, column: Int) = false
     }
     private val table = JTable(tableModel)
@@ -60,7 +60,8 @@ class ObjectCountTrackerFrame : JFrame("Object Count Tracker") {
                         arrayOf(
                             key.toString(),
                             value.allocatedItem.toString(),
-                            value.pooledItem.toString()
+                            value.pooledItem.toString(),
+                            value.failedItem.toString(),
                         )
                     )
                 }

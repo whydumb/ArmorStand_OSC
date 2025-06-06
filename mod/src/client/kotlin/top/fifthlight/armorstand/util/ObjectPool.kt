@@ -19,10 +19,11 @@ open class ObjectPool<T: Any>(
 
     override fun acquire(): T {
         return if (pool.isEmpty()) {
-            ObjectPoolTracker.instance?.compute(identifier) {
-                copy(allocatedItem = allocatedItem + 1)
+            create().also {
+                ObjectPoolTracker.instance?.compute(identifier) {
+                    copy(allocatedItem = allocatedItem + 1)
+                }
             }
-            create()
         } else {
             ObjectPoolTracker.instance?.compute(identifier) {
                 copy(
@@ -32,19 +33,51 @@ open class ObjectPool<T: Any>(
             }
             pool.removeFirst()
         }.also { obj ->
-            onAcquired?.invoke(obj)
+            try {
+                onAcquired?.invoke(obj)
+            } catch (ex: Throwable) {
+                ObjectPoolTracker.instance?.compute(identifier) {
+                    copy(
+                        allocatedItem = allocatedItem - 1,
+                        failedItem = failedItem + 1,
+                    )
+                }
+                throw ex
+            }
         }
     }
 
     override fun release(obj: T) {
+        try {
+            onReleased?.invoke(obj)
+        } catch (ex: Throwable) {
+            ObjectPoolTracker.instance?.compute(identifier) {
+                copy(
+                    allocatedItem = allocatedItem - 1,
+                    failedItem = failedItem + 1,
+                )
+            }
+            throw ex
+        }
         ObjectPoolTracker.instance?.compute(identifier) {
             copy(
                 allocatedItem = allocatedItem - 1,
                 pooledItem = pooledItem + 1,
             )
         }
-        onReleased?.invoke(obj)
         pool.addLast(obj)
+    }
+}
+
+class ThreadSafeObjectPool<T>(
+    val inner: Pool<T>
+): Pool<T> {
+    override fun acquire(): T = synchronized(this) {
+        inner.acquire()
+    }
+
+    override fun release(obj: T) = synchronized(this) {
+        inner.release(obj)
     }
 }
 

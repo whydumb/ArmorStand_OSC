@@ -10,6 +10,7 @@ class ObjectPoolTracker {
     data class Item(
         val allocatedItem: Int = 0,
         val pooledItem: Int = 0,
+        val failedItem: Int = 0,
     )
 
     inline fun compute(identifier: Identifier, crossinline func: Item.() -> Item) {
