@@ -282,6 +282,9 @@ java_binary(
         "@minecraft_assets//:assets_%s" % game_version,
         "//model/model-gltf/src/test/resources:test_models_data",
     ],
+    env = {
+        "LANG": "en_US.UTF8",
+    },
     runtime_deps = [
         "//rule/dev_launch_wrapper",
         "@minecraft//:%s_client_libraries" % game_version,

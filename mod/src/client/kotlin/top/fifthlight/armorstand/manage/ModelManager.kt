@@ -21,7 +21,6 @@ import java.security.MessageDigest
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.ResultSet
-import java.util.*
 import kotlin.io.path.*
 import kotlin.time.measureTime
 
@@ -61,8 +60,9 @@ object ModelManager {
 
     private fun ResultSet.readModelItem() = ModelItem(
         path = Path.of(getString(1)).normalize(),
-        lastChanged = getLong(2),
-        sha256 = getBytes(3),
+        name = getString(2),
+        lastChanged = getLong(3),
+        sha256 = getBytes(4),
     )
 
     private suspend fun waitUntilFirstScan(): Instant {
@@ -72,22 +72,57 @@ object ModelManager {
         return _lastScanTime.mapNotNull { it }.first()
     }
 
-    suspend fun getTotalModels(): Int {
+    suspend fun getTotalModels(
+        searchString: String? = null,
+    ): Int {
         waitUntilFirstScan()
         return transaction {
-            query("SELECT COUNT(*) FROM model").use { result ->
+            if (searchString == null) {
+                query("SELECT COUNT(*) FROM model")
+            } else {
+                prepareQuery("SELECT COUNT(*) FROM model WHERE LOCATE(LOWER(?), LOWER(name)) > 0") {
+                    setString(1, searchString)
+                }
+            }.use { result ->
                 result.skipToInitialRow()
                 result.getInt(1)
             }
         }
     }
 
-    suspend fun getModel(offset: Int, length: Int): List<ModelItem> {
+    enum class Order {
+        NAME,
+        LAST_CHANGED,
+    }
+
+    suspend fun getModel(
+        offset: Int,
+        length: Int,
+        searchString: String? = null,
+        order: Order = Order.NAME,
+        ascend: Boolean = true,
+    ): List<ModelItem> {
         waitUntilFirstScan()
         return transaction {
-            prepareQuery("SELECT path, lastChanged, sha256 FROM model ORDER BY lastChanged DESC LIMIT ? OFFSET ?") {
-                setInt(1, length)
-                setInt(2, offset)
+            val order = when (order) {
+                Order.NAME -> "name"
+                Order.LAST_CHANGED -> "lastChanged"
+            }
+            val sort = when (ascend) {
+                true -> "ASC"
+                false -> "DESC"
+            }
+            if (searchString == null) {
+                prepareQuery("SELECT path, name, lastChanged, sha256 FROM model ORDER BY $order $sort LIMIT ? OFFSET ?") {
+                    setInt(1, length)
+                    setInt(2, offset)
+                }
+            } else {
+                prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE LOCATE(LOWER(?), LOWER(name)) > 0 ORDER BY $order $sort LIMIT ? OFFSET ?") {
+                    setString(1, searchString)
+                    setInt(2, length)
+                    setInt(3, offset)
+                }
             }.use { result ->
                 buildList {
                     while (result.next()) {
@@ -99,7 +134,7 @@ object ModelManager {
     }
 
     suspend fun getModel(path: Path) = transaction {
-        prepareQuery("SELECT path, lastChanged, sha256 FROM model WHERE path = ?") {
+        prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE path = ?") {
             setString(1, path.normalize().toString())
         }.use { result ->
             if (result.next()) {
@@ -154,6 +189,7 @@ object ModelManager {
 
         suspend fun processFile(relativePath: Path) {
             val pathStr = relativePath.normalize().toString()
+            val name = relativePath.fileName.toString()
             val path = modelDir.resolve(relativePath)
             val lastChanged = path.getLastModifiedTime().toMillis()
             transaction {
@@ -176,10 +212,11 @@ object ModelManager {
                 prepare("DELETE FROM model WHERE path = ?;") {
                     setString(1, pathStr)
                 }
-                prepare("INSERT INTO model (path, lastChanged, sha256) VALUES (?, ?, ?);") {
+                prepare("INSERT INTO model (path, name, lastChanged, sha256) VALUES (?, ?, ?, ?);") {
                     setString(1, pathStr)
-                    setLong(2, lastChanged)
-                    setBytes(3, sha256)
+                    setString(2, name)
+                    setLong(3, lastChanged)
+                    setBytes(4, sha256)
                 }
             }
         }
@@ -313,6 +350,7 @@ object ModelManager {
                 """
                 CREATE TABLE model (
                     path VARCHAR PRIMARY KEY,
+                    name VARCHAR NOT NULL,
                     lastChanged BIGINT NOT NULL,
                     sha256 BINARY(32) NOT NULL
                 );

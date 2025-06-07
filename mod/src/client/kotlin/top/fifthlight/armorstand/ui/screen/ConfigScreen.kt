@@ -1,5 +1,6 @@
 package top.fifthlight.armorstand.ui.screen
 
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -11,6 +12,7 @@ import net.minecraft.screen.ScreenTexts
 import net.minecraft.text.Text
 import net.minecraft.util.Formatting
 import org.lwjgl.glfw.GLFW
+import top.fifthlight.armorstand.manage.ModelManager
 import top.fifthlight.armorstand.ui.component.*
 import top.fifthlight.armorstand.ui.model.ConfigViewModel
 import top.fifthlight.armorstand.ui.util.autoWidthButton
@@ -43,21 +45,50 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
             viewModel.openModelDir()
         }.build()
 
-    private val sortButton by lazy {
-        autoWidthButton(Text.literal("Sort: A-Z")) {
+    private val sortButton = run {
+        fun sortText(order: ModelManager.Order, ascend: Boolean): String {
+            val order = when (order) {
+                ModelManager.Order.NAME -> "name"
+                ModelManager.Order.LAST_CHANGED -> "last_changed"
+            }
+            val sort = when (ascend) {
+                true -> "asc"
+                false -> "desc"
+            }
+            return "armorstand.config.sort.$order.$sort"
+        }
 
+        ButtonWidget.builder(Text.translatable("armorstand.config.sort.name.asc")) {
+            val (order, ascend) = viewModel.uiState.value.let { Pair(it.order, it.sortAscend) }
+            if (ascend) {
+                // switch ascend
+                viewModel.updateSearchParam(order, false)
+            } else {
+                // next order
+                val index = (ModelManager.Order.entries.indexOf(order) + 1) % ModelManager.Order.entries.size
+                val newOrder = ModelManager.Order.entries[index]
+                viewModel.updateSearchParam(newOrder, true)
+            }
+        }.size(100, 20).build().also { button ->
+            scope.launch {
+                viewModel.uiState.collect { state ->
+                    button.message = Text.translatable(sortText(state.order, state.sortAscend))
+                }
+            }
         }
     }
 
     private val refreshButton by lazy {
-        autoWidthButton(Text.literal("Refresh")) {
+        autoWidthButton(Text.translatable("armorstand.config.refresh")) {
             viewModel.refreshModels()
         }
     }
 
     private val searchBox by lazy {
         textField(
-            placeHolder = Text.literal("Search…").formatted(Formatting.ITALIC).formatted(Formatting.GRAY),
+            placeHolder = Text.translatable("armorstand.config.search_placeholder")
+                .formatted(Formatting.ITALIC)
+                .formatted(Formatting.GRAY),
             text = viewModel.uiState.map { it.searchString }.distinctUntilChanged(),
             onChanged = viewModel::updateSearchString,
         )
@@ -130,7 +161,7 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
     }
 
     private val previewTab = LayoutScreenTab(
-        title = Text.literal("Preview"),
+        title = Text.translatable("armorstand.config.tab.preview"),
         padding = Insets(8),
         layout = BorderLayout(
             direction = BorderLayout.Direction.VERTICAL,
@@ -176,7 +207,7 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
     )
 
     private val metadataTab = LayoutScreenTab(
-        title = Text.literal("Metadata"),
+        title = Text.translatable("armorstand.config.tab.metadata"),
         padding = Insets(8),
         layout = LinearLayout().apply {
 

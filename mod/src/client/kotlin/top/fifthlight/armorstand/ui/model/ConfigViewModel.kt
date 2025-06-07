@@ -1,12 +1,7 @@
 package top.fifthlight.armorstand.ui.model
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.getAndUpdate
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import net.minecraft.util.Util
 import top.fifthlight.armorstand.config.ConfigHolder
@@ -20,6 +15,22 @@ class ConfigViewModel(scope: CoroutineScope) : ViewModel(scope) {
 
     private fun findLargestMultiple(base: Int, maximum: Int) = maximum / base * base
 
+    private data class SearchParam(
+        val offset: Int,
+        val pageSize: Int?,
+        val searchString: String,
+        val order: ModelManager.Order,
+        val ascend: Boolean,
+    ) {
+        constructor(state: ConfigScreenState): this(
+            offset = state.currentOffset,
+            pageSize = state.pageSize,
+            searchString = state.searchString,
+            order = state.order,
+            ascend = state.sortAscend,
+        )
+    }
+
     init {
         with(scope) {
             launch {
@@ -31,30 +42,37 @@ class ConfigViewModel(scope: CoroutineScope) : ViewModel(scope) {
                         )
                     }
                 }
-                uiState.map { it.pageSize }.distinctUntilChanged().collectLatest { pageSize ->
+                uiState.map(::SearchParam).distinctUntilChanged().collectLatest { param ->
                     clearItems()
+                    val searchStr = param.searchString.takeIf { it.isNotBlank() }
                     ModelManager.lastScanTime.collectLatest {
-                        val totalItems = ModelManager.getTotalModels()
+                        val totalItems = ModelManager.getTotalModels(searchStr)
                         _uiState.getAndUpdate { state ->
                             state.copy(
                                 totalItems = totalItems,
-                                currentOffset = if (pageSize != null) {
-                                    if (state.currentOffset + pageSize > totalItems) {
+                                currentOffset = if (param.pageSize != null) {
+                                    if (state.currentOffset + param.pageSize > totalItems) {
                                         // to last page
-                                        findLargestMultiple(pageSize, totalItems - 1)
+                                        findLargestMultiple(param.pageSize, totalItems - 1)
                                     } else {
                                         // to current page
-                                        findLargestMultiple(pageSize, state.currentOffset)
+                                        findLargestMultiple(param.pageSize, state.currentOffset)
                                     }
                                 } else {
                                     0
                                 },
                             )
                         }
-                        pageSize?.let { pageSize ->
+                        param.pageSize?.let { pageSize ->
                             clearItems()
                             uiState.map { it.currentOffset }.distinctUntilChanged().collectLatest { offset ->
-                                val items = ModelManager.getModel(offset, pageSize)
+                                val items = ModelManager.getModel(
+                                    offset = offset,
+                                    length = pageSize,
+                                    searchString = searchStr,
+                                    order = param.order,
+                                    ascend = param.ascend,
+                                )
                                 _uiState.getAndUpdate { state ->
                                     state.copy(currentPageItems = items)
                                 }
@@ -133,6 +151,15 @@ class ConfigViewModel(scope: CoroutineScope) : ViewModel(scope) {
     fun updateSearchString(searchString: String) {
         _uiState.getAndUpdate { state ->
             state.copy(searchString = searchString)
+        }
+    }
+
+    fun updateSearchParam(order: ModelManager.Order, ascend: Boolean) {
+        _uiState.getAndUpdate { state ->
+            state.copy(
+                order = order,
+                sortAscend = ascend,
+            )
         }
     }
 
