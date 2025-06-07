@@ -3,21 +3,47 @@ package top.fifthlight.armorstand.util
 import net.minecraft.util.Identifier
 import top.fifthlight.armorstand.debug.ObjectPoolTracker
 import java.util.ArrayDeque
+import java.util.Collections
 
-interface Pool<T> {
+private val pools = Collections.synchronizedSet(mutableSetOf<Pool<*>>())
+private var cleaned = false
+fun cleanupPools() {
+    require(!cleaned) { "All pools has been cleaned" }
+    cleaned = true
+    pools.forEach { it.close() }
+    pools.clear()
+}
+
+interface Pool<T> : AutoCloseable {
     fun acquire(): T
     fun release(obj: T)
 }
 
-open class ObjectPool<T: Any>(
+fun <T : AutoCloseable> ObjectPool(
+    identifier: Identifier,
+    create: () -> T,
+    onAcquired: (T.() -> Unit)? = null,
+    onReleased: (T.() -> Unit)? = null,
+) = ObjectPool<T>(
+    identifier = identifier,
+    create = create,
+    onAcquired = onAcquired,
+    onReleased = onReleased,
+    onClosed = { close() },
+)
+
+open class ObjectPool<T : Any>(
     protected val identifier: Identifier,
     protected val create: () -> T,
     protected val onAcquired: (T.() -> Unit)? = null,
     protected val onReleased: (T.() -> Unit)? = null,
+    protected val onClosed: (T.() -> Unit)?,
 ) : Pool<T> {
+    protected val closed: Boolean = false
     protected val pool = ArrayDeque<T>()
 
     override fun acquire(): T {
+        require(!closed) { "Pool is closed" }
         return if (pool.isEmpty()) {
             create().also {
                 ObjectPoolTracker.instance?.compute(identifier) {
@@ -48,6 +74,7 @@ open class ObjectPool<T: Any>(
     }
 
     override fun release(obj: T) {
+        require(!closed) { "Pool is closed" }
         try {
             onReleased?.invoke(obj)
         } catch (ex: Throwable) {
@@ -67,11 +94,20 @@ open class ObjectPool<T: Any>(
         }
         pool.addLast(obj)
     }
+
+    override fun close() {
+        if (closed) {
+            return
+        }
+        ObjectPoolTracker.instance?.compute(identifier) { ObjectPoolTracker.Item() }
+        pool.forEach { onClosed?.invoke(it) }
+        pool.clear()
+    }
 }
 
 class ThreadSafeObjectPool<T>(
-    val inner: Pool<T>
-): Pool<T> {
+    val inner: Pool<T>,
+) : Pool<T> {
     override fun acquire(): T = synchronized(this) {
         inner.acquire()
     }
@@ -79,17 +115,34 @@ class ThreadSafeObjectPool<T>(
     override fun release(obj: T) = synchronized(this) {
         inner.release(obj)
     }
+
+    override fun close() = inner.close()
 }
+
+fun <T : AutoCloseable> FramedObjectPool(
+    identifier: Identifier,
+    create: () -> T,
+    onAcquired: (T.() -> Unit)? = null,
+    onReleased: (T.() -> Unit)? = null,
+) = FramedObjectPool(
+    identifier = identifier,
+    create = create,
+    onAcquired = onAcquired,
+    onReleased = onReleased,
+    onClosed = { close() },
+)
 
 class FramedObjectPool<T : Any>(
     identifier: Identifier,
     create: () -> T,
     onAcquired: (T.() -> Unit)? = null,
     onReleased: (T.() -> Unit)? = null,
-) : ObjectPool<T>(identifier, create, onAcquired, onReleased) {
+    onClosed: (T.() -> Unit)? = null,
+) : ObjectPool<T>(identifier, create, onAcquired, onReleased, onClosed) {
     private val pendingRelease = ArrayDeque<T>()
 
     override fun release(obj: T) {
+        require(!closed) { "Pool is closed" }
         ObjectPoolTracker.instance?.compute(identifier) {
             copy(
                 allocatedItem = allocatedItem - 1,
@@ -101,10 +154,20 @@ class FramedObjectPool<T : Any>(
     }
 
     fun frame() {
+        require(!closed) { "Pool is closed" }
         if (pendingRelease.isNotEmpty()) {
             pool.addAll(pendingRelease)
             pendingRelease.clear()
         }
+    }
+
+    override fun close() {
+        if (closed) {
+            return
+        }
+        pendingRelease.forEach { onClosed?.invoke(it) }
+        pendingRelease.clear()
+        super.close()
     }
 
     init {

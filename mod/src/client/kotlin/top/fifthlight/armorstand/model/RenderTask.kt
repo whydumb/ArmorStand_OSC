@@ -6,10 +6,9 @@ import org.joml.Matrix4fc
 import top.fifthlight.armorstand.ArmorStandClient
 import top.fifthlight.armorstand.util.ObjectPool
 
-sealed class RenderTask<T: RenderTask<T, K>, K: Any>: AutoCloseable {
+sealed class RenderTask<T: RenderTask<T, K>, K: Any> {
     abstract val type: Type<T, K>
     abstract val key: K
-    abstract override fun close()
 
     sealed class Type<T: RenderTask<T, K>, K: Any> {
         abstract fun createMap(): MutableMap<K, MutableList<T>>
@@ -33,11 +32,14 @@ sealed class RenderTask<T: RenderTask<T, K>, K: Any>: AutoCloseable {
         }
     }
 
-    class Instance private constructor(): RenderTask<Instance, RenderScene>(), AutoCloseable {
+    abstract fun release()
+
+    class Instance private constructor(): RenderTask<Instance, RenderScene>() {
         override val type: Type<Instance, RenderScene>
             get() = Type.Instance
         override val key: RenderScene
             get() = instance.scene
+
         private var _instance: ModelInstance? = null
         var instance: ModelInstance
             get() = _instance!!
@@ -45,7 +47,8 @@ sealed class RenderTask<T: RenderTask<T, K>, K: Any>: AutoCloseable {
         val viewModelMatrix: Matrix4f = Matrix4f()
         var light: Int = -1
 
-        override fun close() {
+        override fun release() {
+            instance.decreaseReferenceCount()
             POOL.release(this)
         }
 
@@ -56,7 +59,10 @@ sealed class RenderTask<T: RenderTask<T, K>, K: Any>: AutoCloseable {
                 onReleased = {
                     _instance = null
                     light = -1
-                }
+                },
+                onClosed = {
+                    _instance = null
+                },
             )
 
             fun acquire(
@@ -64,6 +70,7 @@ sealed class RenderTask<T: RenderTask<T, K>, K: Any>: AutoCloseable {
                 modelMatrix: Matrix4fc,
                 light: Int,
             ) = POOL.acquire().apply {
+                instance.increaseReferenceCount()
                 this.instance = instance
                 this.viewModelMatrix.set(modelMatrix)
                 this.light = light
@@ -91,7 +98,7 @@ class TaskMap {
             for ((key, tasks) in taskMap) {
                 type.execute(key, tasks)
                 for (task in tasks) {
-                    task.close()
+                    task.release()
                 }
             }
         }

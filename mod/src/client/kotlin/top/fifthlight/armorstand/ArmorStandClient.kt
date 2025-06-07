@@ -27,6 +27,7 @@ import top.fifthlight.armorstand.state.ClientModelPathManager
 import top.fifthlight.armorstand.state.NetworkModelSyncer
 import top.fifthlight.armorstand.ui.screen.ConfigScreen
 import top.fifthlight.armorstand.util.ThreadExecutorDispatcher
+import top.fifthlight.armorstand.util.cleanupPools
 import javax.swing.SwingUtilities
 
 object ArmorStandClient : ArmorStand(), ClientModInitializer {
@@ -91,6 +92,7 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
         }
         ClientLifecycleEvents.CLIENT_STOPPING.register { client ->
             scope.cancel()
+            cleanupPools()
         }
         ClientPlayConnectionEvents.DISCONNECT.register { handler, client ->
             ModelHashManager.clearHash()
