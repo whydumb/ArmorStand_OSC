@@ -4,26 +4,26 @@ import com.mojang.logging.LogUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents
 import net.minecraft.client.gl.RenderPassImpl
 import net.minecraft.client.option.KeyBinding
 import org.lwjgl.glfw.GLFW
 import top.fifthlight.armorstand.config.ConfigHolder
-import top.fifthlight.armorstand.debug.ModelManagerDebugFrame
-import top.fifthlight.armorstand.debug.ObjectCountTrackerFrame
-import top.fifthlight.armorstand.debug.ObjectPoolTracker
-import top.fifthlight.armorstand.debug.ResourceCountTracker
-import top.fifthlight.armorstand.debug.ResourceCountTrackerFrame
+import top.fifthlight.armorstand.debug.*
 import top.fifthlight.armorstand.manage.ModelManager
 import top.fifthlight.armorstand.model.RenderMaterial
 import top.fifthlight.armorstand.network.PlayerModelUpdateS2CPayload
+import top.fifthlight.armorstand.state.ModelHashManager
 import top.fifthlight.armorstand.state.ModelInstanceManager
+import top.fifthlight.armorstand.state.ClientModelPathManager
 import top.fifthlight.armorstand.state.NetworkModelSyncer
 import top.fifthlight.armorstand.ui.screen.ConfigScreen
 import top.fifthlight.armorstand.util.ThreadExecutorDispatcher
@@ -85,14 +85,20 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
             runBlocking {
                 ModelManager.initialize()
                 NetworkModelSyncer.initialize()
+                ClientModelPathManager.initialize()
                 ModelInstanceManager.initialize()
             }
         }
         ClientLifecycleEvents.CLIENT_STOPPING.register { client ->
             scope.cancel()
         }
+        ClientPlayConnectionEvents.DISCONNECT.register { handler, client ->
+            ModelHashManager.clearHash()
+        }
         ClientPlayNetworking.registerGlobalReceiver(PlayerModelUpdateS2CPayload.ID) { payload, context ->
-            ModelInstanceManager.updatePlayerModel(payload.uuid, payload.path)
+            scope.launch {
+                ModelHashManager.putModelHash(payload.uuid, payload.modelHash)
+            }
         }
         ClientTickEvents.START_CLIENT_TICK.register { client ->
             if (client.currentScreen != null) {

@@ -1,17 +1,11 @@
 package top.fifthlight.armorstand.state
 
 import com.mojang.logging.LogUtils
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.MinecraftClient
-import top.fifthlight.armorstand.ArmorStand
-import top.fifthlight.armorstand.ArmorStandClient
 import top.fifthlight.armorstand.animation.AnimationItem
 import top.fifthlight.armorstand.animation.AnimationLoader
-import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.model.ModelBufferManager
 import top.fifthlight.armorstand.model.ModelInstance
 import top.fifthlight.armorstand.model.ModelLoader
@@ -26,16 +20,12 @@ import kotlin.time.measureTimedValue
 object ModelInstanceManager {
     private val LOGGER = LogUtils.getLogger()
     const val INSTANCE_EXPIRE_NS: Long = 30L * TimeUtil.NANOSECONDS_PER_SECOND
-    const val MODEL_EXPIRE_NS: Long = 10L * TimeUtil.NANOSECONDS_PER_SECOND
     private val client = MinecraftClient.getInstance()
+    private val selfUuid: UUID?
+        get() = client.player?.uuid
     val modelDir: Path = System.getProperty("armorstand.modelDir")?.let {
         Path.of(it).toAbsolutePath()
     } ?: FabricLoader.getInstance().gameDir.resolve("models")
-    private val selfUuid: UUID?
-        get() = client.player?.uuid
-    var selfPath: Path? = null
-        private set
-    private val modelPaths = mutableMapOf<UUID, Path>()
     val modelCaches = mutableMapOf<Path, ModelCache>()
     val modelInstanceItems = mutableMapOf<UUID, ModelInstanceItem>()
 
@@ -94,35 +84,9 @@ object ModelInstanceManager {
         item
     }
 
-    fun updatePlayerModel(uuid: UUID, path: String?) {
-        if (uuid == selfUuid) {
-            return
-        }
-        if (path == null) {
-            modelPaths.remove(uuid)
-        } else {
-            // TODO SAFETY path sanitizing
-            modelPaths[uuid] = Path.of(path)
-        }
-    }
-
     fun get(uuid: UUID, time: Long): ModelInstanceItem? {
         val isSelf = uuid == selfUuid
-        val path = if (isSelf) {
-            selfPath
-        } else {
-            modelPaths[uuid] ?: run {
-                if (ArmorStandClient.debug) {
-                    selfPath?.let { selfPath ->
-                        modelPaths[uuid] = selfPath
-                        selfPath
-                    }
-                } else {
-                    null
-                }
-            }
-        }
-
+        val path = ClientModelPathManager.getPath(uuid)
         if (path == null) {
             return null
         }
@@ -177,14 +141,14 @@ object ModelInstanceManager {
         // cleaned unused model instances
         modelInstanceItems.entries.removeIf { (uuid, item) ->
             if (uuid == selfUuid) {
-                if (item.path == selfPath) {
+                if (item.path == ClientModelPathManager.selfPath) {
                     return@removeIf false
                 } else {
                     (item as? ModelInstanceItem.Model)?.decreaseReferenceCount()
                     return@removeIf true
                 }
             }
-            val pathInvalid = item.path != modelPaths[uuid]
+            val pathInvalid = item.path != ClientModelPathManager.getPath(uuid)
             if (pathInvalid) {
                 (item as? ModelInstanceItem.Model)?.decreaseReferenceCount()
                 return@removeIf true
@@ -206,7 +170,7 @@ object ModelInstanceManager {
 
         // cleaned unused model caches
         modelCaches.entries.removeIf { (path, item) ->
-            if (path == selfPath) {
+            if (path == ClientModelPathManager.selfPath) {
                 return@removeIf false
             }
             val remove = path !in usedPaths
@@ -218,12 +182,6 @@ object ModelInstanceManager {
     }
 
     fun initialize() {
-        ArmorStand.instance.scope.launch {
-            ConfigHolder.config
-                .map { it.modelPath }
-                .distinctUntilChanged()
-                .collect { selfPath = it }
-        }
         WorldRenderEvents.AFTER_ENTITIES.register {
             cleanup(System.nanoTime())
         }

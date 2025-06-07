@@ -1,30 +1,24 @@
 package top.fifthlight.armorstand.network
 
-import net.minecraft.network.PacketByteBuf
+import io.netty.buffer.ByteBuf
 import net.minecraft.network.codec.PacketCodec
+import net.minecraft.network.codec.PacketCodecs
 import net.minecraft.network.packet.CustomPayload
 import net.minecraft.util.Identifier
+import top.fifthlight.armorstand.util.ModelHash
+import java.util.*
+import kotlin.jvm.optionals.getOrNull
 
-data class ModelUpdateS2CPayload(val path: String?): CustomPayload {
+data class ModelUpdateS2CPayload(
+    val modelHash: ModelHash?,
+) : CustomPayload {
     companion object {
         private val PAYLOAD_ID = Identifier.of("armorstand", "model_update")
         val ID = CustomPayload.Id<ModelUpdateS2CPayload>(PAYLOAD_ID)
-        val CODEC: PacketCodec<PacketByteBuf, ModelUpdateS2CPayload> = PacketCodec.of(ModelUpdateS2CPayload::write, ::ModelUpdateS2CPayload)
-    }
-
-    constructor(buf: PacketByteBuf): this(
-        path = if (buf.readBoolean()) {
-            buf.readString()
-        } else {
-            null
-        },
-    )
-
-    fun write(buf: PacketByteBuf) {
-        buf.writeBoolean(path != null)
-        if (path != null) {
-            buf.writeString(path)
-        }
+        val CODEC: PacketCodec<ByteBuf, ModelUpdateS2CPayload> = PacketCodecs.optional(ModelHash.CODEC).xmap(
+            { ModelUpdateS2CPayload(it.getOrNull()) },
+            { Optional.ofNullable(it.modelHash) },
+        )
     }
 
     override fun getId() = ID

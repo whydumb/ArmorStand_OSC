@@ -10,7 +10,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.server.MinecraftServer
 import top.fifthlight.armorstand.network.ModelUpdateS2CPayload
 import top.fifthlight.armorstand.network.PlayerModelUpdateS2CPayload
-import top.fifthlight.armorstand.server.ModelPathManager
+import top.fifthlight.armorstand.server.ServerModelPathManager
 
 
 abstract class ArmorStand : ModInitializer {
@@ -27,9 +27,9 @@ abstract class ArmorStand : ModInitializer {
         PayloadTypeRegistry.playS2C().register(PlayerModelUpdateS2CPayload.ID, PlayerModelUpdateS2CPayload.CODEC)
         PayloadTypeRegistry.playC2S().register(ModelUpdateS2CPayload.ID, ModelUpdateS2CPayload.CODEC)
 
-        ModelPathManager.onUpdateListener = { uuid, path ->
+        ServerModelPathManager.onUpdateListener = { uuid, hash ->
             server?.let { server ->
-                val payload = PlayerModelUpdateS2CPayload(uuid, path)
+                val payload = PlayerModelUpdateS2CPayload(uuid, hash)
                 for (player in PlayerLookup.all(server)) {
                     if (player.uuid == uuid) {
                         continue
@@ -39,24 +39,24 @@ abstract class ArmorStand : ModInitializer {
             }
         }
         ServerPlayConnectionEvents.JOIN.register { handler, sender, server ->
-            for ((uuid, path) in ModelPathManager.getModels()) {
+            for ((uuid, hash) in ServerModelPathManager.getModels()) {
                 if (handler.player.uuid == uuid) {
                     continue
                 }
-                sender.sendPacket(PlayerModelUpdateS2CPayload(uuid, path))
+                sender.sendPacket(PlayerModelUpdateS2CPayload(uuid, hash))
             }
         }
         ServerPlayConnectionEvents.DISCONNECT.register { handler, server ->
-            ModelPathManager.update(handler.player.uuid, null)
+            ServerModelPathManager.update(handler.player.uuid, null)
         }
         ServerPlayNetworking.registerGlobalReceiver(ModelUpdateS2CPayload.ID) { payload, context ->
-            ModelPathManager.update(context.player().uuid, payload.path)
+            ServerModelPathManager.update(context.player().uuid, payload.modelHash)
         }
         ServerLifecycleEvents.SERVER_STARTING.register { server ->
             this.server = server
         }
         ServerLifecycleEvents.SERVER_STOPPED.register {
-            ModelPathManager.clear()
+            ServerModelPathManager.clear()
         }
     }
 }

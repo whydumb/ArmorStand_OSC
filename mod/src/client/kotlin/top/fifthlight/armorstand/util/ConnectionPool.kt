@@ -1,10 +1,8 @@
 package top.fifthlight.armorstand.util
 
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.withContext
 import java.sql.Connection
 
-suspend inline fun <T> Pool<Connection>.transaction(crossinline block: suspend Connection.() -> T): T {
+inline fun <T> Pool<Connection>.transaction(crossinline block: Connection.() -> T): T {
     val connection = acquire()
     try {
         val result = block(connection)
@@ -24,8 +22,6 @@ suspend inline fun <T> Pool<Connection>.transaction(crossinline block: suspend C
         throw ex
     } finally {
         // Must pair acquire() and release(), even if coroutine is cancelled or exception thrown
-        withContext(NonCancellable) {
-            release(connection)
-        }
+        release(connection)
     }
 }

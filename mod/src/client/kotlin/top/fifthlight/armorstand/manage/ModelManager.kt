@@ -31,9 +31,10 @@ object ModelManager {
     private const val DATABASE_NAME = ".cache"
     private val databaseFile = modelDir.resolve("$DATABASE_NAME.mv.db").toAbsolutePath()
     private const val DATABASE_VERSION = 0
-    private var connectionPool: Pool<Connection>? = null
+    var connectionPool: Pool<Connection>? = null
+        private set
 
-    suspend fun <T> transaction(block: suspend Connection.() -> T): T {
+    inline fun <T> transaction(crossinline block: Connection.() -> T): T {
         val connectionPool = connectionPool ?: error("Database is not connected")
         return connectionPool.transaction(block)
     }
@@ -62,7 +63,7 @@ object ModelManager {
         path = Path.of(getString(1)).normalize(),
         name = getString(2),
         lastChanged = getLong(3),
-        sha256 = getBytes(4),
+        hash = ModelHash(getBytes(4)),
     )
 
     private suspend fun waitUntilFirstScan(): Instant {
@@ -133,26 +134,32 @@ object ModelManager {
         }
     }
 
-    suspend fun getModel(path: Path) = transaction {
-        prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE path = ?") {
-            setString(1, path.normalize().toString())
-        }.use { result ->
-            if (result.next()) {
-                result.readModelItem()
-            } else {
-                null
+    suspend fun getModel(path: Path): ModelItem? {
+        waitUntilFirstScan()
+        return transaction {
+            prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE path = ?") {
+                setString(1, path.normalize().toString())
+            }.use { result ->
+                if (result.next()) {
+                    result.readModelItem()
+                } else {
+                    null
+                }
             }
         }
     }
 
-    suspend fun getModel(sha256: ByteArray) = transaction {
-        prepareQuery("SELECT path, lastChanged, sha256 FROM model WHERE sha256 = ?") {
-            setBytes(1, sha256)
-        }.use { result ->
-            if (result.next()) {
-                result.readModelItem()
-            } else {
-                null
+    suspend fun getModel(modelHash: ModelHash): ModelItem? {
+        waitUntilFirstScan()
+        return transaction {
+            prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE sha256 = ?") {
+                setBytes(1, modelHash.hash)
+            }.use { result ->
+                if (result.next()) {
+                    result.readModelItem()
+                } else {
+                    null
+                }
             }
         }
     }
@@ -187,7 +194,7 @@ object ModelManager {
             )
         }
 
-        suspend fun processFile(relativePath: Path) {
+        fun processFile(relativePath: Path) {
             val pathStr = relativePath.normalize().toString()
             val name = relativePath.fileName.toString()
             val path = modelDir.resolve(relativePath)
