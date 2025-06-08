@@ -1,0 +1,85 @@
+load("//:properties.bzl", "mod_version", "game_version")
+load("//rule:extract_jar.bzl", "extract_jar")
+load("//rule:merge_mapping.bzl", "merge_mapping", "merge_mapping_input")
+load("//rule:remap_jar.bzl", "remap_jar")
+
+package(default_visibility = ["//mod:__pkg__"])
+
+extract_jar(
+    name = "intermediary_mapping",
+    entry_path = "mappings/mappings.tiny",
+    filename = "_mappings/intermediary.tiny",
+    input = "@maven//:net_fabricmc_intermediary_v2",
+)
+
+extract_jar(
+    name = "yarn_mapping",
+    entry_path = "mappings/mappings.tiny",
+    filename = "_mappings/yarn.tiny",
+    input = "@maven//:net_fabricmc_yarn_v2",
+)
+
+merge_mapping_input(
+    name = "yarn_input",
+    file = ":yarn_mapping",
+    format = "tinyv2",
+)
+
+merge_mapping_input(
+    name = "intermediary_input",
+    file = ":intermediary_mapping",
+    format = "tinyv2",
+    source_namespace = "intermediary",
+)
+
+merge_mapping(
+    name = "merged_mapping",
+    complete_namespace = {
+        "named": "intermediary",
+        "intermediary": "official",
+    },
+    inputs = [
+        ":yarn_input",
+        ":intermediary_input",
+    ],
+    output = "merged.tiny",
+    output_source_namespace = "official",
+)
+
+remap_jar(
+    name = "remapped_client_intermediary",
+    inputs = ["@minecraft//:%s_client" % game_version],
+    mapping = ":merged_mapping",
+    from_namespace = "official",
+    to_namespace = "intermediary",
+)
+
+remap_jar(
+    name = "remapped_client_named",
+    inputs = ["@minecraft//:%s_client" % game_version],
+    mapping = ":merged_mapping",
+    from_namespace = "official",
+    to_namespace = "named",
+)
+
+extract_jar(
+    name = "server_jar_file",
+    entry_path = "META-INF/versions/%s/server-%s.jar" % (game_version, game_version),
+    filename = "_minecraft/server.jar",
+    input = "@minecraft//:%s_server" % game_version,
+)
+
+java_import(
+    name = "server_jar",
+    jars = [
+        ":server_jar_file",
+    ],
+)
+
+remap_jar(
+    name = "remapped_server_named",
+    inputs = [":server_jar"],
+    mapping = ":merged_mapping",
+    from_namespace = "official",
+    to_namespace = "named",
+)

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "blazerod-model-formats",
+  "version": "${version}",
+  "name": "BlazeRod model formats",
+  "description": "${description}",
+  "authors": ["fifth_light"],
+  "license": "LGPL-3.0-or-later",
+  "environment": "client"
+}

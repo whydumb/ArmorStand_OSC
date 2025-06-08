@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "blazerod-model-pmx",
+  "version": "${version}",
+  "name": "BlazeRod model PMX",
+  "description": "${description}",
+  "authors": ["fifth_light"],
+  "license": "LGPL-3.0-or-later",
+  "environment": "client"
+}

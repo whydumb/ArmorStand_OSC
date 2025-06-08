@@ -1,0 +1,5 @@
+alias(
+    name = "model",
+    visibility = ["//visibility:public"],
+    actual = "model-formats",
+)

@@ -1,0 +1,43 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("//:properties.bzl", "blazerod_version", "blazerod_description")
+
+expand_template(
+    name = "fabric_mod_json",
+    template = "src/main/resources/fabric.mod.json",
+    substitutions = {
+        "${version}": blazerod_version,
+        "${description}": blazerod_description,
+    },
+    out = "fabric.mod.json",
+)
+
+kt_jvm_library(
+    name = "model-gltf",
+    srcs = glob(["src/main/kotlin/**/*.kt"]),
+    resources = [":fabric_mod_json"],
+    resource_strip_prefix = "blazerod/model/model-gltf",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//blazerod/model/model-base",
+        "//:kotlin_serialization",
+        "@maven//:org_jetbrains_kotlinx_kotlinx_serialization_json",
+    ],
+)
+
+kt_jvm_test(
+	name = "glb_load_test",
+    srcs = ["src/test/kotlin/top/fifthlight/renderer/model/gltf/test/GlbLoadTest.kt"],
+    resources = ["@//blazerod/model/model-gltf/src/test/resources:test_models_srcs"],
+    main_class = "org.junit.platform.console.ConsoleLauncher",
+    args = ["execute", "--select-class", "top.fifthlight.renderer.model.gltf.test.GlbLoadTest"],
+    associates = [":model-gltf"],
+    deps = [
+        "@maven//:org_jetbrains_kotlin_kotlin_test_junit5",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+    ],
+    runtime_deps = [
+        "@maven//:org_junit_jupiter_junit_jupiter_engine",
+        "@maven//:org_junit_platform_junit_platform_console",
+    ],
+)

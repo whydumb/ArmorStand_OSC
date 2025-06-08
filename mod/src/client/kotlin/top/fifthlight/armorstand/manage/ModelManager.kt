@@ -15,6 +15,7 @@ import top.fifthlight.armorstand.ArmorStand
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.armorstand.util.*
 import top.fifthlight.renderer.model.ModelFileLoader
+import top.fifthlight.renderer.model.ModelFileLoaders
 import top.fifthlight.renderer.model.Texture
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
@@ -282,7 +283,7 @@ object ModelManager {
                     }
                     if (extension in ModelLoaders.embedThumbnailExtensions) {
                         val thumbnailResult = try {
-                            ModelLoaders.getEmbedThumbnail(path)
+                            ModelFileLoaders.getEmbedThumbnail(path)
                         } catch (ex: Exception) {
                             LOGGER.warn("Failed to extract thumbnail: {}", pathStr)
                             null

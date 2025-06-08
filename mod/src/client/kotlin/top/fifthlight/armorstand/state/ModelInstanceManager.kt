@@ -10,9 +10,9 @@ import top.fifthlight.armorstand.model.ModelBufferManager
 import top.fifthlight.armorstand.model.ModelInstance
 import top.fifthlight.armorstand.model.ModelLoader
 import top.fifthlight.armorstand.model.RenderScene
-import top.fifthlight.armorstand.util.ModelLoaders
 import top.fifthlight.armorstand.util.RefCount
 import top.fifthlight.armorstand.util.TimeUtil
+import top.fifthlight.renderer.model.ModelFileLoaders
 import java.nio.file.Path
 import java.util.*
 import kotlin.time.measureTimedValue
@@ -56,7 +56,7 @@ object ModelInstanceManager {
     private fun loadModel(path: Path): ModelCache {
         val (result, duration) = measureTimedValue {
             val modelLoadResult = runCatching {
-                ModelLoaders.probeAndLoad(modelDir.resolve(path).toAbsolutePath())
+                ModelFileLoaders.probeAndLoad(modelDir.resolve(path).toAbsolutePath())
             }.let { value ->
                 value.exceptionOrNull()?.let { LOGGER.warn("Model load failed", it) }
                 value.getOrNull()

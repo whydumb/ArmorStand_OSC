@@ -1,0 +1,54 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
+load("@rules_java//java:defs.bzl", "java_library")
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("//:properties.bzl", "blazerod_version", "blazerod_description")
+load("//rule:merge_jar.bzl", "merge_jar")
+load("//rule:merge_jij.bzl", "merge_jij")
+
+kt_jvm_library(
+    name = "blazerod_dep",
+    srcs = [],
+    resources = [":fabric_mod_json"],
+    resource_strip_prefix = "blazerod",
+    visibility = ["//visibility:public"],
+    exports = [
+        "//blazerod/model/model-formats",
+    ],
+)
+
+expand_template(
+    name = "fabric_mod_json",
+    template = "src/main/resources/fabric.mod.json",
+    substitutions = {
+        "${version}": blazerod_version,
+        "${description}": blazerod_description,
+    },
+    out = "fabric.mod.json",
+)
+
+java_library(
+    name = "fabric_mod_json_library",
+    resources = [":fabric_mod_json"],
+    resource_strip_prefix = "blazerod",
+)
+
+merge_jar(
+    name = "blazerod_merged",
+    deps = [
+        ":fabric_mod_json_library",
+    ],
+)
+
+merge_jij(
+    name = "blazerod",
+    visibility = ["//visibility:public"],
+    input = ":blazerod_merged",
+    deps = {
+        "//blazerod/model/model-base": "blazerod-model-base:=",
+        "//blazerod/model/model-formats": "blazerod-model-formats:=",
+        "//blazerod/model/model-gltf": "blazerod-model-formats-gltf:=",
+        "//blazerod/model/model-pmd": "blazerod-model-formats-pmd:=",
+        "//blazerod/model/model-pmx": "blazerod-model-formats-pmx:=",
+        "//blazerod/model/model-vmd": "blazerod-model-formats-vmd:=",
+    },
+)

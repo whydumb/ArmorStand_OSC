@@ -27,7 +27,7 @@ fun main(args: Array<String>) {
         .chunked(2)
         .map { (name, filePath) ->
             val (name, version) = name.split(":")
-            Triple(name, version, Path.of(filePath))
+            Triple(name, version.takeIf { it != "=" }, Path.of(filePath))
         }
 
     JarOutputStream(outputJar.outputStream()).use { output ->
@@ -35,37 +35,43 @@ fun main(args: Array<String>) {
             try {
                 val entry = JarEntry("META-INF/jars/${name}.jar").also { it.clearTime() }
                 output.putNextEntry(entry)
-                val newJarStream = ByteArrayOutputStream()
-                JarOutputStream(newJarStream).use { newOutput ->
-                    val fabricModJsonEntry = JarEntry("fabric.mod.json").also { it.clearTime() }
-                    val fabricModJsonText = Json.encodeToString(FabricModJson(
-                        schemaVersion = 1,
-                        id = name,
-                        version = version,
-                        name = name,
-                    ))
-                    newOutput.putNextEntry(fabricModJsonEntry)
-                    newOutput.writer().apply {
-                        write(fabricModJsonText)
-                        flush()
-                    }
-                    newOutput.closeEntry()
-                    JarInputStream(path.inputStream()).use { input ->
-                        var entry: JarEntry? = input.nextJarEntry
-                        while (entry != null) {
-                            try {
-                                newOutput.putNextEntry(entry)
-                                input.transferTo(newOutput)
-                                newOutput.flush()
-                            } finally {
-                                newOutput.closeEntry()
-                                input.closeEntry()
+                if (version == null) {
+                    path.inputStream().use { it.transferTo(output) }
+                } else {
+                    val newJarStream = ByteArrayOutputStream()
+                    JarOutputStream(newJarStream).use { newOutput ->
+                        val fabricModJsonEntry = JarEntry("fabric.mod.json").also { it.clearTime() }
+                        val fabricModJsonText = Json.encodeToString(
+                            FabricModJson(
+                                schemaVersion = 1,
+                                id = name,
+                                version = version,
+                                name = name,
+                            )
+                        )
+                        newOutput.putNextEntry(fabricModJsonEntry)
+                        newOutput.writer().apply {
+                            write(fabricModJsonText)
+                            flush()
+                        }
+                        newOutput.closeEntry()
+                        JarInputStream(path.inputStream()).use { input ->
+                            var entry: JarEntry? = input.nextJarEntry
+                            while (entry != null) {
+                                try {
+                                    newOutput.putNextEntry(entry)
+                                    input.transferTo(newOutput)
+                                    newOutput.flush()
+                                } finally {
+                                    newOutput.closeEntry()
+                                    input.closeEntry()
+                                }
+                                entry = input.nextJarEntry
                             }
-                            entry = input.nextJarEntry
                         }
                     }
+                    output.write(newJarStream.toByteArray())
                 }
-                output.write(newJarStream.toByteArray())
             } finally {
                 output.closeEntry()
             }

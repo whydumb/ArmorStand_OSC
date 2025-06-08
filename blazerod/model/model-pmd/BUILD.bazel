@@ -1,0 +1,22 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("//:properties.bzl", "blazerod_version", "blazerod_description")
+
+expand_template(
+    name = "fabric_mod_json",
+    template = "src/main/resources/fabric.mod.json",
+    substitutions = {
+        "${version}": blazerod_version,
+        "${description}": blazerod_description,
+    },
+    out = "fabric.mod.json",
+)
+
+kt_jvm_library(
+    name = "model-pmd",
+    srcs = glob(["src/main/kotlin/**/*.kt"]),
+    resources = [":fabric_mod_json"],
+    resource_strip_prefix = "blazerod/model/model-pmd",
+    visibility = ["//visibility:public"],
+    deps = ["//blazerod/model/model-base"],
+)

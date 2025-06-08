@@ -1,2 +1,4 @@
+blazerod_version = "0.0.1+dev"
+blazerod_description = "A model rendering API and library for Minecraft."
 mod_version = "0.0.1+dev"
 game_version = "1.21.6-pre3"
