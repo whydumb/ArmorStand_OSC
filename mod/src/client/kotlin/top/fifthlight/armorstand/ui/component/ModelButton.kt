@@ -106,7 +106,7 @@ class ModelButton(
                                 it.readToBuffer(
                                     offset = thumbnail.offset,
                                     length = thumbnail.offset,
-                                    readSizeLimit = 16 * 1024 * 1024,
+                                    readSizeLimit = 32 * 1024 * 1024,
                                 )
                             }
                         }
