@@ -1,16 +1,11 @@
 accessWidener v2 named
 accessible method net/minecraft/client/gl/ShaderProgram <init> (ILjava/lang/String;)V
 accessible field net/minecraft/client/gl/GlGpuBuffer id I
-accessible field net/minecraft/client/gl/GlGpuBuffer backingBuffer Ljava/nio/ByteBuffer;
 accessible field net/minecraft/client/texture/NativeImage MEMORY_POOL Lcom/mojang/jtracy/MemoryPool;
 accessible method net/minecraft/client/texture/NativeImage$Format fromChannelCount (I)Lnet/minecraft/client/texture/NativeImage$Format;
 mutable field net/minecraft/client/gl/RenderPassImpl IS_DEVELOPMENT Z
 accessible field net/minecraft/client/gl/RenderPassImpl indexBuffer Lcom/mojang/blaze3d/buffers/GpuBuffer;
 accessible field net/minecraft/client/gl/RenderPassImpl vertexBuffers [Lcom/mojang/blaze3d/buffers/GpuBuffer;
-accessible field net/minecraft/client/gl/RenderPassImpl pipeline Lnet/minecraft/client/gl/CompiledShaderPipeline;
-accessible field net/minecraft/client/gl/RenderPassImpl samplerUniforms Ljava/util/HashMap;
-accessible field net/minecraft/client/gl/RenderPassImpl simpleUniforms Ljava/util/HashMap;
-accessible field net/minecraft/client/render/entity/EntityRenderer dispatcher Lnet/minecraft/client/render/entity/EntityRenderDispatcher;
 accessible field net/minecraft/client/gui/widget/EntryListWidget MENU_LIST_BACKGROUND_TEXTURE Lnet/minecraft/util/Identifier;
 accessible field net/minecraft/client/gui/widget/EntryListWidget INWORLD_MENU_LIST_BACKGROUND_TEXTURE Lnet/minecraft/util/Identifier;
 accessible field net/minecraft/client/gui/widget/TabNavigationWidget grid Lnet/minecraft/client/gui/widget/DirectionalLayoutWidget;
