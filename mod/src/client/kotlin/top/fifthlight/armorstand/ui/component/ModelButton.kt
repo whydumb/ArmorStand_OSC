@@ -105,7 +105,7 @@ class ModelButton(
                             FileChannel.open(path).use {
                                 it.readToBuffer(
                                     offset = thumbnail.offset,
-                                    length = thumbnail.offset,
+                                    length = thumbnail.length,
                                     readSizeLimit = 32 * 1024 * 1024,
                                 )
                             }

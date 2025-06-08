@@ -10,7 +10,7 @@ fun ReadableByteChannel.readAll(buffer: ByteBuffer): Int {
     var length = 0
     while (buffer.hasRemaining()) {
         when (val len = read(buffer)) {
-            -1 -> if (!buffer.hasRemaining()) {
+            -1 -> if (buffer.hasRemaining()) {
                 throw IOException("Channel reached EOF")
             } else {
                 break
