@@ -1,0 +1,162 @@
+package top.fifthlight.blazerod.model
+
+import net.minecraft.client.gl.RenderPassImpl
+import net.minecraft.util.Identifier
+import org.joml.Matrix4f
+import org.joml.Matrix4fStack
+import org.joml.Matrix4fc
+import top.fifthlight.blazerod.util.AbstractRefCount
+import top.fifthlight.blazerod.util.SlottedGpuBuffer
+import top.fifthlight.blazerod.util.iteratorOf
+
+sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
+    companion object {
+        private val TYPE_ID = Identifier.of("blazerod", "node")
+    }
+
+    override val typeId: Identifier
+        get() = TYPE_ID
+
+    var parent: RenderNode? = null
+
+    open fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) = Unit
+
+    class Group(val children: List<RenderNode>) : RenderNode() {
+        init {
+            children.forEach { it.increaseReferenceCount() }
+        }
+
+        override fun onClosed() {
+            children.forEach { it.decreaseReferenceCount() }
+        }
+
+        override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) =
+            children.forEach { it.update(instance, matrixStack, updateTransform) }
+
+        override fun iterator(): Iterator<RenderNode> = children.iterator()
+    }
+
+    class Primitive(
+        val primitiveIndex: Int,
+        val primitive: RenderPrimitive,
+        val skinIndex: Int?,
+        val morphedPrimitiveIndex: Int?,
+    ) : RenderNode() {
+        init {
+            primitive.increaseReferenceCount()
+        }
+
+        override fun onClosed() {
+            primitive.decreaseReferenceCount()
+        }
+
+        override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
+            if (!updateTransform) {
+                return
+            }
+            if (skinIndex == null) {
+                instance.modelData.modelMatricesBuffer.setMatrix(primitiveIndex, matrixStack)
+            }
+        }
+
+        fun render(instance: ModelInstance, viewModelMatrix: Matrix4fc, light: Int) {
+            val skinBuffer = skinIndex?.let { instance.modelData.skinBuffers[it] }
+            val targetBuffer = morphedPrimitiveIndex?.let { instance.modelData.targetBuffers[it] }
+            primitive.render(instance, primitiveIndex, viewModelMatrix, light, skinBuffer, targetBuffer)
+        }
+
+        fun renderInstanced(tasks: List<RenderTask.Instance>) {
+            if (RenderPassImpl.IS_DEVELOPMENT) {
+                val firstInstance = tasks.first().instance
+                skinIndex?.let {
+                    val firstBufferSlot = firstInstance.modelData.skinBuffers[it].slot
+                    require(firstBufferSlot is SlottedGpuBuffer.Slotted)
+                    val buffer = firstBufferSlot.buffer
+                    for (task in tasks) {
+                        val bufferSlot = task.instance.modelData.skinBuffers[it].slot
+                        require(bufferSlot is SlottedGpuBuffer.Slotted)
+                        require(bufferSlot.buffer == buffer)
+                    }
+                }
+                morphedPrimitiveIndex?.let {
+                    val firstWeightsBufferSlot = firstInstance.modelData.targetBuffers[it].weightsSlot
+                    val firstIndicesBufferSlot = firstInstance.modelData.targetBuffers[it].indicesSlot
+                    require(firstWeightsBufferSlot is SlottedGpuBuffer.Slotted)
+                    require(firstIndicesBufferSlot is SlottedGpuBuffer.Slotted)
+                    val weightsBuffer = firstWeightsBufferSlot.buffer
+                    val indicesBuffer = firstIndicesBufferSlot.buffer
+                    for (task in tasks) {
+                        val weightsBufferSlot = task.instance.modelData.targetBuffers[it].weightsSlot
+                        val indicesBufferSlot = task.instance.modelData.targetBuffers[it].indicesSlot
+                        require(weightsBufferSlot is SlottedGpuBuffer.Slotted)
+                        require(indicesBufferSlot is SlottedGpuBuffer.Slotted)
+                        require(weightsBufferSlot.buffer == weightsBuffer)
+                        require(indicesBufferSlot.buffer == indicesBuffer)
+                    }
+                }
+            }
+            primitive.renderInstanced(tasks, this)
+        }
+
+        override fun iterator() = iteratorOf<RenderNode>()
+    }
+
+    class Transform(
+        val transformIndex: Int,
+        val defaultTransform: NodeTransform?,
+        val child: RenderNode,
+    ) : RenderNode() {
+        init {
+            child.increaseReferenceCount()
+        }
+
+        override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
+            val transformsDirty = instance.modelData.transformsDirty[transformIndex]
+            if (transformsDirty) {
+                instance.modelData.transformsDirty[transformIndex] = false
+            }
+            val updateTransform = updateTransform || transformsDirty
+            val transform = instance.modelData.transforms[transformIndex]
+            transform?.matrix?.let { matrix ->
+                matrixStack.pushMatrix()
+                matrixStack.mul(matrix)
+                child.update(instance, matrixStack, updateTransform)
+                matrixStack.popMatrix()
+            } ?: run {
+                child.update(instance, matrixStack, updateTransform)
+            }
+        }
+
+        override fun iterator() = iteratorOf(child)
+
+        override fun onClosed() {
+            child.decreaseReferenceCount()
+        }
+    }
+
+    class Joint(
+        val name: String?,
+        val skinIndex: Int,
+        val jointIndex: Int,
+    ) : RenderNode() {
+        private val cacheMatrix = Matrix4f()
+
+        override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
+            if (!updateTransform) {
+                return
+            }
+
+            val matrix = cacheMatrix
+            matrix.set(matrixStack)
+            val skinBuffer = instance.modelData.skinBuffers[skinIndex]
+
+            val inverseMatrix = skinBuffer.skin.inverseBindMatrices?.get(jointIndex)
+            inverseMatrix?.let { matrix.mul(it) }
+            skinBuffer.setMatrix(jointIndex, matrix)
+        }
+
+        override fun iterator() = iteratorOf<RenderNode>()
+
+        override fun onClosed() {}
+    }
+}

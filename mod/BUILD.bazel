@@ -232,9 +232,10 @@ java_binary(
         "-Ddev.launch.type=client",
         "-Ddev.launch.assetsPath=../+minecraft+minecraft_assets",
         "-Ddev.launch.mainClass=net.fabricmc.loader.impl.launch.knot.KnotClient",
+        "-Dblazerod.debug=true",
+        "-Dblazerod.debug.gui=true",
         "-Darmorstand.modelDir=blazerod/model/model-gltf/src/test/resources",
-        "-Darmorstand.debug=false",
-        "-Darmorstand.debug.gui=false",
+        "-Darmorstand.debug.gui=true",
         "-Xmx4G",
     ],
 )

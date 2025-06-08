@@ -1,7 +1,7 @@
 package top.fifthlight.armorstand.util
 
 import org.slf4j.Logger
-import top.fifthlight.armorstand.model.RenderNode
+import top.fifthlight.blazerod.model.RenderNode
 
 object ModelDumper {
     fun RenderNode.getNodeDescription(): String = when (this) {

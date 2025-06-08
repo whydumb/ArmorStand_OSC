@@ -3,9 +3,9 @@ package top.fifthlight.armorstand
 import com.mojang.blaze3d.systems.RenderSystem
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.client.util.math.MatrixStack
-import top.fifthlight.armorstand.model.TaskMap
+import top.fifthlight.blazerod.model.TaskMap
 import top.fifthlight.armorstand.state.ModelInstanceManager
-import top.fifthlight.armorstand.util.FramedObjectPool
+import top.fifthlight.blazerod.util.FramedObjectPool
 import java.util.*
 
 object PlayerRenderer {

@@ -1,7 +1,7 @@
 package top.fifthlight.armorstand.debug
 
 import top.fifthlight.armorstand.state.ModelInstanceManager
-import top.fifthlight.armorstand.util.TimeUtil
+import top.fifthlight.blazerod.util.TimeUtil
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.event.WindowAdapter

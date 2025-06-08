@@ -20,7 +20,7 @@ import net.minecraft.util.Colors
 import net.minecraft.util.Identifier
 import org.slf4j.LoggerFactory
 import top.fifthlight.armorstand.config.ConfigHolder
-import top.fifthlight.armorstand.extension.NativeImageExt
+import top.fifthlight.blazerod.extension.NativeImageExt
 import top.fifthlight.armorstand.manage.ModelItem
 import top.fifthlight.armorstand.manage.ModelManager
 import top.fifthlight.armorstand.util.ThreadExecutorDispatcher

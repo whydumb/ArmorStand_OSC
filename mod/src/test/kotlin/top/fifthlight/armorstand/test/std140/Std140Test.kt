@@ -1,7 +1,7 @@
 package top.fifthlight.armorstand.test.std140
 
 import org.joml.*
-import top.fifthlight.armorstand.std140.Std140Layout
+import top.fifthlight.blazerod.std140.Std140Layout
 import java.nio.ByteBuffer
 import kotlin.test.Test
 import kotlin.test.assertEquals

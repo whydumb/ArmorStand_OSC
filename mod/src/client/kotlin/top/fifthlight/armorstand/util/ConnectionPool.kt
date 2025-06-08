@@ -1,5 +1,6 @@
 package top.fifthlight.armorstand.util
 
+import top.fifthlight.blazerod.util.Pool
 import java.sql.Connection
 
 inline fun <T> Pool<Connection>.transaction(crossinline block: Connection.() -> T): T {
