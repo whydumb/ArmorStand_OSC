@@ -42,11 +42,13 @@ object ModelFileLoaders {
         null
     }
 
+    @JvmOverloads
     fun probeAndLoad(path: Path, basePath: Path = path.parent ?: error("no base path: $path")): ModelFileLoader.LoadResult? {
         val loader = probeLoader(loaders, path)
         return loader?.load(path, basePath)
     }
 
+    @JvmOverloads
     fun getEmbedThumbnail(path: Path, basePath: Path? = path.parent): ModelFileLoader.ThumbnailResult? {
         val loader = probeLoader(embedThumbnailLoaders, path)
         return loader?.getThumbnail(path, basePath)

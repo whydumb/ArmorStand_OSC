@@ -13,6 +13,7 @@ import top.fifthlight.blazerod.model.data.RenderTargetBuffer
 import top.fifthlight.blazerod.util.AbstractRefCount
 import top.fifthlight.blazerod.util.mapToArray
 import top.fifthlight.blazerod.util.mapToArrayIndexed
+import java.util.function.Consumer
 
 class ModelInstance(
     val scene: RenderScene,
@@ -104,6 +105,9 @@ class ModelInstance(
         modelData.transformsDirty[transformIndex] = true
     }
 
+    fun setTransformDecomposed(index: Int, updater: Consumer<NodeTransform.Decomposed>) =
+        setTransformDecomposed(index) { updater.accept(this) }
+
     inline fun setTransformDecomposed(index: Int, crossinline updater: NodeTransform.Decomposed.() -> Unit) {
         val transform = modelData.transforms[index]
         when (transform) {
@@ -136,7 +140,8 @@ class ModelInstance(
         val node = scene.nodes[nodeIndex]
         require(node is RenderNode.Primitive) { "Node id $morphedPrimitiveIndex is not primitive" }
         val group = node.primitive.targetGroups[targetGroupIndex]
-        val weightsIndex = requireNotNull(node.morphedPrimitiveIndex) { "Node $nodeIndex don't have target? Check model loader" }
+        val weightsIndex =
+            requireNotNull(node.morphedPrimitiveIndex) { "Node $nodeIndex don't have target? Check model loader" }
         val weights = modelData.targetBuffers[weightsIndex]
         group.position?.let { weights.positionChannel[it] = weight }
         group.color?.let { weights.colorChannel[it] = weight }
@@ -149,13 +154,13 @@ class ModelInstance(
         scene.update(this, updateMatrixStack)
     }
 
-    fun render(modelMatrix: Matrix4fc, light: Int) {
-        scene.render(this, modelMatrix, light)
+    fun render(modelViewMatrix: Matrix4fc, light: Int) {
+        scene.render(this, modelViewMatrix, light)
     }
 
-    fun schedule(modelMatrix: Matrix4fc, light: Int) = RenderTask.Instance.acquire(
+    fun schedule(modelViewMatrix: Matrix4fc, light: Int) = RenderTask.Instance.acquire(
         instance = this,
-        modelMatrix = modelMatrix,
+        modelViewMatrix = modelViewMatrix,
         light = light,
     )
 

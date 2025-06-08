@@ -52,9 +52,6 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
         ConfigHolder.read()
 
         KeyBindingHelper.registerKeyBinding(configKeyBinding)
-        WorldRenderEvents.START.register { context ->
-            PlayerRenderer.flipObjectPools()
-        }
         WorldRenderEvents.BEFORE_ENTITIES.register { context ->
             PlayerRenderer.startRenderWorld()
         }

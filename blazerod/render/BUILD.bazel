@@ -3,9 +3,7 @@ load("//rule:remap_jar.bzl", "remap_jar")
 load("//rule:apply_access_widener.bzl", "apply_access_widener")
 load("//rule:extract_access_widener.bzl", "extract_access_widener")
 load("//rule:merge_jar.bzl", "merge_jar")
-load("//rule:generate_remap_classpath.bzl", "generate_remap_classpath")
 load("//rule:decompile_jar.bzl", "decompile_jar")
-load("//rule:merge_jij.bzl", "merge_jij")
 load("//:properties.bzl", "blazerod_version", "blazerod_description", "game_version")
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
@@ -59,7 +57,7 @@ expand_template(
 )
 
 java_library(
-	name = "render_resouces",
+	name = "render_resources",
     resource_strip_prefix = "blazerod/render/src/main/resources",
     resources = [
         "src/main/resources/blazerod.accesswidener",
@@ -96,7 +94,7 @@ merge_jar(
     visibility = ["//visibility:public"],
     deps = [
         ":render_unmapped_without_resouces",
-        ":render_resouces",
+        ":render_resources",
     ],
 )
 

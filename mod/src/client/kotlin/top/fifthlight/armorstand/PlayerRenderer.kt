@@ -3,6 +3,7 @@ package top.fifthlight.armorstand
 import com.mojang.blaze3d.systems.RenderSystem
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.client.util.math.MatrixStack
+import org.joml.Matrix4f
 import top.fifthlight.blazerod.model.TaskMap
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.blazerod.util.FramedObjectPool
@@ -12,14 +13,11 @@ object PlayerRenderer {
     private var renderingWorld = false
     private val taskMap = TaskMap()
 
-    fun flipObjectPools() {
-        FramedObjectPool.frame()
-    }
-
     fun startRenderWorld() {
         renderingWorld = true
     }
 
+    private val matrix = Matrix4f()
     @JvmStatic
     fun appendPlayer(
         uuid: UUID,
@@ -43,13 +41,12 @@ object PlayerRenderer {
         matrixStack.pop()
         matrixStack.push()
 
-        val modelMatrix = matrixStack.peek().positionMatrix
-
-        modelMatrix.mulLocal(RenderSystem.getModelViewStack())
+        matrix.set(matrixStack.peek().positionMatrix)
+        matrix.mulLocal(RenderSystem.getModelViewStack())
         if (renderingWorld) {
-            taskMap.addTask(instance.schedule(modelMatrix, light))
+            taskMap.addTask(instance.schedule(matrix, light))
         } else {
-            instance.render(modelMatrix, light)
+            instance.render(matrix, light)
         }
 
         matrixStack.pop()

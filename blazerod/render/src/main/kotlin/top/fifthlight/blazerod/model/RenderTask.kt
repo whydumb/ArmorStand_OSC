@@ -45,7 +45,7 @@ sealed class RenderTask<T: RenderTask<T, K>, K: Any> {
         var instance: ModelInstance
             get() = _instance!!
             set(value) { _instance = value }
-        val viewModelMatrix: Matrix4f = Matrix4f()
+        val modelViewMatrix: Matrix4f = Matrix4f()
         var light: Int = -1
 
         override fun release() {
@@ -68,12 +68,12 @@ sealed class RenderTask<T: RenderTask<T, K>, K: Any> {
 
             fun acquire(
                 instance: ModelInstance,
-                modelMatrix: Matrix4fc,
+                modelViewMatrix: Matrix4fc,
                 light: Int,
             ) = POOL.acquire().apply {
                 instance.increaseReferenceCount()
                 this.instance = instance
-                this.viewModelMatrix.set(modelMatrix)
+                this.modelViewMatrix.set(modelViewMatrix)
                 this.light = light
             }
         }

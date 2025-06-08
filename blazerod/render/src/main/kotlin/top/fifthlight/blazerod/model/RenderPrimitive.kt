@@ -104,7 +104,7 @@ class RenderPrimitive(
             instanceDataUniformBuffer.write {
                 primitiveSize = instance.scene.primitiveNodes.size
                 this.primitiveIndex = primitiveIndex
-                this.viewModelMatrices[0] = viewModelMatrix
+                this.modelViewMatrices[0] = viewModelMatrix
                 lightVector.set(
                     light and (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE or 0xFF0F),
                     (light shr 16) and (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE or 0xFF0F)
@@ -279,7 +279,7 @@ class RenderPrimitive(
                         (light shr 16) and (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE or 0xFF0F)
                     )
                     this.lightMapUvs[index] = lightVector
-                    this.viewModelMatrices[index] = task.viewModelMatrix
+                    this.modelViewMatrices[index] = task.modelViewMatrix
                     val slot = task.instance.modelData.modelMatricesBuffer.slot.asSlotted()
                     localMatricesIndices.set(index, slot.index)
                 }

@@ -59,10 +59,10 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
             }
         }
 
-        fun render(instance: ModelInstance, viewModelMatrix: Matrix4fc, light: Int) {
+        fun render(instance: ModelInstance, modelViewMatrix: Matrix4fc, light: Int) {
             val skinBuffer = skinIndex?.let { instance.modelData.skinBuffers[it] }
             val targetBuffer = morphedPrimitiveIndex?.let { instance.modelData.targetBuffers[it] }
-            primitive.render(instance, primitiveIndex, viewModelMatrix, light, skinBuffer, targetBuffer)
+            primitive.render(instance, primitiveIndex, modelViewMatrix, light, skinBuffer, targetBuffer)
         }
 
         fun renderInstanced(tasks: List<RenderTask.Instance>) {

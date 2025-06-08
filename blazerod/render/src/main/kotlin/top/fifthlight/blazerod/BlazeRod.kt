@@ -3,12 +3,14 @@ package top.fifthlight.blazerod
 import com.mojang.logging.LogUtils
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents
 import net.minecraft.client.gl.RenderPassImpl
 import top.fifthlight.armorstand.debug.ObjectCountTrackerFrame
 import top.fifthlight.armorstand.debug.ResourceCountTrackerFrame
 import top.fifthlight.blazerod.debug.ObjectPoolTracker
 import top.fifthlight.blazerod.debug.ResourceCountTracker
 import top.fifthlight.blazerod.model.RenderMaterial
+import top.fifthlight.blazerod.util.FramedObjectPool
 import top.fifthlight.blazerod.util.cleanupPools
 import javax.swing.SwingUtilities
 
@@ -37,6 +39,10 @@ object BlazeRod: ClientModInitializer {
                     }
                 }
             }
+        }
+
+        WorldRenderEvents.START.register { context ->
+            FramedObjectPool.frame()
         }
 
         ClientLifecycleEvents.CLIENT_STOPPING.register { client ->

@@ -37,9 +37,9 @@ class RenderScene(
 
     fun update(modelInstance: ModelInstance, matrixStack: Matrix4fStack) = rootNode.update(modelInstance, matrixStack, false)
 
-    fun render(modelInstance: ModelInstance, viewModelMatrix: Matrix4fc, light: Int) {
+    fun render(instance: ModelInstance, modelViewMatrix: Matrix4fc, light: Int) {
         for (node in primitiveNodes) {
-            node.render(modelInstance, viewModelMatrix, light)
+            node.render(instance, modelViewMatrix, light)
         }
     }
 
@@ -48,7 +48,7 @@ class RenderScene(
             0 -> return
             1 -> {
                 val task = tasks.first()
-                render(task.instance, task.viewModelMatrix, task.light)
+                render(task.instance, task.modelViewMatrix, task.light)
             }
             else -> for (node in primitiveNodes) {
                 node.renderInstanced(tasks)
