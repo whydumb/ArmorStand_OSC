@@ -190,22 +190,51 @@ class ModelButton(
         val left = x + padding.left
         val right = x + width - padding.right
         val imageBottom = bottom - textRenderer.fontHeight - 8
+        val imageWidth = right - left
+        val imageHeight = imageBottom - top
         when (val state = iconState) {
             is ModelIconState.Loaded -> {
-                context.drawTexture(
-                    RenderPipelines.GUI_TEXTURED,
-                    state.icon.identifier,
-                    left,
-                    top,
-                    0f,
-                    0f,
-                    right - left,
-                    imageBottom - top,
-                    state.icon.width,
-                    state.icon.height,
-                    state.icon.width,
-                    state.icon.height,
-                )
+                val icon = state.icon
+                val iconAspect = icon.width.toFloat() / icon.height.toFloat()
+                val targetAspect = imageWidth.toFloat() / imageHeight.toFloat()
+
+                if (iconAspect > targetAspect) {
+                    val scaledHeight = (imageWidth / iconAspect).toInt()
+                    val yOffset = (imageHeight - scaledHeight) / 2
+
+                    context.drawTexture(
+                        RenderPipelines.GUI_TEXTURED,
+                        icon.identifier,
+                        left,
+                        top + yOffset,
+                        0f,
+                        0f,
+                        imageWidth,
+                        scaledHeight,
+                        icon.width,
+                        icon.height,
+                        icon.width,
+                        icon.height,
+                    )
+                } else {
+                    val scaledWidth = (imageHeight * iconAspect).toInt()
+                    val xOffset = (imageWidth - scaledWidth) / 2
+
+                    context.drawTexture(
+                        RenderPipelines.GUI_TEXTURED,
+                        icon.identifier,
+                        left + xOffset,
+                        top,
+                        0f,
+                        0f,
+                        scaledWidth,
+                        imageHeight,
+                        icon.width,
+                        icon.height,
+                        icon.width,
+                        icon.height,
+                    )
+                }
             }
 
             ModelIconState.Loading -> {
