@@ -1,0 +1,112 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
+load("//rule:remap_jar.bzl", "remap_jar")
+load("//rule:apply_access_widener.bzl", "apply_access_widener")
+load("//rule:extract_access_widener.bzl", "extract_access_widener")
+load("//rule:merge_jar.bzl", "merge_jar")
+load("//rule:generate_remap_classpath.bzl", "generate_remap_classpath")
+load("//rule:decompile_jar.bzl", "decompile_jar")
+load("//rule:merge_jij.bzl", "merge_jij")
+load("//:properties.bzl", "blazerod_version", "blazerod_description", "game_version")
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+
+extract_access_widener(
+    name = "access_widener_dep_intermediary",
+    inputs = ["@maven//:net_fabricmc_fabric_api_fabric_api"],
+)
+
+remap_jar(
+    name = "remapped_deps",
+    classpath = [
+        "//game:remapped_client_intermediary",
+    ],
+    inputs = ["@maven//:net_fabricmc_fabric_api_fabric_api"],
+    mixin = True,
+    remap_transitive_deps = True,
+    remove_jar_in_jar = True,
+    mapping = "//game:merged_mapping",
+    from_namespace = "intermediary",
+    to_namespace = "named",
+)
+
+extract_access_widener(
+    name = "access_widener_dep_named",
+    inputs = [":remapped_deps"],
+)
+
+apply_access_widener(
+    name = "remapped_client_access_widened_named",
+    input = "//game:remapped_client_named",
+    srcs = [
+        "src/main/resources/blazerod.accesswidener",
+        ":access_widener_dep_named",
+    ],
+)
+
+decompile_jar(
+    name = "decompile_client_access_widened_named",
+    inputs = [":remapped_client_access_widened_named"],
+)
+
+expand_template(
+    name = "fabric_mod_json",
+    template = "src/main/resources/fabric.mod.json",
+    substitutions = {
+        "${version}": blazerod_version,
+        "${description}": blazerod_description,
+    },
+    out = "_generated/fabric.mod.json",
+)
+
+java_library(
+	name = "render_resouces",
+    resource_strip_prefix = "blazerod/render/src/main/resources",
+    resources = [
+        "src/main/resources/blazerod.accesswidener",
+        "src/main/resources/blazerod.mixins.json",
+    ] + glob(["src/main/resources/assets/**"]),
+)
+
+kt_jvm_library(
+    name = "render_unmapped_without_resouces",
+    srcs = glob(
+        include = [
+            "src/main/kotlin/**/*.kt",
+            "src/main/java/**/*.java",
+        ],
+        allow_empty = True,
+    ),
+    module_name = "top_fifthlight_blazerod_render",
+    resource_strip_prefix = "blazerod/render/_generated",
+    resources = [":fabric_mod_json"],
+    deps = [
+        ":remapped_client_access_widened_named",
+        ":remapped_deps",
+        "//blazerod/model/model-formats",
+        "@maven//:net_fabricmc_fabric_language_kotlin",
+        "@maven//:net_fabricmc_fabric_loader",
+        "@maven//:net_fabricmc_sponge_mixin",
+        "@maven//:io_github_llamalad7_mixinextras_fabric",
+        "@minecraft//:%s_client_libraries" % game_version,
+    ],
+)
+
+merge_jar(
+    name = "render_unmapped",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":render_unmapped_without_resouces",
+        ":render_resouces",
+    ],
+)
+
+remap_jar(
+    name = "render",
+    visibility = ["//visibility:public"],
+    inputs = [":render_unmapped"],
+    classpath = ["//game:remapped_client_named"],
+    mapping = "//game:merged_mapping",
+    mixin = True,
+    from_namespace = "named",
+    to_namespace = "intermediary",
+)

@@ -24,7 +24,7 @@ import top.fifthlight.armorstand.extension.NativeImageExt
 import top.fifthlight.armorstand.manage.ModelItem
 import top.fifthlight.armorstand.manage.ModelManager
 import top.fifthlight.armorstand.util.ThreadExecutorDispatcher
-import top.fifthlight.renderer.model.util.readToBuffer
+import top.fifthlight.blazerod.model.util.readToBuffer
 import java.nio.channels.FileChannel
 
 class ModelButton(

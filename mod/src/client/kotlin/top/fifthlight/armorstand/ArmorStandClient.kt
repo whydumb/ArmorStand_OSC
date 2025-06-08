@@ -32,9 +32,6 @@ import javax.swing.SwingUtilities
 
 object ArmorStandClient : ArmorStand(), ClientModInitializer {
     private val LOGGER = LogUtils.getLogger()
-    const val INSTANCE_SIZE = 256
-    const val MAX_ENABLED_MORPH_TARGETS = 32
-    const val MAX_TRANSFORM_DEPTH = 64
     private val configKeyBinding = KeyBinding(
         "armorstand.keybinding.config",
         GLFW.GLFW_KEY_I,
@@ -68,7 +65,6 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
         }
 
         ConfigHolder.read()
-        RenderMaterial.initialize()
 
         KeyBindingHelper.registerKeyBinding(configKeyBinding)
         WorldRenderEvents.START.register { context ->

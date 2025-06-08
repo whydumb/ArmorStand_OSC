@@ -27,10 +27,10 @@ kt_jvm_library(
 
 kt_jvm_test(
 	name = "glb_load_test",
-    srcs = ["src/test/kotlin/top/fifthlight/renderer/model/gltf/test/GlbLoadTest.kt"],
+    srcs = ["src/test/kotlin/top/fifthlight/blazerod/model/gltf/test/GlbLoadTest.kt"],
     resources = ["@//blazerod/model/model-gltf/src/test/resources:test_models_srcs"],
     main_class = "org.junit.platform.console.ConsoleLauncher",
-    args = ["execute", "--select-class", "top.fifthlight.renderer.model.gltf.test.GlbLoadTest"],
+    args = ["execute", "--select-class", "top.fifthlight.blazerod.model.gltf.test.GlbLoadTest"],
     associates = [":model-gltf"],
     deps = [
         "@maven//:org_jetbrains_kotlin_kotlin_test_junit5",

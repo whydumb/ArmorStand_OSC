@@ -12,7 +12,7 @@ import top.fifthlight.armorstand.model.ModelLoader
 import top.fifthlight.armorstand.model.RenderScene
 import top.fifthlight.armorstand.util.RefCount
 import top.fifthlight.armorstand.util.TimeUtil
-import top.fifthlight.renderer.model.ModelFileLoaders
+import top.fifthlight.blazerod.model.ModelFileLoaders
 import java.nio.file.Path
 import java.util.*
 import kotlin.time.measureTimedValue

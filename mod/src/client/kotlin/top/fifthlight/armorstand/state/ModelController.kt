@@ -11,8 +11,8 @@ import top.fifthlight.armorstand.model.RenderExpression
 import top.fifthlight.armorstand.model.RenderNode
 import top.fifthlight.armorstand.model.RenderScene
 import top.fifthlight.armorstand.util.toRadian
-import top.fifthlight.renderer.model.Expression
-import top.fifthlight.renderer.model.HumanoidTag
+import top.fifthlight.blazerod.model.Expression
+import top.fifthlight.blazerod.model.HumanoidTag
 import java.util.UUID
 import kotlin.math.abs
 

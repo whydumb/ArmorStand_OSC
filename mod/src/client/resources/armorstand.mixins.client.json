@@ -9,18 +9,6 @@
     "CameraMixin",
     "PlayerEntityRendererMixin",
     "PlayerEntityRenderStateMixin",
-    "PlayerModelMixin",
-    "RenderObjectMixin",
-    "RenderPipelineBuilderMixin",
-    "RenderPipelineMixin",
-    "RenderPipelineSnippetMixin",
-    "TextureFormatMixin",
-    "gl.BufferManagerMixin",
-    "gl.BufferManagerMixin$ARBBufferManagerMixin",
-    "gl.BufferManagerMixin$DefaultBufferManagerMixin",
-    "gl.GlBackendMixin",
-    "gl.GlCommandEncoderMixin",
-    "gl.GlConstMixin",
-    "gl.RenderPassImplMixin"
+    "PlayerModelMixin"
   ]
 }

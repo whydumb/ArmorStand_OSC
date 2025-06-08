@@ -14,9 +14,9 @@ import net.minecraft.util.Identifier
 import top.fifthlight.armorstand.ArmorStand
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.armorstand.util.*
-import top.fifthlight.renderer.model.ModelFileLoader
-import top.fifthlight.renderer.model.ModelFileLoaders
-import top.fifthlight.renderer.model.Texture
+import top.fifthlight.blazerod.model.ModelFileLoader
+import top.fifthlight.blazerod.model.ModelFileLoaders
+import top.fifthlight.blazerod.model.Texture
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.*

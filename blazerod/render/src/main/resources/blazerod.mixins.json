@@ -1,0 +1,22 @@
+{
+  "required": true,
+  "package": "top.fifthlight.armorstand.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "RenderObjectMixin",
+    "RenderPipelineBuilderMixin",
+    "RenderPipelineMixin",
+    "RenderPipelineSnippetMixin",
+    "TextureFormatMixin",
+    "gl.BufferManagerMixin",
+    "gl.BufferManagerMixin$ARBBufferManagerMixin",
+    "gl.BufferManagerMixin$DefaultBufferManagerMixin",
+    "gl.GlBackendMixin",
+    "gl.GlCommandEncoderMixin",
+    "gl.GlConstMixin",
+    "gl.RenderPassImplMixin"
+  ]
+}

@@ -2,7 +2,7 @@ package top.fifthlight.armorstand.ui.state
 
 import top.fifthlight.armorstand.manage.ModelItem
 import top.fifthlight.armorstand.manage.ModelManager
-import top.fifthlight.renderer.model.Metadata
+import top.fifthlight.blazerod.model.Metadata
 import java.nio.file.Path
 
 data class ConfigScreenState(

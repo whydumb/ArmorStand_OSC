@@ -13,6 +13,7 @@ kt_jvm_library(
     visibility = ["//visibility:public"],
     exports = [
         "//blazerod/model/model-formats",
+        "//blazerod/render:render_unmapped",
     ],
 )
 
@@ -50,5 +51,6 @@ merge_jij(
         "//blazerod/model/model-pmd": "blazerod-model-formats-pmd:=",
         "//blazerod/model/model-pmx": "blazerod-model-formats-pmx:=",
         "//blazerod/model/model-vmd": "blazerod-model-formats-vmd:=",
+        "//blazerod/render": "blazerod-render:=",
     },
 )
