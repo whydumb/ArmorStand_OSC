@@ -43,7 +43,7 @@ class PmxLoadException(message: String) : Exception(message)
 // Format from https://gist.github.com/felixjones/f8a06bd48f9da9a4539f
 object PmxLoader : ModelFileLoader {
     override val extensions = listOf("pmx")
-    override val abilities = listOf(ModelFileLoader.Ability.MODEL)
+    override val abilities = setOf(ModelFileLoader.Ability.MODEL)
 
     private val PMX_SIGNATURE = byteArrayOf(0x50, 0x4D, 0x58, 0x20)
     override val probeLength = PMX_SIGNATURE.size
@@ -501,9 +501,6 @@ object PmxLoader : ModelFileLoader {
                         val buffer = ByteBuffer.allocateDirect(size)
                         channel.readAll(buffer)
                         buffer.flip()
-                        if (buffer.remaining() != size) {
-                            throw PmxLoadException("Not read to texture's end, maybe a bug?")
-                        }
                         buffer
                     }
                 }
@@ -743,7 +740,7 @@ object PmxLoader : ModelFileLoader {
             }
         }
 
-        fun load(buffer: ByteBuffer): ModelFileLoader.Result {
+        fun load(buffer: ByteBuffer): ModelFileLoader.LoadResult {
             val header = loadHeader(buffer)
             loadVertices(buffer)
             loadSurfaces(buffer)
@@ -844,7 +841,7 @@ object PmxLoader : ModelFileLoader {
                 ),
             )
 
-            return ModelFileLoader.Result(
+            return ModelFileLoader.LoadResult(
                 metadata = Metadata(
                     title = header.modelNameLocal,
                     titleUniversal = header.modelNameUniversal,
@@ -874,9 +871,6 @@ object PmxLoader : ModelFileLoader {
                 val buffer = ByteBuffer.allocate(fileSize)
                 channel.readAll(buffer)
                 buffer.flip()
-                if (channel.position() != fileSize.toLong()) {
-                    throw PmxLoadException("Not read to file's end, maybe a bug?")
-                }
                 buffer
             }
             val context = Context(basePath)

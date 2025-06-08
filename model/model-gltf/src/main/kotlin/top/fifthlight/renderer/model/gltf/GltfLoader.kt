@@ -25,6 +25,12 @@ internal class GltfLoader(
     private val basePath: Path,
 ) {
     companion object {
+        internal val abilities = setOf(
+            ModelFileLoader.Ability.MODEL,
+            ModelFileLoader.Ability.ANIMATION,
+            ModelFileLoader.Ability.EMBED_THUMBNAIL,
+        )
+
         private val defaultSampler = Texture.Sampler(
             magFilter = Texture.Sampler.MagFilter.LINEAR,
             minFilter = Texture.Sampler.MinFilter.LINEAR,
@@ -119,6 +125,8 @@ internal class GltfLoader(
         } ?: listOf()
     }
 
+    private fun parseMimeType(mimeType: String) = Texture.TextureType.entries.firstOrNull { mimeType == it.mimeType }
+
     private fun loadTextures() {
         val images = gltf.images ?: listOf()
         textures = gltf.textures?.map { texture ->
@@ -144,9 +152,7 @@ internal class GltfLoader(
                         ?: throw GltfLoadException("Bad texture: sampler $index not found")
                 } ?: defaultSampler,
                 bufferView = bufferView,
-                type = image?.mimeType?.let { mime ->
-                    Texture.TextureType.entries.firstOrNull { mime == it.mimeType }
-                },
+                type = image?.mimeType?.let { mime -> parseMimeType(mime) },
             )
         } ?: listOf()
     }
@@ -506,7 +512,8 @@ internal class GltfLoader(
 
         val vrmV1 = gltf.extensions?.vrmV1?.expressions
         if (vrmV1 != null) {
-            expressions = ((vrmV1.preset?.entries?.asSequence() ?: sequenceOf()) + (vrmV1.custom?.entries?.asSequence() ?: sequenceOf())).mapNotNull { (key, value) ->
+            expressions = ((vrmV1.preset?.entries?.asSequence() ?: sequenceOf()) + (vrmV1.custom?.entries?.asSequence()
+                ?: sequenceOf())).mapNotNull { (key, value) ->
                 Expression(
                     name = key,
                     isBinary = value.isBinary ?: false,
@@ -545,7 +552,7 @@ internal class GltfLoader(
         expressions = listOf()
     }
 
-    fun load(json: String): ModelFileLoader.Result {
+    fun load(json: String): ModelFileLoader.LoadResult {
         if (loaded) {
             throw GltfLoadException("Already loaded. Please don't load again.")
         }
@@ -577,10 +584,63 @@ internal class GltfLoader(
             expressions = expressions,
         )
 
-        return ModelFileLoader.Result(
+        return ModelFileLoader.LoadResult(
             metadata = metadata,
             model = model,
             animations = animations,
         )
+    }
+
+    fun getThumbnail(json: String, binaryChunkData: GltfBinaryLoader.ChunkData): ModelFileLoader.ThumbnailResult {
+        if (loaded) {
+            throw GltfLoadException("Already loaded. Please don't load again.")
+        }
+        loaded = true
+
+        gltf = format.decodeFromString(json)
+
+        val textureIndex = run {
+            val vrmV0Meta = gltf.extensions?.vrmV0?.meta
+            if (vrmV0Meta != null) {
+                return@run vrmV0Meta.texture
+            }
+            val vrmV1Meta = gltf.extensions?.vrmV1?.meta
+            if (vrmV1Meta != null) {
+                return@run vrmV1Meta.thumbnailImage
+            }
+            null
+        } ?: return ModelFileLoader.ThumbnailResult.None
+
+        val texture =
+            gltf.textures?.getOrNull(textureIndex) ?: throw GltfLoadException("No texture index $textureIndex")
+        val imageIndex = texture.source ?: return ModelFileLoader.ThumbnailResult.None
+        val image = gltf.images?.getOrNull(texture.source) ?: throw GltfLoadException("No image index $imageIndex")
+        // All images should be embed in VRM
+        return if (image.bufferView != null) {
+            val bufferView = gltf.bufferViews?.getOrNull(image.bufferView)
+                ?: throw GltfLoadException("No bufferView index ${image.bufferView}")
+            if (bufferView.buffer != 0) {
+                // External buffer? Not in VRM.
+                return ModelFileLoader.ThumbnailResult.None
+            }
+            val bufferViewOffset = bufferView.byteOffset ?: 0
+            if (bufferViewOffset < 0) {
+                throw GltfLoadException("Bad bufferView offset: $bufferViewOffset")
+            }
+            if (bufferView.byteLength < 0) {
+                throw GltfLoadException("Bad bufferView length: ${bufferView.byteLength}")
+            }
+            if (bufferViewOffset + bufferView.byteLength > binaryChunkData.length) {
+                throw GltfLoadException("Bad offset: total ${binaryChunkData.length}, but offset $bufferViewOffset length ${bufferView.byteLength}")
+            }
+            val finalOffset = binaryChunkData.offset + bufferViewOffset
+            ModelFileLoader.ThumbnailResult.Embed(
+                offset = finalOffset,
+                length = bufferView.byteLength.toLong(),
+                type = image.mimeType?.let { mime -> parseMimeType(mime) },
+            )
+        } else {
+            ModelFileLoader.ThumbnailResult.None
+        }
     }
 }

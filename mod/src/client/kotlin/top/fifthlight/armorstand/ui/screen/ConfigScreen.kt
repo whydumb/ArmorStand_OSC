@@ -129,12 +129,17 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
         ).also { grid ->
             scope.launch {
                 viewModel.uiState.map { it.currentPageItems }.distinctUntilChanged().collect { items ->
-                    grid.forEachChild { remove(it) }
+                    grid.forEachChild {
+                        if (it is AutoCloseable) {
+                            it.close()
+                        }
+                        remove(it)
+                    }
                     grid.clear()
                     items?.let {
                         for (item in items) {
                             val button = ModelButton(
-                                message = Text.literal(item.path.fileName.toString()),
+                                modelItem = item,
                                 textRenderer = textRenderer,
                                 padding = Insets(8),
                             ) {
@@ -344,5 +349,14 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
         } else {
             tabManager.currentTab?.forEachChild { addDrawableChild(it) }
         }
+    }
+
+    override fun close() {
+        modelGrid.forEachChild {
+            if (it is AutoCloseable) {
+                it.close()
+            }
+        }
+        super.close()
     }
 }

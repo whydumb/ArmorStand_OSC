@@ -7,12 +7,12 @@ fun ByteArray.toHexString() = buildString(size * 2) {
         if (high < 10) {
             append('0' + high)
         } else {
-            append('A' + high - 10)
+            append('a' + high - 10)
         }
         if (low < 10) {
             append('0' + low)
         } else {
-            append('A' + low - 10)
+            append('a' + low - 10)
         }
     }
 }

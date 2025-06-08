@@ -10,6 +10,18 @@ import java.nio.ByteBuffer
 
 object NativeImageExt {
     @JvmStatic
+    fun read(textureType: Texture.TextureType?, buffer: ByteBuffer): NativeImage {
+        require(MemoryUtil.memAddress(buffer) != 0L) { "Invalid buffer" }
+        textureType?.let { textureType ->
+            require(buffer.remaining() >= textureType.magic.size) { "Bad image size: ${buffer.remaining()}, type: $textureType" }
+            val magicBuffer = ByteBuffer.wrap(textureType.magic)
+            require(buffer.slice(0, textureType.magic.size).mismatch(magicBuffer) == -1) { "Bad image magic for type $textureType" }
+        }
+
+        return NativeImage.read(buffer)
+    }
+
+    @JvmStatic
     fun read(pixelFormat: NativeImage.Format?, textureType: Texture.TextureType?, buffer: ByteBuffer): NativeImage {
         require(pixelFormat?.isWriteable != false) { throw UnsupportedOperationException("Don't know how to read format $pixelFormat") }
         require(MemoryUtil.memAddress(buffer) != 0L) { "Invalid buffer" }

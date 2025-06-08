@@ -14,9 +14,9 @@ class LoadingOverlay<T>(
     var loading: Boolean = true,
 ) : LayoutWidget by inner, ResizableLayout by inner, Drawable where T: LayoutWidget, T: ResizableLayout {
     companion object {
-        private val LOADING_ICON = Identifier.of("armorstand", "loading")
-        private const val ICON_WIDTH = 32
-        private const val ICON_HEIGHT = 32
+        val LOADING_ICON: Identifier = Identifier.of("armorstand", "loading")
+        const val ICON_WIDTH = 32
+        const val ICON_HEIGHT = 32
     }
 
     override fun forEachChild(consumer: Consumer<ClickableWidget>) = inner.forEachChild(consumer)

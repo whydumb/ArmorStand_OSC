@@ -25,7 +25,7 @@ class PmdLoadException(message: String) : Exception(message)
 // Format from: https://mikumikudance.fandom.com/wiki/MMD:Polygon_Model_Data
 object PmdLoader: ModelFileLoader {
     override val extensions = listOf("pmd")
-    override val abilities = listOf(ModelFileLoader.Ability.MODEL)
+    override val abilities = setOf(ModelFileLoader.Ability.MODEL)
 
     private val PMD_SIGNATURE = byteArrayOf(0x50, 0x6D, 0x64, 0x00, 0x00, 0x80u.toByte(), 0x3F)
     override val probeLength = PMD_SIGNATURE.size
@@ -234,9 +234,6 @@ object PmdLoader: ModelFileLoader {
                     val buffer = ByteBuffer.allocateDirect(size)
                     channel.readAll(buffer)
                     buffer.flip()
-                    if (buffer.remaining() != size) {
-                        throw PmdLoadException("Not read to texture's end, maybe a bug?")
-                    }
                     buffer
                 }
             }
@@ -283,7 +280,7 @@ object PmdLoader: ModelFileLoader {
             }
         }
 
-        fun load(buffer: ByteBuffer): ModelFileLoader.Result {
+        fun load(buffer: ByteBuffer): ModelFileLoader.LoadResult {
             val header = loadHeader(buffer)
             loadVertices(buffer)
             loadIndices(buffer)
@@ -438,7 +435,7 @@ object PmdLoader: ModelFileLoader {
                 ),
             )
 
-            return ModelFileLoader.Result(
+            return ModelFileLoader.LoadResult(
                 metadata = Metadata(
                     title = header.name,
                     comment = header.comment,
@@ -466,9 +463,6 @@ object PmdLoader: ModelFileLoader {
                 val buffer = ByteBuffer.allocate(fileSize)
                 channel.readAll(buffer)
                 buffer.flip()
-                if (channel.position() != fileSize.toLong()) {
-                    throw PmdLoadException("Not read to file's end, maybe a bug?")
-                }
                 buffer
             }
             val context = Context(basePath)

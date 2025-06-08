@@ -4,7 +4,7 @@ import top.fifthlight.renderer.model.ModelFileLoader
 import top.fifthlight.renderer.model.gltf.GltfBinaryLoader
 import top.fifthlight.renderer.model.pmd.PmdLoader
 import top.fifthlight.renderer.model.pmx.PmxLoader
-import top.fifthlight.renderer.model.util.readAll
+import top.fifthlight.renderer.model.util.readRemaining
 import top.fifthlight.renderer.model.vmd.VmdLoader
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
@@ -25,24 +25,34 @@ object ModelLoaders {
     val animationExtensions = loaders
         .filter { ModelFileLoader.Ability.ANIMATION in it.abilities }
         .flatMap { it.extensions }
+    val embedThumbnailLoaders = loaders
+        .filter { ModelFileLoader.Ability.EMBED_THUMBNAIL in it.abilities }
+    val embedThumbnailExtensions = embedThumbnailLoaders.flatMap { it.extensions }
     val probeBytes = loaders.maxOf { it.probeLength }
 
-    fun probeAndLoad(path: Path, basePath: Path = path.parent ?: error("no base path: $path")): ModelFileLoader.Result? {
-        val loader = FileChannel.open(path, StandardOpenOption.READ).use { channel ->
-            val buffer = ByteBuffer.allocate(probeBytes)
-            channel.readAll(buffer)
-            buffer.flip()
+    private fun probeLoader(loaders: List<ModelFileLoader>, path: Path) = FileChannel.open(path, StandardOpenOption.READ).use { channel ->
+        val buffer = ByteBuffer.allocate(probeBytes)
+        channel.readRemaining(buffer)
+        buffer.flip()
 
-            for (loader in loaders) {
-                buffer.position(0)
-                if (buffer.remaining() >= loader.probeLength) {
-                    if (loader.probe(buffer)) {
-                        return@use loader
-                    }
+        for (loader in loaders) {
+            buffer.position(0)
+            if (buffer.remaining() >= loader.probeLength) {
+                if (loader.probe(buffer)) {
+                    return@use loader
                 }
             }
-            null
         }
+        null
+    }
+
+    fun probeAndLoad(path: Path, basePath: Path = path.parent ?: error("no base path: $path")): ModelFileLoader.LoadResult? {
+        val loader = probeLoader(loaders, path)
         return loader?.load(path, basePath)
+    }
+
+    fun getEmbedThumbnail(path: Path, basePath: Path? = path.parent): ModelFileLoader.ThumbnailResult? {
+        val loader = probeLoader(embedThumbnailLoaders, path)
+        return loader?.getThumbnail(path, basePath)
     }
 }

@@ -23,7 +23,7 @@ object VmdLoader : ModelFileLoader {
 
     override val extensions = listOf("vmd")
     override val probeLength = VMD_SIGNATURES.maxOf { it.size }
-    override val abilities = listOf(ModelFileLoader.Ability.ANIMATION)
+    override val abilities = setOf(ModelFileLoader.Ability.ANIMATION)
 
     override fun probe(buffer: ByteBuffer) = VMD_SIGNATURES.any { signature ->
         val lastPosition = buffer.position()
@@ -133,11 +133,11 @@ object VmdLoader : ModelFileLoader {
         }
     }
 
-    private fun load(buffer: ByteBuffer): ModelFileLoader.Result {
+    private fun load(buffer: ByteBuffer): ModelFileLoader.LoadResult {
         val modelName = loadHeader(buffer)
         val boneChannels = loadBone(buffer)
 
-        return ModelFileLoader.Result(
+        return ModelFileLoader.LoadResult(
             metadata = null,
             model = null,
             animations = listOf(Animation(channels = boneChannels)),
@@ -159,9 +159,6 @@ object VmdLoader : ModelFileLoader {
             val buffer = ByteBuffer.allocate(fileSize)
             channel.readAll(buffer)
             buffer.flip()
-            if (channel.position() != fileSize.toLong()) {
-                throw VmdLoadException("Not read to file's end, maybe a bug?")
-            }
             buffer
         }
         buffer.order(ByteOrder.LITTLE_ENDIAN)

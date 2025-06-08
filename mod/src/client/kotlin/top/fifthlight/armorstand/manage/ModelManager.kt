@@ -14,6 +14,8 @@ import net.minecraft.util.Identifier
 import top.fifthlight.armorstand.ArmorStand
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.armorstand.util.*
+import top.fifthlight.renderer.model.ModelFileLoader
+import top.fifthlight.renderer.model.Texture
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.*
@@ -30,7 +32,7 @@ object ModelManager {
         get() = ModelInstanceManager.modelDir
     private const val DATABASE_NAME = ".cache"
     private val databaseFile = modelDir.resolve("$DATABASE_NAME.mv.db").toAbsolutePath()
-    private const val DATABASE_VERSION = 0
+    private const val DATABASE_VERSION = 1
     var connectionPool: Pool<Connection>? = null
         private set
 
@@ -77,16 +79,18 @@ object ModelManager {
         searchString: String? = null,
     ): Int {
         waitUntilFirstScan()
-        return transaction {
-            if (searchString == null) {
-                query("SELECT COUNT(*) FROM model")
-            } else {
-                prepareQuery("SELECT COUNT(*) FROM model WHERE LOCATE(LOWER(?), LOWER(name)) > 0") {
-                    setString(1, searchString)
+        return withContext(Dispatchers.IO) {
+            transaction {
+                if (searchString == null) {
+                    query("SELECT COUNT(*) FROM model")
+                } else {
+                    prepareQuery("SELECT COUNT(*) FROM model WHERE LOCATE(LOWER(?), LOWER(name)) > 0") {
+                        setString(1, searchString)
+                    }
+                }.use { result ->
+                    result.skipToInitialRow()
+                    result.getInt(1)
                 }
-            }.use { result ->
-                result.skipToInitialRow()
-                result.getInt(1)
             }
         }
     }
@@ -104,30 +108,32 @@ object ModelManager {
         ascend: Boolean = true,
     ): List<ModelItem> {
         waitUntilFirstScan()
-        return transaction {
-            val order = when (order) {
-                Order.NAME -> "name"
-                Order.LAST_CHANGED -> "lastChanged"
-            }
-            val sort = when (ascend) {
-                true -> "ASC"
-                false -> "DESC"
-            }
-            if (searchString == null) {
-                prepareQuery("SELECT path, name, lastChanged, sha256 FROM model ORDER BY $order $sort LIMIT ? OFFSET ?") {
-                    setInt(1, length)
-                    setInt(2, offset)
+        return withContext(Dispatchers.IO) {
+            transaction {
+                val order = when (order) {
+                    Order.NAME -> "name"
+                    Order.LAST_CHANGED -> "lastChanged"
                 }
-            } else {
-                prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE LOCATE(LOWER(?), LOWER(name)) > 0 ORDER BY $order $sort LIMIT ? OFFSET ?") {
-                    setString(1, searchString)
-                    setInt(2, length)
-                    setInt(3, offset)
+                val sort = when (ascend) {
+                    true -> "ASC"
+                    false -> "DESC"
                 }
-            }.use { result ->
-                buildList {
-                    while (result.next()) {
-                        add(result.readModelItem())
+                if (searchString == null) {
+                    prepareQuery("SELECT path, name, lastChanged, sha256 FROM model ORDER BY $order $sort LIMIT ? OFFSET ?") {
+                        setInt(1, length)
+                        setInt(2, offset)
+                    }
+                } else {
+                    prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE LOCATE(LOWER(?), LOWER(name)) > 0 ORDER BY $order $sort LIMIT ? OFFSET ?") {
+                        setString(1, searchString)
+                        setInt(2, length)
+                        setInt(3, offset)
+                    }
+                }.use { result ->
+                    buildList {
+                        while (result.next()) {
+                            add(result.readModelItem())
+                        }
                     }
                 }
             }
@@ -136,14 +142,16 @@ object ModelManager {
 
     suspend fun getModel(path: Path): ModelItem? {
         waitUntilFirstScan()
-        return transaction {
-            prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE path = ?") {
-                setString(1, path.normalize().toString())
-            }.use { result ->
-                if (result.next()) {
-                    result.readModelItem()
-                } else {
-                    null
+        return withContext(Dispatchers.IO) {
+            transaction {
+                prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE path = ?") {
+                    setString(1, path.normalize().toString())
+                }.use { result ->
+                    if (result.next()) {
+                        result.readModelItem()
+                    } else {
+                        null
+                    }
                 }
             }
         }
@@ -151,14 +159,48 @@ object ModelManager {
 
     suspend fun getModel(modelHash: ModelHash): ModelItem? {
         waitUntilFirstScan()
-        return transaction {
-            prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE sha256 = ?") {
-                setBytes(1, modelHash.hash)
-            }.use { result ->
-                if (result.next()) {
-                    result.readModelItem()
-                } else {
-                    null
+        return withContext(Dispatchers.IO) {
+            transaction {
+                prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE sha256 = ?") {
+                    setBytes(1, modelHash.hash)
+                }.use { result ->
+                    if (result.next()) {
+                        result.readModelItem()
+                    } else {
+                        null
+                    }
+                }
+            }
+        }
+    }
+
+    sealed class ModelThumbnail {
+        data object None : ModelThumbnail()
+
+        data class Embed(
+            val offset: Long,
+            val length: Long,
+            val type: Texture.TextureType? = null,
+        ) : ModelThumbnail()
+    }
+
+    suspend fun getModelThumbnail(modelItem: ModelItem): ModelThumbnail {
+        waitUntilFirstScan()
+        return withContext(Dispatchers.IO) {
+            transaction {
+                prepareQuery("SELECT fileOffset, fileLength, mimeType FROM embed_thumbnails WHERE sha256 = ? LIMIT 1") {
+                    setBytes(1, modelItem.hash.hash)
+                }.use { result ->
+                    if (!result.next()) {
+                        return@use ModelThumbnail.None
+                    }
+                    ModelThumbnail.Embed(
+                        offset = result.getLong(1),
+                        length = result.getLong(2),
+                        type = result.getString(3)?.let { type ->
+                            Texture.TextureType.entries.firstOrNull { it.mimeType == type }
+                        },
+                    )
                 }
             }
         }
@@ -192,9 +234,18 @@ object ModelManager {
                     )
                 """
             )
+            execute("DROP TABLE IF EXISTS scanned_model_sha256")
+            execute(
+                """
+                    CREATE TEMPORARY TABLE scanned_model_sha256(
+                        sha256 BINARY(32) PRIMARY KEY
+                    )
+                """
+            )
         }
 
         fun processFile(relativePath: Path) {
+            val extension = relativePath.extension.takeIf { it.isNotEmpty() }?.lowercase()
             val pathStr = relativePath.normalize().toString()
             val name = relativePath.fileName.toString()
             val path = modelDir.resolve(relativePath)
@@ -204,26 +255,62 @@ object ModelManager {
                 prepare("INSERT INTO scanned_model_paths (path) VALUES (?)") {
                     setString(1, pathStr)
                 }
-                prepareQuery("SELECT COUNT(*) FROM model WHERE path = ? AND lastChanged = ? LIMIT 1;") {
+
+                prepareQuery("SELECT sha256 FROM model WHERE path = ? AND lastChanged = ? LIMIT 1;") {
                     setString(1, pathStr)
                     setLong(2, lastChanged)
                 }.use { result ->
-                    result.skipToInitialRow()
-                    if (result.getInt(1) > 0) {
-                        LOGGER.trace("File already in cache, skip.")
+                    if (result.next()) {
+                        LOGGER.trace("File already in model cache, skip.")
+                        prepare("INSERT INTO scanned_model_sha256 (sha256) VALUES (?)") {
+                            setBytes(1, result.getBytes(1))
+                        }
                         return@transaction
                     }
                 }
+
                 val sha256 = calculateSha256(path)
                 LOGGER.trace("SHA-256 for file {} is {}", relativePath, sha256.toHexString())
-                prepare("DELETE FROM model WHERE path = ?;") {
+
+                prepareQuery("SELECT COUNT(*) FROM embed_thumbnails WHERE sha256 = ? LIMIT 1;") {
+                    setBytes(1, sha256)
+                }.use { result ->
+                    result.skipToInitialRow()
+                    if (result.getInt(1) > 0) {
+                        LOGGER.trace("Already scanned embed thumbnails, skip.")
+                        return@use
+                    }
+                    if (extension in ModelLoaders.embedThumbnailExtensions) {
+                        val thumbnailResult = try {
+                            ModelLoaders.getEmbedThumbnail(path)
+                        } catch (ex: Exception) {
+                            LOGGER.warn("Failed to extract thumbnail: {}", pathStr)
+                            null
+                        }
+                        LOGGER.trace("Thumbnail: {}", thumbnailResult)
+                        // TODO mark if there is no embed thumbnails to avoid scanning same sha256
+                        if (thumbnailResult is ModelFileLoader.ThumbnailResult.Embed) {
+                            prepare("INSERT INTO embed_thumbnails (sha256, fileOffset, fileLength, mimeType) VALUES (?, ?, ?, ?)") {
+                                setBytes(1, sha256)
+                                setLong(2, thumbnailResult.offset)
+                                setLong(3, thumbnailResult.length)
+                                setString(4, thumbnailResult.type?.mimeType)
+                            }
+                        }
+                    }
+                }
+
+                prepare("DELETE FROM model WHERE path = ?") {
                     setString(1, pathStr)
                 }
-                prepare("INSERT INTO model (path, name, lastChanged, sha256) VALUES (?, ?, ?, ?);") {
+                prepare("INSERT INTO model (path, name, lastChanged, sha256) VALUES (?, ?, ?, ?)") {
                     setString(1, pathStr)
                     setString(2, name)
                     setLong(3, lastChanged)
                     setBytes(4, sha256)
+                }
+                prepare("INSERT INTO scanned_model_sha256 (sha256) VALUES (?)") {
+                    setBytes(1, sha256)
                 }
             }
         }
@@ -258,7 +345,15 @@ object ModelManager {
                     (SELECT 1 FROM scanned_model_paths WHERE scanned_model_paths.path = model.path)
                 """
             )
+            execute(
+                """
+                    DELETE FROM embed_thumbnails
+                    WHERE NOT EXISTS
+                    (SELECT 1 FROM scanned_model_sha256 WHERE scanned_model_sha256.sha256 = embed_thumbnails.sha256)
+                """
+            )
             execute("DROP TABLE scanned_model_paths")
+            execute("DROP TABLE scanned_model_sha256")
         }
 
         _lastScanTime.value = Clock.System.now()
@@ -360,6 +455,16 @@ object ModelManager {
                     name VARCHAR NOT NULL,
                     lastChanged BIGINT NOT NULL,
                     sha256 BINARY(32) NOT NULL
+                );
+                """
+            )
+            execute(
+                """
+                CREATE TABLE embed_thumbnails (
+                    sha256 BINARY(32) PRIMARY KEY,
+                    fileOffset BIGINT NOT NULL,
+                    fileLength BIGINT NOT NULL,
+                    mimeType VARCHAR
                 );
                 """
             )

@@ -2,6 +2,7 @@ package top.fifthlight.renderer.model.gltf
 
 import top.fifthlight.renderer.model.ModelFileLoader
 import top.fifthlight.renderer.model.util.readAll
+import top.fifthlight.renderer.model.util.readToBuffer
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -10,16 +11,17 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 
-object GltfBinaryLoader: ModelFileLoader {
+object GltfBinaryLoader : ModelFileLoader {
     override val extensions = listOf("glb", "vrm")
-    override val abilities = listOf(ModelFileLoader.Ability.MODEL, ModelFileLoader.Ability.ANIMATION)
+    override val abilities
+        get() = GltfLoader.abilities
 
     private const val GLTF_BINARY_MAGIC = 0x46546c67
     override val probeLength = 4
     override fun probe(buffer: ByteBuffer): Boolean {
         if (buffer.remaining() < 4) return false
         val slice = buffer.slice().order(ByteOrder.LITTLE_ENDIAN)
-        return slice.getInt() == 0x46546c67
+        return slice.getInt() == GLTF_BINARY_MAGIC
     }
 
     private enum class ChunkType(
@@ -30,96 +32,124 @@ object GltfBinaryLoader: ModelFileLoader {
         UNKNOWN(null),
     }
 
-    override fun load(path: Path, basePath: Path) = FileChannel.open(path, StandardOpenOption.READ).use { channel ->
+    internal data class ChunkData(
+        val offset: Long,
+        val length: Long,
+    )
+
+    internal data class ParsedGltfBinary(
+        val json: String,
+        val binaryChunkData: ChunkData? = null,
+    )
+
+    private fun parseGltfBinary(channel: FileChannel): ParsedGltfBinary {
         val readBuffer = ByteBuffer.allocate(16)
         readBuffer.order(ByteOrder.LITTLE_ENDIAN)
 
-        fun readBytes(
-            len: Int,
-            fail: (Int) -> String,
-        ) {
+        fun readBytes(len: Int) {
             readBuffer.clear()
             readBuffer.limit(len)
             channel.readAll(readBuffer)
-            if (readBuffer.limit() < len) {
-                throw GltfLoadException(fail(readBuffer.limit()))
-            }
             readBuffer.flip()
         }
 
-        readBytes(4) { "Want to read 4 bytes of magic, but only got $it bytes" }
+        readBytes(4)
         val magic = readBuffer.getInt()
-        if (magic != 0x46546c67) {
-            throw GltfLoadException("Bad magic: want 0x46546c67, but got 0x${magic.toString(16).padStart(8, '0')}")
+        if (magic != GLTF_BINARY_MAGIC) {
+            throw GltfLoadException(
+                "Bad magic: want ${GLTF_BINARY_MAGIC.toString(16).padStart(8, '0')}, " +
+                        "but got 0x${magic.toString(16).padStart(8, '0')}"
+            )
         }
 
-        readBytes(8) { "Bad GLTF binary header" }
+        readBytes(8)
         val version = readBuffer.getInt()
         if (version != 2) {
             throw GltfLoadException("Bad GLTF version: want 2, but get $version")
         }
-        val totalLength = readBuffer.getInt().toUInt()
-        var readLength = 0u
+        val totalLength = readBuffer.getInt().toUInt().toLong()
+        if (totalLength < channel.size()) {
+            throw GltfLoadException("Bad total length: file has ${channel.size()}, but total length is $totalLength")
+        }
 
-        fun readChunk(wantedType: ChunkType, sizeLimit: Int): ByteBuffer? {
-            if (readLength + 8u > totalLength) {
-                throw GltfLoadException("No available space for chunk header: current read $readLength, total length $totalLength")
+        fun readChunk(wantedType: ChunkType): ChunkData? {
+            if (channel.position() == totalLength) {
+                return null
             }
-            readBuffer.clear()
-            readBuffer.limit(8)
-            channel.readAll(readBuffer)
-            when (readBuffer.limit()) {
-                0 -> return null
-                8 -> Unit
-                else -> throw GltfLoadException("Bad chunk header: want 8 bytes, but only read ${readBuffer.limit()} bytes")
-            }
-            readBuffer.flip()
-            readLength += 8u
-            val length = readBuffer.getInt().toUInt()
+            readBytes(8)
+            val length = readBuffer.getInt().toUInt().toLong()
             val type = readBuffer.getInt().toUInt()
-            if (readLength + length > totalLength) {
-                throw GltfLoadException("Bad chunk length: total length is $totalLength, current location is at $readLength, but want to read $length")
+            if (channel.position() + length > totalLength) {
+                throw GltfLoadException("Bad chunk length: total length is $totalLength, current location is at ${channel.position()}, but want to read $length")
             }
-            readLength += length
 
             val chunkType = ChunkType.entries.firstOrNull { it.id == type } ?: ChunkType.UNKNOWN
             if (chunkType != wantedType) {
                 throw GltfLoadException("Bad chunk type: $chunkType, want $wantedType")
             }
 
-            // First, let's try mapping into memory
-            try {
-                val length = length.toLong()
-                val mappedBuffer = channel.map(FileChannel.MapMode.READ_ONLY, channel.position(), length)
-                channel.position(channel.position() + length)
-                return mappedBuffer
-            } catch (_: IOException) {
-            } catch (_: UnsupportedOperationException) { // For ZipFileSystem
-            }
+            val chunkPosition = channel.position()
+            channel.position(chunkPosition + length)
 
-            // If mapping failed, just read it to memory
-            if (length > sizeLimit.toUInt()) {
-                throw GltfLoadException("Chunk is too large: maximum is $sizeLimit, but got $length")
-            }
-            val binaryBuffer = ByteBuffer.allocateDirect(length.toInt())
-            binaryBuffer.limit(length.toInt())
-            channel.readAll(binaryBuffer)
-            binaryBuffer.flip()
-            if (binaryBuffer.limit() < length.toInt()) {
-                throw GltfLoadException("Chunk's size not correct: want to read $length, but only got ${binaryBuffer.limit()}")
-            }
-            return binaryBuffer
+            return ChunkData(
+                offset = chunkPosition,
+                length = length,
+            )
         }
 
-        val jsonChunk =
-            readChunk(ChunkType.JSON, 4 * 1024 * 1024) ?: throw GltfLoadException("Missing JSON chunk in binary GLTF")
-        val binaryChunk = readChunk(ChunkType.BINARY, 256 * 1024 * 1024)
+        val jsonChunk = readChunk(ChunkType.JSON)
+            ?: throw GltfLoadException("Missing JSON chunk in binary GLTF")
+        val json = StandardCharsets.UTF_8.decode(
+            channel.readToBuffer(
+                offset = jsonChunk.offset,
+                length = jsonChunk.length,
+                readSizeLimit = 4 * 1024 * 1024,
+            )
+        ).toString()
+        val binaryChunkData = readChunk(ChunkType.BINARY)
+
+        return ParsedGltfBinary(
+            json = json,
+            binaryChunkData = binaryChunkData,
+        )
+    }
+
+    override fun load(path: Path, basePath: Path): ModelFileLoader.LoadResult {
+        val json: String
+        val binaryBuffer: ByteBuffer?
+        FileChannel.open(path, StandardOpenOption.READ).use { channel ->
+            val parsedGltf: ParsedGltfBinary = parseGltfBinary(channel)
+            json = parsedGltf.json
+            binaryBuffer = parsedGltf.binaryChunkData?.let {
+                channel.readToBuffer(
+                    offset = it.offset,
+                    length = it.length,
+                    readSizeLimit = 256 * 1024 * 1024,
+                )
+            }
+        }
 
         val context = GltfLoader(
-            buffer = binaryChunk,
+            buffer = binaryBuffer,
             filePath = path,
             basePath = path.parent,
         )
-        context.load(StandardCharsets.UTF_8.decode(jsonChunk).toString())
+        return context.load(json)
+    }
+
+    override fun getThumbnail(path: Path, basePath: Path?): ModelFileLoader.ThumbnailResult {
+        val json: String
+        val binaryBuffer: ChunkData
+        FileChannel.open(path, StandardOpenOption.READ).use { channel ->
+            val parsedGltf: ParsedGltfBinary = parseGltfBinary(channel)
+            json = parsedGltf.json
+            binaryBuffer = parsedGltf.binaryChunkData ?: return ModelFileLoader.ThumbnailResult.None
+        }
+        val context = GltfLoader(
+            buffer = null,
+            filePath = path,
+            basePath = path.parent,
+        )
+        return context.getThumbnail(json, binaryBuffer)
     }
 }
