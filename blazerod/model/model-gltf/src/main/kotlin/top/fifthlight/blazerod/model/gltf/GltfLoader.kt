@@ -25,12 +25,6 @@ internal class GltfLoader(
     private val basePath: Path,
 ) {
     companion object {
-        internal val abilities = setOf(
-            ModelFileLoader.Ability.MODEL,
-            ModelFileLoader.Ability.ANIMATION,
-            ModelFileLoader.Ability.EMBED_THUMBNAIL,
-        )
-
         private val defaultSampler = Texture.Sampler(
             magFilter = Texture.Sampler.MagFilter.LINEAR,
             minFilter = Texture.Sampler.MinFilter.LINEAR,

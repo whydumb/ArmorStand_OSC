@@ -50,7 +50,7 @@ object ModelInstanceManager {
             val animations: List<AnimationItem>,
             var lastAccessTime: Long,
             val instance: ModelInstance,
-            val controller: ModelController,
+            var controller: ModelController,
         ) : RefCount by instance, ModelInstanceItem
     }
 

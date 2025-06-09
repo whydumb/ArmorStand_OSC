@@ -121,6 +121,9 @@ class AnimationScreen(parent: Screen? = null) : ArmorStandScreen<AnimationScreen
     private val animationList = AnimationList(
         client = currentClient,
         width = 128,
+        onClicked = { item ->
+            viewModel.switchAnimation(item)
+        }
     ).also { list ->
         scope.launch {
             viewModel.uiState.map { state ->

@@ -8,17 +8,23 @@ object ModelLoaders {
         get() = ModelFileLoaders.loaders
     val modelExtensions by lazy {
         loaders
-            .filter { ModelFileLoader.Ability.MODEL in it.abilities }
-            .flatMap { it.extensions }
+            .flatMap { it.extensions.entries }
+            .mapNotNull { (extension, abilities) ->
+                extension.takeIf { ModelFileLoader.Ability.MODEL in abilities }
+            }
     }
     val animationExtensions by lazy {
         loaders
-            .filter { ModelFileLoader.Ability.ANIMATION in it.abilities }
-            .flatMap { it.extensions }
+            .flatMap { it.extensions.entries }
+            .mapNotNull { (extension, abilities) ->
+                extension.takeIf { ModelFileLoader.Ability.EXTERNAL_ANIMATION in abilities }
+            }
     }
     val embedThumbnailExtensions by lazy {
         loaders
-            .filter { ModelFileLoader.Ability.EMBED_THUMBNAIL in it.abilities }
-            .flatMap { it.extensions }
+            .flatMap { it.extensions.entries }
+            .mapNotNull { (extension, abilities) ->
+                extension.takeIf { ModelFileLoader.Ability.EMBED_THUMBNAIL in abilities }
+            }
     }
 }

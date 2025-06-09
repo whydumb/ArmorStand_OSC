@@ -96,9 +96,9 @@ class ConfigViewModel(scope: CoroutineScope) : ViewModel(scope) {
         }
     }
 
-    fun selectModel(path: Path) {
+    fun selectModel(path: Path?) {
         ConfigHolder.update {
-            copy(model = path.toString())
+            copy(model = path?.toString())
         }
     }
 

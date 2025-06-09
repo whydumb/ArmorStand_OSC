@@ -12,6 +12,7 @@ import net.minecraft.screen.ScreenTexts
 import net.minecraft.text.Text
 import net.minecraft.util.Formatting
 import org.lwjgl.glfw.GLFW
+import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.manage.ModelManager
 import top.fifthlight.armorstand.ui.component.*
 import top.fifthlight.armorstand.ui.model.ConfigViewModel
@@ -81,6 +82,18 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
     private val refreshButton by lazy {
         autoWidthButton(Text.translatable("armorstand.config.refresh")) {
             viewModel.refreshModels()
+        }
+    }
+
+    private val clearButton by lazy {
+        autoWidthButton(Text.translatable("armorstand.config.clear")) {
+            viewModel.selectModel(null)
+        }.also { button ->
+            scope.launch {
+                ConfigHolder.config.collect { config ->
+                    button.active = config.model != null
+                }
+            }
         }
     }
 
@@ -165,6 +178,34 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
         }
     }
 
+    private val sendModelDataButton by lazy {
+        checkbox(
+            text = Text.translatable("armorstand.config.send_model_data"),
+            value = viewModel.uiState.map { it.sendModelData },
+            onValueChanged = viewModel::updateSendModelData,
+        )
+    }
+
+    private val showOtherPlayersButton by lazy {
+        checkbox(
+            text = Text.translatable("armorstand.config.show_other_players"),
+            value = viewModel.uiState.map { it.showOtherPlayerModel },
+            onValueChanged = viewModel::updateShowOtherPlayerModel,
+        )
+    }
+
+    private val modelScaleSlider by lazy {
+        slider(
+            textFactory = { slider, text -> Text.translatable("armorstand.config.model_scale", text) },
+            min = 0.0,
+            max = 4.0,
+            value = viewModel.uiState.map { it.modelScale },
+            onValueChanged = { userTriggered, value ->
+                viewModel.updateModelScale(value)
+            },
+        )
+    }
+
     private val previewTab = LayoutScreenTab(
         title = Text.translatable("armorstand.config.tab.preview"),
         padding = Insets(8),
@@ -178,36 +219,19 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
             )
             val gap = 8
             val padding = 8
-            val options = listOf(
-                checkbox(
-                    text = Text.translatable("armorstand.config.send_model_data"),
-                    value = viewModel.uiState.map { it.sendModelData },
-                    onValueChanged = viewModel::updateSendModelData,
-                ),
-                checkbox(
-                    text = Text.translatable("armorstand.config.show_other_players"),
-                    value = viewModel.uiState.map { it.showOtherPlayerModel },
-                    onValueChanged = viewModel::updateShowOtherPlayerModel,
-                ),
-                slider(
-                    textFactory = { slider, text -> Text.translatable("armorstand.config.model_scale", text) },
-                    min = 0.0,
-                    max = 4.0,
-                    value = viewModel.uiState.map { it.modelScale },
-                    onValueChanged = { userTriggered, value ->
-                        viewModel.updateModelScale(value)
-                    },
-                ),
-            )
-            val optionsHeight = options.sumOf { it.height } + gap * (options.size - 1) + padding
             setSecondElement(
                 LinearLayout(
                     direction = LinearLayout.Direction.VERTICAL,
-                    height = optionsHeight,
                     padding = Insets(top = padding),
                     gap = gap,
                 ).apply {
-                    options.forEach { add(it, expand = true) }
+                    listOf(sendModelDataButton, showOtherPlayersButton, modelScaleSlider).forEach {
+                        add(
+                            it,
+                            expand = true
+                        )
+                    }
+                    pack()
                 }
             )
         },
@@ -258,8 +282,12 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
                                 padding = Insets(padding),
                                 gap = gap,
                             ).apply {
-                                val toolbarActions = listOf(sortButton, refreshButton)
-                                if (this@ConfigScreen.width >= 600) {
+                                val toolbarActions = listOf(
+                                    sortButton,
+                                    refreshButton,
+                                    clearButton,
+                                )
+                                if (this@ConfigScreen.width >= 700) {
                                     add(
                                         widget = BorderLayout(
                                             height = 20,

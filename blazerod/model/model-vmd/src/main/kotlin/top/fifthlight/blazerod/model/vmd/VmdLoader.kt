@@ -21,9 +21,10 @@ object VmdLoader : ModelFileLoader {
     private val NEW_VMD_SIGNATURE = "Vocaloid Motion Data 0002".toByteArray()
     private val VMD_SIGNATURES = listOf(OLD_VMD_SIGNATURE, NEW_VMD_SIGNATURE)
 
-    override val extensions = listOf("vmd")
+    override val extensions = mapOf(
+        "vmd" to setOf(ModelFileLoader.Ability.EXTERNAL_ANIMATION),
+    )
     override val probeLength = VMD_SIGNATURES.maxOf { it.size }
-    override val abilities = setOf(ModelFileLoader.Ability.ANIMATION)
 
     override fun probe(buffer: ByteBuffer) = VMD_SIGNATURES.any { signature ->
         val lastPosition = buffer.position()

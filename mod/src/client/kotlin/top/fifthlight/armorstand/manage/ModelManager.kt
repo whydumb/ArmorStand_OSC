@@ -423,7 +423,7 @@ object ModelManager {
                         }
 
                         val extension = file.extension
-                        if (extension !in ModelLoaders.modelExtensions && extension !in ModelLoaders.animationExtensions) {
+                        if (extension !in ModelLoaders.modelExtensions) {
                             continue
                         }
 

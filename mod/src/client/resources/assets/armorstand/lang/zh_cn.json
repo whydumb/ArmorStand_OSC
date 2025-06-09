@@ -9,6 +9,7 @@
   "armorstand.config.sort.last_changed.asc": "排序：时间顺序",
   "armorstand.config.sort.last_changed.desc": "排序：时间逆序",
   "armorstand.config.refresh": "刷新",
+  "armorstand.config.clear": "清除模型",
   "armorstand.config.search_placeholder": "搜索…",
   "armorstand.config.tab.preview": "预览",
   "armorstand.config.tab.metadata": "元数据",

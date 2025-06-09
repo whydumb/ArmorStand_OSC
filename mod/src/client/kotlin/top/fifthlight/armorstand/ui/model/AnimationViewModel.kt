@@ -100,4 +100,16 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
             }
         }
     }
+
+    fun switchAnimation(item: AnimationScreenState.AnimationItem) {
+        val instanceItem = getInstanceItem() ?: return
+        when (val source = item.source) {
+            is AnimationScreenState.AnimationItem.Source.Embed -> {
+                val index = source.index
+                val animation = instanceItem.animations[index]
+                instanceItem.controller = ModelController.Predefined(animation)
+            }
+            is AnimationScreenState.AnimationItem.Source.External -> TODO()
+        }
+    }
 }

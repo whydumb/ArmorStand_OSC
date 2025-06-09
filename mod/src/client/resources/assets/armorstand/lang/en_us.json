@@ -9,6 +9,7 @@
   "armorstand.config.sort.last_changed.asc": "Sort: First changed",
   "armorstand.config.sort.last_changed.desc": "Sort: Last changed",
   "armorstand.config.refresh": "Refresh",
+  "armorstand.config.clear": "Clear model",
   "armorstand.config.search_placeholder": "Search…",
   "armorstand.config.tab.preview": "Preview",
   "armorstand.config.tab.metadata": "Metadata",

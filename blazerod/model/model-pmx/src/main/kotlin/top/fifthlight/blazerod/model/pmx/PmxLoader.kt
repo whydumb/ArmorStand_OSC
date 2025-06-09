@@ -42,8 +42,9 @@ class PmxLoadException(message: String) : Exception(message)
 // PMX loader.
 // Format from https://gist.github.com/felixjones/f8a06bd48f9da9a4539f
 object PmxLoader : ModelFileLoader {
-    override val extensions = listOf("pmx")
-    override val abilities = setOf(ModelFileLoader.Ability.MODEL)
+    override val extensions = mapOf(
+        "pmx" to setOf(ModelFileLoader.Ability.MODEL),
+    )
 
     private val PMX_SIGNATURE = byteArrayOf(0x50, 0x4D, 0x58, 0x20)
     override val probeLength = PMX_SIGNATURE.size

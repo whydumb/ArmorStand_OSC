@@ -7,12 +7,14 @@ import java.nio.file.Path
 interface ModelFileLoader {
     enum class Ability {
         MODEL,
-        ANIMATION,
+        EMBED_ANIMATION,
+        EXTERNAL_ANIMATION,
         EMBED_THUMBNAIL,
     }
 
-    val extensions: List<String>
+    val extensions: Map<String, Set<Ability>>
     val abilities: Set<Ability>
+        get() = extensions.values.flatten().toSet()
     val probeLength: Int
     fun probe(buffer: ByteBuffer): Boolean
 
