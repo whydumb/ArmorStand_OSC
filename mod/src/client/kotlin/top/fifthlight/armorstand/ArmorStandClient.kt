@@ -19,6 +19,7 @@ import top.fifthlight.armorstand.state.ClientModelPathManager
 import top.fifthlight.armorstand.state.ModelHashManager
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.armorstand.state.NetworkModelSyncer
+import top.fifthlight.armorstand.ui.screen.AnimationScreen
 import top.fifthlight.armorstand.ui.screen.ConfigScreen
 import top.fifthlight.armorstand.util.ThreadExecutorDispatcher
 import javax.swing.SwingUtilities
@@ -28,6 +29,11 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
     private val configKeyBinding = KeyBinding(
         "armorstand.keybinding.config",
         GLFW.GLFW_KEY_I,
+        "armorstand.name"
+    )
+    private val animationKeyBinding = KeyBinding(
+        "armorstand.keybinding.animation",
+        GLFW.GLFW_KEY_K,
         "armorstand.name"
     )
     var debug: Boolean = false
@@ -80,11 +86,17 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
             }
         }
         ClientTickEvents.START_CLIENT_TICK.register { client ->
+            if (client.player == null) {
+                return@register
+            }
             if (client.currentScreen != null) {
                 return@register
             }
             if (configKeyBinding.isPressed) {
                 client.setScreen(ConfigScreen(null))
+            }
+            if (animationKeyBinding.isPressed) {
+                client.setScreen(AnimationScreen(null))
             }
         }
     }

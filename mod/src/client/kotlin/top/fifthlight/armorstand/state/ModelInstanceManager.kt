@@ -34,7 +34,7 @@ object ModelInstanceManager {
 
         data class Loaded(
             val scene: RenderScene,
-            val animation: List<AnimationItem>,
+            val animations: List<AnimationItem>,
         ) : RefCount by scene, ModelCache()
     }
 
@@ -47,6 +47,7 @@ object ModelInstanceManager {
 
         class Model(
             override val path: Path,
+            val animations: List<AnimationItem>,
             var lastAccessTime: Long,
             val instance: ModelInstance,
             val controller: ModelController,
@@ -69,7 +70,7 @@ object ModelInstanceManager {
 
                 ModelCache.Loaded(
                     scene = scene,
-                    animation = animations,
+                    animations = animations,
                 )
             } ?: ModelCache.Failed
             result
@@ -84,7 +85,7 @@ object ModelInstanceManager {
         item
     }
 
-    fun get(uuid: UUID, time: Long): ModelInstanceItem? {
+    fun get(uuid: UUID, time: Long?): ModelInstanceItem? {
         val isSelf = uuid == selfUuid
         val path = ClientModelPathManager.getPath(uuid)
         if (path == null) {
@@ -101,25 +102,30 @@ object ModelInstanceManager {
         if (item != null) {
             if (item.path == path) {
                 (item as? ModelInstanceItem.Model)?.let {
-                    it.lastAccessTime = lastAccessTime
+                    lastAccessTime?.let { time ->
+                        it.lastAccessTime = time
+                    }
                 }
                 return item
-            } else {
+            } else if (lastAccessTime != null) {
                 val prevItem = modelInstanceItems.remove(uuid)
                 (prevItem as? ModelInstanceItem.Model)?.decreaseReferenceCount()
             }
+        }
+        if (lastAccessTime == null) {
+            return null
         }
 
         val newItem = when (val cache = loadCache(path)) {
             ModelCache.Failed -> ModelInstanceItem.Failed(path = path)
             is ModelCache.Loaded -> {
                 val scene = cache.scene
-                val animation = cache.animation.takeIf { it.isNotEmpty() }
                 ModelInstanceItem.Model(
                     path = path,
+                    animations = cache.animations,
                     lastAccessTime = lastAccessTime,
                     instance = ModelInstance(scene, ModelBufferManager.getEntry(scene)),
-                    controller = when (animation) {
+                    controller = when (val animation = cache.animations.firstOrNull()) {
                         null -> ModelController.LiveUpdated(scene)
                         else -> ModelController.Predefined(animation)
                     },

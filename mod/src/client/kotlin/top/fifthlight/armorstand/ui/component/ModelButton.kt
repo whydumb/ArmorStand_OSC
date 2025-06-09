@@ -47,6 +47,9 @@ class ModelButton(
 ), AutoCloseable {
     companion object {
         private val LOGGER = LoggerFactory.getLogger(ModelButton::class.java)
+        private val PLACEHOLDER_ICON: Identifier = Identifier.of("armorstand", "thumbnail_placeholder")
+        private const val ICON_WIDTH = 32
+        private const val ICON_HEIGHT = 32
     }
 
     private var closed = false
@@ -248,7 +251,16 @@ class ModelButton(
                 )
             }
 
-            ModelIconState.None -> {}
+            ModelIconState.None -> {
+                context.drawGuiTexture(
+                    RenderPipelines.GUI_TEXTURED,
+                    PLACEHOLDER_ICON,
+                    (left + right - LoadingOverlay.ICON_WIDTH) / 2,
+                    (top + imageBottom - LoadingOverlay.ICON_HEIGHT) / 2,
+                    ICON_WIDTH,
+                    ICON_HEIGHT,
+                )
+            }
 
             ModelIconState.Failed -> {}
         }

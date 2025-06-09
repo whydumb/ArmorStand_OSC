@@ -23,5 +23,9 @@
   "armorstand.debug_database.queried_time": "耗时: %s",
   "armorstand.name": "盔甲架",
   "armorstand.keybinding.config": "打开盔甲架配置",
-  "armorstand.page.switcher": "%d / %d"
+  "armorstand.page.switcher": "%d / %d",
+  "armorstand.animation": "动画",
+  "armorstand.animation.progress": "%s / %s",
+  "armorstand.animation.speed": "速度：%s",
+  "armorstand.animation.name.unnamed": "未命名"
 }

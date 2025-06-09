@@ -190,11 +190,13 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
                     onValueChanged = viewModel::updateShowOtherPlayerModel,
                 ),
                 slider(
-                    textFactory = { Text.translatable("armorstand.config.model_scale", it) },
+                    textFactory = { slider, text -> Text.translatable("armorstand.config.model_scale", text) },
                     min = 0.0,
                     max = 4.0,
                     value = viewModel.uiState.map { it.modelScale },
-                    onValueChanged = viewModel::updateModelScale,
+                    onValueChanged = { userTriggered, value ->
+                        viewModel.updateModelScale(value)
+                    },
                 ),
             )
             val optionsHeight = options.sumOf { it.height } + gap * (options.size - 1) + padding

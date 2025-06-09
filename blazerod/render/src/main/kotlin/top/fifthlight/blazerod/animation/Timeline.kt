@@ -1,62 +1,103 @@
 package top.fifthlight.blazerod.animation
 
-import top.fifthlight.blazerod.util.TimeUtil
-
 class Timeline(
-    private val duration: Float,
-    private val loop: Boolean = true,
-    private val speed: Float = 1f
+    val duration: Double,
+    loop: Boolean = true,
+    speed: Double = 1.0,
 ) {
-    private var startTime: Long = 0L
-    private var pausedTime: Long = 0L
-    private var isPaused: Boolean = true
+    private var baseTimeNanos: Long = 0L
+    private var basePosition: Double = 0.0
+    private var pausedAt: Double = 0.0
+    var isPaused: Boolean = true
+        private set
+    var speed: Double = speed
+        private set
+    var loop: Boolean = loop
+        private set
 
     val isPlaying: Boolean
         get() = !isPaused
 
-    fun isFinished(currentNanos: Long) = !loop && getCurrentTime(currentNanos) >= duration
+    fun isFinished(currentNanos: Long): Boolean {
+        if (loop) return false
+        val time = getCurrentTime(currentNanos)
+        return time >= duration
+    }
 
-    fun getCurrentTime(currentNanos: Long): Float {
-        if (isPaused) return pausedTime / TimeUtil.NANOSECONDS_PER_SECOND.toFloat()
+    fun getCurrentTime(currentNanos: Long): Double {
+        if (isPaused) return pausedAt
 
-        val elapsed = (currentNanos - startTime) * speed
-        val totalTime = elapsed + pausedTime
+        val elapsedNanos = currentNanos - baseTimeNanos
+        val elapsedSeconds = elapsedNanos * 1e-9 * speed
+        var position = basePosition + elapsedSeconds
 
-        if (!loop) {
-            return (totalTime / TimeUtil.NANOSECONDS_PER_SECOND).coerceAtMost(duration)
+        if (loop && duration > 0) {
+            position %= duration
+            if (position < 0) {
+                position += duration
+            }
+        } else if (position > duration) {
+            position = duration
+        } else if (position < 0) {
+            position = 0.0
         }
 
-        val loopDuration = (duration * TimeUtil.NANOSECONDS_PER_SECOND).toLong()
-        if (loopDuration <= 0) return 0f
-
-        val loopedTime = totalTime % loopDuration
-        return (if (loopedTime < 0) loopedTime + loopDuration else loopedTime) / TimeUtil.NANOSECONDS_PER_SECOND
+        return position
     }
 
     fun play(currentNanos: Long) {
         if (isPaused) {
-            startTime = currentNanos - (pausedTime / speed).toLong()
+            baseTimeNanos = currentNanos
+            basePosition = pausedAt
             isPaused = false
         }
     }
 
     fun pause(currentNanos: Long) {
         if (!isPaused) {
-            pausedTime = (currentNanos - startTime) * speed.toLong()
+            pausedAt = getCurrentTime(currentNanos)
             isPaused = true
         }
     }
 
     fun reset(currentNanos: Long) {
-        startTime = currentNanos
-        pausedTime = 0L
+        baseTimeNanos = currentNanos
+        basePosition = 0.0
+        pausedAt = 0.0
+        isPaused = true
     }
 
-    fun seek(currentNanos: Long, time: Float) {
-        val targetTime = time.coerceIn(0f, duration)
-        pausedTime = (targetTime * TimeUtil.NANOSECONDS_PER_SECOND).toLong()
-        if (!isPaused) {
-            startTime = currentNanos - (pausedTime / speed).toLong()
+    fun setLoop(newLoop: Boolean) {
+        loop = newLoop
+    }
+
+    fun setSpeed(currentNanos: Long, newSpeed: Double) {
+        if (speed == newSpeed) return
+
+        val currentPosition = getCurrentTime(currentNanos)
+
+        basePosition = currentPosition
+        baseTimeNanos = currentNanos
+        speed = newSpeed
+
+        if (isPaused) {
+            pausedAt = currentPosition
+        }
+    }
+
+    fun seek(currentNanos: Long, newTime: Double) {
+        val clampedTime = when {
+            loop && duration > 0 -> newTime % duration
+            newTime < 0 -> 0.0
+            newTime > duration -> duration
+            else -> newTime
+        }
+
+        baseTimeNanos = currentNanos
+        basePosition = clampedTime
+
+        if (isPaused) {
+            pausedAt = clampedTime
         }
     }
 }

@@ -4,6 +4,7 @@ import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.util.math.MathHelper
 import org.joml.Matrix4f
 import org.joml.Matrix4fc
+import top.fifthlight.armorstand.ui.model.AnimationViewModel
 import top.fifthlight.blazerod.animation.AnimationItem
 import top.fifthlight.blazerod.animation.Timeline
 import top.fifthlight.blazerod.model.ModelInstance
@@ -88,29 +89,19 @@ sealed class ModelController {
     }
 
     class Predefined(
-        animations: List<AnimationItem>,
+        private val animation: AnimationItem,
     ) : ModelController() {
-        private data class Item(
-            val animation: AnimationItem,
-            val timeline: Timeline,
-        )
-
-        private val items = animations.map {
-            Item(
-                animation = it,
-                timeline = Timeline(
-                    duration = it.duration,
-                    loop = true,
-                ).also { timeline ->
-                    timeline.play(System.nanoTime())
-                }
-            )
+        val timeline: Timeline = Timeline(
+            duration = animation.duration.toDouble(),
+            speed = AnimationViewModel.playSpeed.value,
+            loop = true,
+        ).also { timeline ->
+            timeline.play(System.nanoTime())
         }
 
         override fun apply(instance: ModelInstance) {
-            items.forEach {
-                it.animation.apply(instance, it.timeline.getCurrentTime(System.nanoTime()))
-            }
+            val time = timeline.getCurrentTime(System.nanoTime())
+            animation.apply(instance, time.toFloat())
         }
     }
 }

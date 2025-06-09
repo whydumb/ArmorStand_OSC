@@ -23,5 +23,9 @@
   "armorstand.debug_database.queried_time": "Duration: %s",
   "armorstand.name": "ArmorStand",
   "armorstand.keybinding.config": "Open ArmorStand config",
-  "armorstand.page.switcher": "%d / %d"
+  "armorstand.page.switcher": "%d / %d",
+  "armorstand.animation": "Animation",
+  "armorstand.animation.progress": "%s / %s",
+  "armorstand.animation.speed": "Speed: %s",
+  "armorstand.animation.name.unnamed": "Unnamed"
 }
