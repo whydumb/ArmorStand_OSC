@@ -9,14 +9,14 @@ import top.fifthlight.armorstand.util.ModelHash
 import java.util.*
 import kotlin.jvm.optionals.getOrNull
 
-data class ModelUpdateS2CPayload(
+data class ModelUpdateC2SPayload(
     val modelHash: ModelHash?,
 ) : CustomPayload {
     companion object {
         private val PAYLOAD_ID = Identifier.of("armorstand", "model_update")
-        val ID = CustomPayload.Id<ModelUpdateS2CPayload>(PAYLOAD_ID)
-        val CODEC: PacketCodec<ByteBuf, ModelUpdateS2CPayload> = PacketCodecs.optional(ModelHash.CODEC).xmap(
-            { ModelUpdateS2CPayload(it.getOrNull()) },
+        val ID = CustomPayload.Id<ModelUpdateC2SPayload>(PAYLOAD_ID)
+        val CODEC: PacketCodec<ByteBuf, ModelUpdateC2SPayload> = PacketCodecs.optional(ModelHash.CODEC).xmap(
+            { ModelUpdateC2SPayload(it.getOrNull()) },
             { Optional.ofNullable(it.modelHash) },
         )
     }

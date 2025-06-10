@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.MinecraftClient
+import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.blazerod.animation.AnimationItem
 import top.fifthlight.blazerod.animation.AnimationLoader
 import top.fifthlight.blazerod.model.Metadata
@@ -91,6 +92,10 @@ object ModelInstanceManager {
 
     fun get(uuid: UUID, time: Long?): ModelInstanceItem? {
         val isSelf = uuid == selfUuid
+        if (isSelf && !ConfigHolder.config.value.showOtherPlayerModel) {
+            return null
+        }
+
         val path = ClientModelPathManager.getPath(uuid)
         if (path == null) {
             return null

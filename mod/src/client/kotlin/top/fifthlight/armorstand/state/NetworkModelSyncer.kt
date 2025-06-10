@@ -3,13 +3,15 @@ package top.fifthlight.armorstand.state
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
 import net.fabricmc.fabric.api.networking.v1.PacketSender
 import top.fifthlight.armorstand.ArmorStand
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.manage.ModelManager
-import top.fifthlight.armorstand.network.ModelUpdateS2CPayload
+import top.fifthlight.armorstand.network.ModelUpdateC2SPayload
 
 object NetworkModelSyncer {
     private val packetSender = MutableStateFlow<PacketSender?>(null)
@@ -22,9 +24,17 @@ object NetworkModelSyncer {
             packetSender.value = null
         }
         ArmorStand.instance.scope.launch {
-            ConfigHolder.config.combine(packetSender, ::Pair).collectLatest { (config, sender) ->
-                val hash = config.modelPath?.let { ModelManager.getModel(it)?.hash }
-                sender?.sendPacket(ModelUpdateS2CPayload(hash))
+            ConfigHolder.config
+                .map { Pair(it.modelPath, it.sendModelData) }
+                .distinctUntilChanged()
+                .combine(packetSender, ::Pair).collectLatest { (config, sender) ->
+                val (modelPath, sendModelData) = config
+                if (sendModelData) {
+                    val hash = modelPath?.let { ModelManager.getModel(it)?.hash }
+                    sender?.sendPacket(ModelUpdateC2SPayload(hash))
+                } else {
+                    sender?.sendPacket(ModelUpdateC2SPayload(null))
+                }
             }
         }
     }

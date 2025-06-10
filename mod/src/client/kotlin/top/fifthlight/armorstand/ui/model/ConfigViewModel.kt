@@ -91,6 +91,7 @@ class ConfigViewModel(scope: CoroutineScope) : ViewModel(scope) {
                             showOtherPlayerModel = config.showOtherPlayerModel,
                             sendModelData = config.sendModelData,
                             modelScale = config.modelScale,
+                            thirdPersonDistanceScale = config.thirdPersonDistanceScale,
                         )
                     }
                 }
@@ -160,6 +161,12 @@ class ConfigViewModel(scope: CoroutineScope) : ViewModel(scope) {
     fun updateModelScale(modelScale: Double) {
         ConfigHolder.update {
             copy(modelScale = modelScale)
+        }
+    }
+
+    fun updateThirdPersonDistanceScale(thirdPersonDistanceScale: Float) {
+        ConfigHolder.update {
+            copy(thirdPersonDistanceScale = thirdPersonDistanceScale)
         }
     }
 

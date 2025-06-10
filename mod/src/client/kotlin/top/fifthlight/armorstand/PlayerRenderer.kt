@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.client.util.math.MatrixStack
 import org.joml.Matrix4f
+import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.blazerod.model.TaskMap
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.blazerod.util.FramedObjectPool
@@ -42,6 +43,7 @@ object PlayerRenderer {
         matrixStack.push()
 
         matrix.set(matrixStack.peek().positionMatrix)
+        matrix.scale(ConfigHolder.config.value.modelScale.toFloat())
         matrix.mulLocal(RenderSystem.getModelViewStack())
         if (renderingWorld) {
             taskMap.addTask(instance.schedule(matrix, light))

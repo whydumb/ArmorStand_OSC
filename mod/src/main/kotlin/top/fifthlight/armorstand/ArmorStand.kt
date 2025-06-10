@@ -8,7 +8,7 @@ import net.fabricmc.fabric.api.networking.v1.PlayerLookup
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.server.MinecraftServer
-import top.fifthlight.armorstand.network.ModelUpdateS2CPayload
+import top.fifthlight.armorstand.network.ModelUpdateC2SPayload
 import top.fifthlight.armorstand.network.PlayerModelUpdateS2CPayload
 import top.fifthlight.armorstand.server.ServerModelPathManager
 
@@ -25,7 +25,7 @@ abstract class ArmorStand : ModInitializer {
     override fun onInitialize() {
         instance = this
         PayloadTypeRegistry.playS2C().register(PlayerModelUpdateS2CPayload.ID, PlayerModelUpdateS2CPayload.CODEC)
-        PayloadTypeRegistry.playC2S().register(ModelUpdateS2CPayload.ID, ModelUpdateS2CPayload.CODEC)
+        PayloadTypeRegistry.playC2S().register(ModelUpdateC2SPayload.ID, ModelUpdateC2SPayload.CODEC)
 
         ServerModelPathManager.onUpdateListener = { uuid, hash ->
             server?.let { server ->
@@ -49,7 +49,7 @@ abstract class ArmorStand : ModInitializer {
         ServerPlayConnectionEvents.DISCONNECT.register { handler, server ->
             ServerModelPathManager.update(handler.player.uuid, null)
         }
-        ServerPlayNetworking.registerGlobalReceiver(ModelUpdateS2CPayload.ID) { payload, context ->
+        ServerPlayNetworking.registerGlobalReceiver(ModelUpdateC2SPayload.ID) { payload, context ->
             ServerModelPathManager.update(context.player().uuid, payload.modelHash)
         }
         ServerLifecycleEvents.SERVER_STARTING.register { server ->

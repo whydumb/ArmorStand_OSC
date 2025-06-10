@@ -3,6 +3,7 @@
   "armorstand.config.show_other_players": "Show other players' models",
   "armorstand.config.send_model_data": "Send model data to server",
   "armorstand.config.model_scale": "Model scale: %s",
+  "armorstand.config.third_person_distance_scale": "Third person distance scale: %s",
   "armorstand.config.open_model_directory": "Open Model Folder",
   "armorstand.config.sort.name.asc": "Sort: A-Z",
   "armorstand.config.sort.name.desc": "Sort: Z-A",

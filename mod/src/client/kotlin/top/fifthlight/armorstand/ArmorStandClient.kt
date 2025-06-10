@@ -64,6 +64,7 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
             PlayerRenderer.executeDraw()
         }
 
+
         ClientLifecycleEvents.CLIENT_STARTED.register { client ->
             scope = CoroutineScope(SupervisorJob() + ThreadExecutorDispatcher(client))
             runBlocking {

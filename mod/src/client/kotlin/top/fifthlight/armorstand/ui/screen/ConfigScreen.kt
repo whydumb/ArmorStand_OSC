@@ -210,6 +210,16 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
         )
     }
 
+    private val thirdPersonDistanceScaleSlider = slider(
+        textFactory = { slider, text -> Text.translatable("armorstand.config.third_person_distance_scale", text) },
+        min = 0.05,
+        max = 2.0,
+        value = viewModel.uiState.map { it.thirdPersonDistanceScale },
+        onValueChanged = { userTriggered, value ->
+            viewModel.updateThirdPersonDistanceScale(value)
+        },
+    )
+
     private val previewTab = LayoutScreenTab(
         title = Text.translatable("armorstand.config.tab.preview"),
         padding = Insets(8),
@@ -230,7 +240,12 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
                     padding = Insets(top = padding),
                     gap = gap,
                 ).apply {
-                    listOf(sendModelDataButton, showOtherPlayersButton, modelScaleSlider).forEach {
+                    listOf(
+                        sendModelDataButton,
+                        showOtherPlayersButton,
+                        modelScaleSlider,
+                        thirdPersonDistanceScaleSlider,
+                    ).forEach {
                         add(
                             it,
                             expand = true

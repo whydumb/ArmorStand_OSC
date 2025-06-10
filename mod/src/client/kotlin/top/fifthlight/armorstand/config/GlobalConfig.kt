@@ -1,6 +1,5 @@
 package top.fifthlight.armorstand.config
 
-import com.mojang.logging.LogUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.updateAndGet
@@ -23,6 +22,7 @@ data class GlobalConfig(
     val showOtherPlayerModel: Boolean = true,
     val sendModelData: Boolean = true,
     val modelScale: Double = 1.0,
+    val thirdPersonDistanceScale: Double = 1.0,
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(GlobalConfig::class.java)
