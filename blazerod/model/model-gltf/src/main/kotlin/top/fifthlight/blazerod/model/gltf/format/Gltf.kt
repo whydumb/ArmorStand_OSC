@@ -102,7 +102,7 @@ internal data class GltfBuffer(
     val uri: String? = null
 ) {
     init {
-        require(byteLength > 1) { "Buffer's length less than 1: $byteLength" }
+        require(byteLength > 0) { "Buffer's length less than 0: $byteLength" }
     }
 }
 
@@ -116,7 +116,7 @@ internal data class GltfBufferView(
     val target: BufferView.Target? = null,
 ) {
     init {
-        require(byteLength > 1) { "Buffer's length less than 1: $byteLength" }
+        require(byteLength > 0) { "Buffer's length less than 0: $byteLength" }
     }
 
     private class BufferViewTargetSerializer : IntEnumSerializer<BufferView.Target>(
