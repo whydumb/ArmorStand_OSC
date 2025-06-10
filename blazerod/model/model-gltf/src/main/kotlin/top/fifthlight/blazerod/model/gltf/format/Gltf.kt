@@ -20,7 +20,7 @@ import top.fifthlight.blazerod.model.gltf.format.extension.VrmV0Extension
 import top.fifthlight.blazerod.model.gltf.format.extension.VrmV1Extension
 import top.fifthlight.blazerod.model.Texture as CommonTexture
 
-private abstract class IntEnumSerializer<T : Enum<T>>(
+private abstract class IntEnumSerializer<T>(
     serialName: String,
     vararg mappings: Pair<T, Int>,
 ) : KSerializer<T> {
@@ -39,7 +39,7 @@ private abstract class IntEnumSerializer<T : Enum<T>>(
     }
 }
 
-private abstract class StringEnumSerializer<T : Enum<T>>(
+private abstract class StringEnumSerializer<T>(
     serialName: String,
     vararg mappings: Pair<T, String>,
 ) : KSerializer<T> {
@@ -260,9 +260,9 @@ internal data class GltfAnimationSampler(
 ) {
     private class AnimationInterpolationSerializer : StringEnumSerializer<AnimationInterpolation>(
         "top.fifthlight.blazerod.model.AnimationInterpolation",
-        AnimationInterpolation.LINEAR to "LINEAR",
-        AnimationInterpolation.STEP to "STEP",
-        AnimationInterpolation.CUBIC_SPLINE to "CUBICSPLINE",
+        AnimationInterpolation.linear to "LINEAR",
+        AnimationInterpolation.step to "STEP",
+        AnimationInterpolation.cubicSpline to "CUBICSPLINE",
     )
 }
 

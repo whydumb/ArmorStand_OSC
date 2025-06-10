@@ -118,7 +118,7 @@ object VmdLoader : ModelFileLoader {
                         values = channel.translationList,
                         elements = 1,
                     ),
-                    interpolation = AnimationInterpolation.LINEAR,
+                    interpolation = AnimationInterpolation.linear,
                 ),
                 SimpleAnimationChannel(
                     type = AnimationChannel.Type.Rotation,
@@ -130,7 +130,7 @@ object VmdLoader : ModelFileLoader {
                         values = channel.rotationList,
                         elements = 1,
                     ),
-                    interpolation = AnimationInterpolation.LINEAR,
+                    interpolation = AnimationInterpolation.linear,
                 ),
             )
         }
