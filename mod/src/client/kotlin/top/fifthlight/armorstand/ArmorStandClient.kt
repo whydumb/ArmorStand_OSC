@@ -57,7 +57,6 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
 
         ConfigHolder.read()
 
-        KeyBindingHelper.registerKeyBinding(configKeyBinding)
         WorldRenderEvents.BEFORE_ENTITIES.register { context ->
             PlayerRenderer.startRenderWorld()
         }
@@ -85,6 +84,8 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
                 ModelHashManager.putModelHash(payload.uuid, payload.modelHash)
             }
         }
+        KeyBindingHelper.registerKeyBinding(configKeyBinding)
+        KeyBindingHelper.registerKeyBinding(animationKeyBinding)
         ClientTickEvents.START_CLIENT_TICK.register { client ->
             if (client.player == null) {
                 return@register
