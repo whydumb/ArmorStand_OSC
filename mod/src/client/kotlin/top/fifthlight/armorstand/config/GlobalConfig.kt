@@ -21,8 +21,8 @@ data class GlobalConfig(
     val model: String? = null,
     val showOtherPlayerModel: Boolean = true,
     val sendModelData: Boolean = true,
-    val modelScale: Double = 1.0,
-    val thirdPersonDistanceScale: Double = 1.0,
+    val modelScale: Float = 1f,
+    val thirdPersonDistanceScale: Float = 1f,
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(GlobalConfig::class.java)

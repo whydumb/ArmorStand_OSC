@@ -158,7 +158,7 @@ class ConfigViewModel(scope: CoroutineScope) : ViewModel(scope) {
         }
     }
 
-    fun updateModelScale(modelScale: Double) {
+    fun updateModelScale(modelScale: Float) {
         ConfigHolder.update {
             copy(modelScale = modelScale)
         }

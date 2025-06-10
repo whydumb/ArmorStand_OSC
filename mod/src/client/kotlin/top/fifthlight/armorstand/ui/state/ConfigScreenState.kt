@@ -10,7 +10,7 @@ data class ConfigScreenState(
     val currentMetadata: Metadata? = null,
     val showOtherPlayerModel: Boolean = true,
     val sendModelData: Boolean = true,
-    val modelScale: Double = 1.0,
+    val modelScale: Float = 1f,
     val thirdPersonDistanceScale: Float = 1f,
     val currentModelMetadata: Metadata? = null,
     val searchString: String = "",

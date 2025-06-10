@@ -203,9 +203,9 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
             textFactory = { slider, text -> Text.translatable("armorstand.config.model_scale", text) },
             min = 0.0,
             max = 4.0,
-            value = viewModel.uiState.map { it.modelScale },
+            value = viewModel.uiState.map { it.modelScale.toDouble() },
             onValueChanged = { userTriggered, value ->
-                viewModel.updateModelScale(value)
+                viewModel.updateModelScale(value.toFloat())
             },
         )
     }
@@ -214,9 +214,9 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
         textFactory = { slider, text -> Text.translatable("armorstand.config.third_person_distance_scale", text) },
         min = 0.05,
         max = 2.0,
-        value = viewModel.uiState.map { it.thirdPersonDistanceScale },
+        value = viewModel.uiState.map { it.thirdPersonDistanceScale.toDouble() },
         onValueChanged = { userTriggered, value ->
-            viewModel.updateThirdPersonDistanceScale(value)
+            viewModel.updateThirdPersonDistanceScale(value.toFloat())
         },
     )
 

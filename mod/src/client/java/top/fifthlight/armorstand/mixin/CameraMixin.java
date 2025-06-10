@@ -11,6 +11,6 @@ import top.fifthlight.armorstand.config.GlobalConfig;
 public class CameraMixin {
     @ModifyArg(method = "update", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;clipToSpace(F)F"))
     public float thirdPersonDistance(float f) {
-        return (float) (f * ConfigHolder.INSTANCE.getConfig().getValue().getThirdPersonDistanceScale());
+        return f * ConfigHolder.INSTANCE.getConfig().getValue().getThirdPersonDistanceScale();
     }
 }
