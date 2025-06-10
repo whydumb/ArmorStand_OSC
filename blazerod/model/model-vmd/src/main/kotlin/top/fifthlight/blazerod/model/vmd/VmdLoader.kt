@@ -44,7 +44,9 @@ object VmdLoader : ModelFileLoader {
         val bytes = ByteBuffer.allocate(maxLength)
         bytes.put(buffer.slice(buffer.position(), maxLength))
         buffer.position(buffer.position() + maxLength)
-        val nullIndex = (0 until maxLength).indexOfFirst { bytes.get(it) == 0.toByte() }
+        val nullIndex = (0 until maxLength)
+            .indexOfFirst { bytes.get(it) == 0.toByte() }
+            .takeIf { it != -1 } ?: maxLength
         val stringBytes = bytes.slice(0, nullIndex).order(ByteOrder.LITTLE_ENDIAN)
         return decoder.decode(stringBytes).toString()
     }

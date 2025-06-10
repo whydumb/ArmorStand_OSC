@@ -43,14 +43,14 @@ class AnimationList(
 
     inner class Entry(val item: AnimationScreenState.AnimationItem) : AlwaysSelectedEntryListWidget.Entry<Entry>() {
         private val name = item.name?.let { name -> Text.literal(name) } ?: Text.translatable("armorstand.animation.name.unnamed")
-        private val length = run {
-            val minutes = (item.duration / 60).toInt().toString().padStart(2, '0')
-            val seconds = (item.duration % 60).toInt().toString().padStart(2, '0')
+        private val length = item.duration?.let { duration ->
+            val minutes = (duration / 60).toInt().toString().padStart(2, '0')
+            val seconds = (duration % 60).toInt().toString().padStart(2, '0')
             Text.literal("$minutes:$seconds")
         }
         private val source = when (val source = item.source) {
             is AnimationScreenState.AnimationItem.Source.Embed -> Text.literal("Embed in model")
-            is AnimationScreenState.AnimationItem.Source.External -> Text.literal("File: ${source.name}")
+            is AnimationScreenState.AnimationItem.Source.External -> Text.literal("File: ${source.path.fileName}")
         }
 
         override fun getNarration(): Text = Text.empty()
@@ -68,10 +68,15 @@ class AnimationList(
             tickProgress: Float,
         ) {
             val textRenderer = client.textRenderer
-            val timeWidth = textRenderer.getWidth(length)
+            val length = length
+            val timeWidth = length?.let { length -> textRenderer.getWidth(length) }
             val nameTextWidth = textRenderer.getWidth(name)
             val timeExtraPadding = 2
-            val nameAreaWidth = entryWidth - ENTRY_PADDING * 3 - timeWidth - timeExtraPadding
+            val nameAreaWidth = if (timeWidth != null) {
+                entryWidth - ENTRY_PADDING * 3 - timeWidth - timeExtraPadding
+            } else {
+                entryWidth - ENTRY_PADDING * 2
+            }
             drawScrollableText(
                 context,
                 textRenderer,
@@ -83,18 +88,25 @@ class AnimationList(
                 y + ENTRY_PADDING + textRenderer.fontHeight,
                 Colors.WHITE,
             )
-            context.drawTextWithShadow(
-                textRenderer,
-                length,
-                x + entryWidth - ENTRY_PADDING - timeWidth - timeExtraPadding,
-                y + ENTRY_PADDING,
-                Colors.GRAY,
-            )
-            context.drawTextWithShadow(
+            length?.let { length ->
+                context.drawTextWithShadow(
+                    textRenderer,
+                    length,
+                    x + entryWidth - ENTRY_PADDING - timeWidth!! - timeExtraPadding,
+                    y + ENTRY_PADDING,
+                    Colors.GRAY,
+                )
+            }
+            val sourceTextWidth = textRenderer.getWidth(source)
+            drawScrollableText(
+                context,
                 textRenderer,
                 source,
+                x + ENTRY_PADDING + sourceTextWidth / 2,
                 x + ENTRY_PADDING,
                 y + entryHeight - ENTRY_PADDING - textRenderer.fontHeight,
+                right - ENTRY_PADDING,
+                y + entryHeight - ENTRY_PADDING,
                 Colors.GRAY,
             )
         }

@@ -3,13 +3,19 @@ package top.fifthlight.armorstand.ui.model
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.getAndUpdate
+import kotlinx.coroutines.launch
 import net.minecraft.client.MinecraftClient
+import org.slf4j.LoggerFactory
+import top.fifthlight.armorstand.manage.ModelManager
 import top.fifthlight.armorstand.state.ModelController
 import top.fifthlight.armorstand.state.ModelInstanceManager
-import top.fifthlight.armorstand.ui.screen.AnimationScreen
 import top.fifthlight.armorstand.ui.state.AnimationScreenState
+import top.fifthlight.armorstand.util.ModelLoaders
 import top.fifthlight.blazerod.animation.AnimationItem
+import top.fifthlight.blazerod.animation.AnimationLoader
+import top.fifthlight.blazerod.model.ModelFileLoaders
 import java.lang.ref.WeakReference
 
 class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
@@ -17,7 +23,25 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
     val uiState = _uiState.asStateFlow()
 
     companion object {
+        private val logger = LoggerFactory.getLogger(AnimationViewModel::class.java)
         var playSpeed = MutableStateFlow(1.0)
+    }
+
+    init {
+        scope.launch {
+            ModelManager.lastScanTime.collectLatest {
+                _uiState.getAndUpdate {
+                    it.copy(
+                        externalAnimations = ModelManager.getAnimations().map { item ->
+                            AnimationScreenState.AnimationItem(
+                                name = item.name,
+                                source = AnimationScreenState.AnimationItem.Source.External(item.path),
+                            )
+                        },
+                    )
+                }
+            }
+        }
     }
 
     private fun getInstanceItem(): ModelInstanceManager.ModelInstanceItem.Model? {
@@ -64,7 +88,7 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
         if (animations != prevAnimations.get()) {
             prevAnimations = WeakReference(animations)
             _uiState.getAndUpdate { state ->
-                state.copy(animations = animations.mapIndexed { index, animation ->
+                state.copy(embedAnimations = animations.mapIndexed { index, animation ->
                     AnimationScreenState.AnimationItem(
                         name = animation.name,
                         duration = animation.duration.toDouble(),
@@ -109,7 +133,26 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
                 val animation = instanceItem.animations[index]
                 instanceItem.controller = ModelController.Predefined(animation)
             }
-            is AnimationScreenState.AnimationItem.Source.External -> TODO()
+            is AnimationScreenState.AnimationItem.Source.External -> {
+                instanceItem.controller = ModelController.LiveUpdated(instanceItem.instance.scene)
+                scope.launch {
+                    try {
+                        val path = ModelManager.modelDir.resolve(source.path)
+                        val result = ModelFileLoaders.probeAndLoad(path)
+                        val animation = result?.animations?.firstOrNull() ?: error("No animation in file")
+                        val animationItem = AnimationLoader.load(instanceItem.instance.scene, animation)
+                        instanceItem.controller = ModelController.Predefined(animationItem)
+                    } catch (ex: Throwable) {
+                        logger.warn("Failed to load animation", ex)
+                    }
+                }
+            }
+        }
+    }
+
+    fun refreshAnimations() {
+        scope.launch {
+            ModelManager.scheduleScan()
         }
     }
 }

@@ -34,7 +34,7 @@ class DatabaseViewModel(scope: CoroutineScope) : ViewModel(scope) {
         }
     }
 
-    private suspend fun executeQuery(query: String): DatabaseScreenState.QueryState =
+    private fun executeQuery(query: String): DatabaseScreenState.QueryState =
         ModelManager.transaction {
             createStatement().use { stmt ->
                 val (value, duration) = measureTimedValue {
@@ -49,12 +49,14 @@ class DatabaseViewModel(scope: CoroutineScope) : ViewModel(scope) {
             }
         }
 
-    private fun parseResultSet(rs: ResultSet): Pair<List<String>, List<List<String>>> {
-        val metaData = rs.metaData
+    private fun parseResultSet(resultSet: ResultSet): Pair<List<String>, List<List<String>>> {
+        val metaData = resultSet.metaData
         val headers = (1..metaData.columnCount).map { metaData.getColumnName(it) }
         val rows = buildList {
-            while (rs.next()) {
-                add((1..metaData.columnCount).map { rs.getString(it) ?: "null" })
+            while (resultSet.next()) {
+                add((1..metaData.columnCount).map {
+                    resultSet.getString(it) ?: "null" }
+                )
             }
         }
         return Pair(headers, rows)

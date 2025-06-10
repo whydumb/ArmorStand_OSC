@@ -20,6 +20,9 @@ object ModelLoaders {
                 extension.takeIf { ModelFileLoader.Ability.EXTERNAL_ANIMATION in abilities }
             }
     }
+    val scanExtensions by lazy {
+        modelExtensions + animationExtensions
+    }
     val embedThumbnailExtensions by lazy {
         loaders
             .flatMap { it.extensions.entries }

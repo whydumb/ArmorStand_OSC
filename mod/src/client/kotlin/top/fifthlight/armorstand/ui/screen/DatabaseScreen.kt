@@ -2,6 +2,7 @@ package top.fifthlight.armorstand.ui.screen
 
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.gui.widget.ButtonWidget
 import net.minecraft.client.gui.widget.Positioner
@@ -11,6 +12,7 @@ import net.minecraft.text.Text
 import net.minecraft.util.Formatting
 import top.fifthlight.armorstand.ui.component.BorderLayout
 import top.fifthlight.armorstand.ui.component.LinearLayout
+import top.fifthlight.armorstand.ui.component.ResultTable
 import top.fifthlight.armorstand.ui.model.DatabaseViewModel
 import top.fifthlight.armorstand.ui.util.autoWidthButton
 import top.fifthlight.armorstand.ui.util.textField
@@ -38,6 +40,15 @@ class DatabaseScreen(parent: Screen? = null) : ArmorStandScreen<DatabaseScreen, 
             viewModel.submitQuery()
         }
     }
+    private val resultTable by lazy {
+        ResultTable(textRenderer = currentClient.textRenderer).also {
+            scope.launch {
+                viewModel.uiState.collect { state ->
+                    it.setContent(state.state)
+                }
+            }
+        }
+    }
 
     override fun init() {
         val rootLayout = BorderLayout(
@@ -54,12 +65,24 @@ class DatabaseScreen(parent: Screen? = null) : ArmorStandScreen<DatabaseScreen, 
                 setFirstElement(
                     BorderLayout(
                         width = width,
-                        height = 20,
+                        height = 36,
                         direction = BorderLayout.Direction.HORIZONTAL,
                     ).apply {
-                        setCenterElement(queryInput)
-                        setSecondElement(executeButton)
+                        setCenterElement(
+                            widget = queryInput,
+                            positioner = Positioner.create().apply { margin(8) },
+                        )
+                        setSecondElement(
+                            widget = executeButton,
+                            positioner = Positioner.create().apply {
+                                margin(0, 8, 8, 8)
+                            },
+                        )
                     },
+                )
+                setCenterElement(
+                    widget = resultTable,
+                    positioner = Positioner.create().apply { margin(8, 0, 8, 8) },
                 )
             }
         )

@@ -36,7 +36,7 @@ object ModelManager {
         get() = ModelInstanceManager.modelDir
     private const val DATABASE_NAME = ".cache"
     private val databaseFile = modelDir.resolve("$DATABASE_NAME.mv.db").toAbsolutePath()
-    private const val DATABASE_VERSION = 1
+    private const val DATABASE_VERSION = 2
     var connectionPool: Pool<Connection>? = null
         private set
 
@@ -64,13 +64,6 @@ object ModelManager {
         }
         return true
     }
-
-    private fun ResultSet.readModelItem() = ModelItem(
-        path = Path.of(getString(1)).normalize(),
-        name = getString(2),
-        lastChanged = getLong(3),
-        hash = ModelHash(getBytes(4)),
-    )
 
     private suspend fun waitUntilFirstScan(): Instant {
         if (_lastScanTime.value == null) {
@@ -103,6 +96,13 @@ object ModelManager {
         NAME,
         LAST_CHANGED,
     }
+
+    private fun ResultSet.readModelItem() = ModelItem(
+        path = Path.of(getString(1)).normalize(),
+        name = getString(2),
+        lastChanged = getLong(3),
+        hash = ModelHash(getBytes(4)),
+    )
 
     suspend fun getModel(
         offset: Int,
@@ -178,6 +178,27 @@ object ModelManager {
         }
     }
 
+    private fun ResultSet.readAnimationItem() = AnimationItem(
+        path = Path.of(getString(1)).normalize(),
+        name = getString(2),
+    )
+
+    suspend fun getAnimations(): List<AnimationItem> {
+        waitUntilFirstScan()
+        return withContext(Dispatchers.IO) {
+            transaction {
+                query("SELECT path, name FROM animation").use { result ->
+                    buildList {
+                        while (result.next()) {
+                            val animationItem = result.readAnimationItem()
+                            add(animationItem)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     sealed class ModelThumbnail {
         data object None : ModelThumbnail()
 
@@ -230,20 +251,36 @@ object ModelManager {
     val lastScanTime = _lastScanTime.asStateFlow()
     private suspend fun doScan() = withContext(Dispatchers.IO) {
         transaction {
-            execute("DROP TABLE IF EXISTS scanned_model_paths")
+            execute("DROP TABLE IF EXISTS scanned_file_sha256;")
+            execute(
+                """
+                    CREATE TEMPORARY TABLE scanned_file_sha256(
+                        sha256 BINARY(32) PRIMARY KEY
+                    );
+                """
+            )
+            execute("DROP TABLE IF EXISTS scanned_model_paths;")
             execute(
                 """
                     CREATE TEMPORARY TABLE scanned_model_paths(
                         path VARCHAR PRIMARY KEY
-                    )
+                    );
                 """
             )
-            execute("DROP TABLE IF EXISTS scanned_model_sha256")
+            execute("DROP TABLE IF EXISTS scanned_animation_paths;")
             execute(
                 """
-                    CREATE TEMPORARY TABLE scanned_model_sha256(
+                CREATE TEMPORARY TABLE scanned_animation_paths(
+                    path VARCHAR PRIMARY KEY
+                );
+                """
+            )
+            execute("DROP TABLE IF EXISTS scanned_thumbnail_sha256;")
+            execute(
+                """
+                    CREATE TEMPORARY TABLE scanned_thumbnail_sha256(
                         sha256 BINARY(32) PRIMARY KEY
-                    )
+                    );
                 """
             )
         }
@@ -260,61 +297,120 @@ object ModelManager {
                     setString(1, pathStr)
                 }
 
-                prepareQuery("SELECT sha256 FROM model WHERE path = ? AND lastChanged = ? LIMIT 1;") {
+                val sha256 = prepareQuery("SELECT sha256 FROM file WHERE path = ? AND lastChanged = ? LIMIT 1;") {
                     setString(1, pathStr)
                     setLong(2, lastChanged)
                 }.use { result ->
                     if (result.next()) {
-                        LOGGER.trace("File already in model cache, skip.")
-                        prepare("INSERT INTO scanned_model_sha256 (sha256) VALUES (?)") {
-                            setBytes(1, result.getBytes(1))
+                        LOGGER.trace("File already in file cache, skip calculating sha256.")
+                        val sha256 = result.getBytes(1)
+                        sha256
+                    } else {
+                        val sha256 = calculateSha256(path)
+                        prepare("INSERT INTO file (path, lastChanged, sha256) VALUES (?, ?, ?)") {
+                            setString(1, pathStr)
+                            setLong(2, lastChanged)
+                            setBytes(3, sha256)
                         }
-                        return@transaction
+                        LOGGER.trace("SHA-256 for file {} is {}", relativePath, sha256.toHexString())
+                        sha256
                     }
                 }
-
-                val sha256 = calculateSha256(path)
-                LOGGER.trace("SHA-256 for file {} is {}", relativePath, sha256.toHexString())
-
-                prepareQuery("SELECT COUNT(*) FROM embed_thumbnails WHERE sha256 = ? LIMIT 1;") {
+                prepare("MERGE INTO scanned_file_sha256 (sha256) KEY (sha256) VALUES (?)") {
                     setBytes(1, sha256)
-                }.use { result ->
-                    result.skipToInitialRow()
-                    if (result.getInt(1) > 0) {
-                        LOGGER.trace("Already scanned embed thumbnails, skip.")
-                        return@use
+                }
+
+                if (extension in ModelLoaders.modelExtensions) {
+                    prepare("MERGE INTO scanned_model_paths (path) KEY (path) VALUES (?)") {
+                        setString(1, pathStr)
                     }
-                    if (extension in ModelLoaders.embedThumbnailExtensions) {
-                        val thumbnailResult = try {
-                            ModelFileLoaders.getEmbedThumbnail(path)
-                        } catch (ex: Exception) {
-                            LOGGER.warn("Failed to extract thumbnail: {}", pathStr)
-                            null
-                        }
-                        LOGGER.trace("Thumbnail: {}", thumbnailResult)
-                        // TODO mark if there is no embed thumbnails to avoid scanning same sha256
-                        if (thumbnailResult is ModelFileLoader.ThumbnailResult.Embed) {
-                            prepare("INSERT INTO embed_thumbnails (sha256, fileOffset, fileLength, mimeType) VALUES (?, ?, ?, ?)") {
+                    prepareQuery("SELECT COUNT(*) FROM model WHERE path = ? LIMIT 1;") {
+                        setString(1, pathStr)
+                    }.use { result ->
+                        result.skipToInitialRow()
+                        if (result.getInt(1) > 0) {
+                            LOGGER.trace("Already scanned model, skip processing model.")
+                            prepare("MERGE INTO scanned_thumbnail_sha256 (sha256) KEY (sha256) VALUES (?)") {
                                 setBytes(1, sha256)
-                                setLong(2, thumbnailResult.offset)
-                                setLong(3, thumbnailResult.length)
-                                setString(4, thumbnailResult.type?.mimeType)
+                            }
+                            return@use
+                        }
+
+                        prepare("DELETE FROM model WHERE path = ?") {
+                            setString(1, pathStr)
+                        }
+                        prepare("INSERT INTO model (path, name, lastChanged, sha256) VALUES (?, ?, ?, ?)") {
+                            setString(1, pathStr)
+                            setString(2, name)
+                            setLong(3, lastChanged)
+                            setBytes(4, sha256)
+                        }
+
+                        if (extension in ModelLoaders.embedThumbnailExtensions) {
+                            prepareQuery("SELECT COUNT(*) FROM embed_thumbnails WHERE sha256 = ? LIMIT 1;") {
+                                setBytes(1, sha256)
+                            }.use { result ->
+                                result.skipToInitialRow()
+                                if (result.getInt(1) > 0) {
+                                    LOGGER.trace("Already scanned embed thumbnails, skip.")
+                                    return@use
+                                }
+                                prepareQuery("SELECT COUNT(*) FROM scanned_thumbnail_sha256 WHERE sha256 = ? LIMIT 1;") {
+                                    setBytes(1, sha256)
+                                }.use { result ->
+                                    result.skipToInitialRow()
+                                    if (result.getInt(1) > 0) {
+                                        return@use
+                                    }
+
+                                    prepare("INSERT INTO scanned_thumbnail_sha256 (sha256) VALUES (?)") {
+                                        setBytes(1, sha256)
+                                    }
+                                    val thumbnailResult = try {
+                                        ModelFileLoaders.getEmbedThumbnail(path)
+                                    } catch (ex: Exception) {
+                                        LOGGER.warn("Failed to extract thumbnail: {}", pathStr)
+                                        null
+                                    }
+                                    LOGGER.trace("Thumbnail: {}", thumbnailResult)
+
+                                    if (thumbnailResult is ModelFileLoader.ThumbnailResult.Embed) {
+                                        prepare("INSERT INTO embed_thumbnails (sha256, fileOffset, fileLength, mimeType) VALUES (?, ?, ?, ?)") {
+                                            setBytes(1, sha256)
+                                            setLong(2, thumbnailResult.offset)
+                                            setLong(3, thumbnailResult.length)
+                                            setString(4, thumbnailResult.type?.mimeType)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
 
-                prepare("DELETE FROM model WHERE path = ?") {
-                    setString(1, pathStr)
-                }
-                prepare("INSERT INTO model (path, name, lastChanged, sha256) VALUES (?, ?, ?, ?)") {
-                    setString(1, pathStr)
-                    setString(2, name)
-                    setLong(3, lastChanged)
-                    setBytes(4, sha256)
-                }
-                prepare("INSERT INTO scanned_model_sha256 (sha256) VALUES (?)") {
-                    setBytes(1, sha256)
+                if (extension in ModelLoaders.animationExtensions) {
+                    prepare("MERGE INTO scanned_animation_paths (path) KEY (path) VALUES (?)") {
+                        setString(1, pathStr)
+                    }
+                    prepareQuery("SELECT COUNT(*) FROM animation WHERE path = ? LIMIT 1;") {
+                        setString(1, pathStr)
+                    }.use { result ->
+                        result.skipToInitialRow()
+                        if (result.getInt(1) > 0) {
+                            LOGGER.trace("Already scanned animation, skip processing animation.")
+                            return@use
+                        }
+
+                        prepare("DELETE FROM animation WHERE path = ?") {
+                            setString(1, pathStr)
+                        }
+                        prepare("INSERT INTO animation (path, name, lastChanged, sha256) VALUES (?, ?, ?, ?)") {
+                            setString(1, pathStr)
+                            setString(2, name)
+                            setLong(3, lastChanged)
+                            setBytes(4, sha256)
+                        }
+                    }
                 }
             }
         }
@@ -324,7 +420,7 @@ object ModelManager {
                 val processDispatcher = Dispatchers.IO.limitedParallelism(4)
                 modelDir.visitFileTree {
                     onVisitFile { file, _ ->
-                        if (file.extension in ModelLoaders.modelExtensions) {
+                        if (file.extension in ModelLoaders.scanExtensions) {
                             launch {
                                 withContext(processDispatcher) {
                                     try {
@@ -344,20 +440,36 @@ object ModelManager {
         transaction {
             execute(
                 """
-                    DELETE FROM model
+                    DELETE FROM file
                     WHERE NOT EXISTS
-                    (SELECT 1 FROM scanned_model_paths WHERE scanned_model_paths.path = model.path)
+                    (SELECT 1 FROM scanned_file_sha256 WHERE scanned_file_sha256.sha256 = file.sha256)
+                """
+            )
+            execute(
+                """
+                DELETE FROM model
+                WHERE NOT EXISTS
+                (SELECT 1 FROM scanned_model_paths WHERE scanned_model_paths.path = model.path)
+                """
+            )
+            execute(
+                """
+                    DELETE FROM animation
+                    WHERE NOT EXISTS
+                    (SELECT 1 FROM scanned_animation_paths WHERE scanned_animation_paths.path = animation.path)
                 """
             )
             execute(
                 """
                     DELETE FROM embed_thumbnails
                     WHERE NOT EXISTS
-                    (SELECT 1 FROM scanned_model_sha256 WHERE scanned_model_sha256.sha256 = embed_thumbnails.sha256)
+                    (SELECT 1 FROM scanned_thumbnail_sha256 WHERE scanned_thumbnail_sha256.sha256 = embed_thumbnails.sha256)
                 """
             )
+            execute("DROP TABLE scanned_file_sha256")
             execute("DROP TABLE scanned_model_paths")
-            execute("DROP TABLE scanned_model_sha256")
+            execute("DROP TABLE scanned_animation_paths")
+            execute("DROP TABLE scanned_thumbnail_sha256")
         }
 
         _lastScanTime.value = Clock.System.now()
@@ -407,6 +519,7 @@ object ModelManager {
                         watcher,
                         StandardWatchEventKinds.ENTRY_CREATE,
                         StandardWatchEventKinds.ENTRY_MODIFY,
+                        StandardWatchEventKinds.ENTRY_DELETE,
                     )
                 }
                 while (true) {
@@ -423,7 +536,7 @@ object ModelManager {
                         }
 
                         val extension = file.extension
-                        if (extension !in ModelLoaders.modelExtensions) {
+                        if (extension !in ModelLoaders.scanExtensions) {
                             continue
                         }
 
@@ -449,12 +562,34 @@ object ModelManager {
                 return@transaction
             }
             execute("DROP TABLE IF EXISTS version;")
+            execute("DROP TABLE IF EXISTS file;")
             execute("DROP TABLE IF EXISTS model;")
+            execute("DROP TABLE IF EXISTS animation;")
+            execute("DROP TABLE IF EXISTS embed_thumbnails;")
             execute("CREATE TABLE version (version INTEGER);")
             prepare("INSERT INTO version (version) VALUES (?);") { setInt(1, DATABASE_VERSION) }
             execute(
                 """
-                CREATE TABLE model (
+                CREATE TABLE file(
+                    path VARCHAR PRIMARY KEY,
+                    lastChanged BIGINT NOT NULL,
+                    sha256 BINARY(32) NOT NULL
+                );
+                """
+            )
+            execute(
+                """
+                CREATE TABLE model(
+                    path VARCHAR PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    lastChanged BIGINT NOT NULL,
+                    sha256 BINARY(32) NOT NULL
+                );                    
+                """
+            )
+            execute(
+                """
+                CREATE TABLE animation(
                     path VARCHAR PRIMARY KEY,
                     name VARCHAR NOT NULL,
                     lastChanged BIGINT NOT NULL,
@@ -464,7 +599,7 @@ object ModelManager {
             )
             execute(
                 """
-                CREATE TABLE embed_thumbnails (
+                CREATE TABLE embed_thumbnails(
                     sha256 BINARY(32) PRIMARY KEY,
                     fileOffset BIGINT NOT NULL,
                     fileLength BIGINT NOT NULL,

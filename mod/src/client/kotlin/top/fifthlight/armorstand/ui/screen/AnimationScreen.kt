@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.gui.screen.Screen
+import net.minecraft.client.gui.widget.ButtonWidget
 import net.minecraft.client.gui.widget.Positioner
 import net.minecraft.client.gui.widget.TextWidget
 import net.minecraft.text.Text
@@ -134,6 +135,10 @@ class AnimationScreen(parent: Screen? = null) : ArmorStandScreen<AnimationScreen
         }
     }
 
+    private val refreshAnimationButton = ButtonWidget.builder(Text.translatable("armorstand.animation.refresh")) {
+        viewModel.refreshAnimations()
+    }.build()
+
     override fun init() {
         val animationPanelWidth = 128
         val animationPanelHeight = 256.coerceAtMost(height / 3 * 2)
@@ -186,6 +191,10 @@ class AnimationScreen(parent: Screen? = null) : ArmorStandScreen<AnimationScreen
             setCenterElement(
                 widget = animationList,
                 positioner = Positioner.create().margin(8, 0, 8, 8),
+            )
+            setSecondElement(
+                widget = refreshAnimationButton,
+                positioner = Positioner.create().margin(8),
             )
         }
         animationPanel.refreshPositions()
