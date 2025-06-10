@@ -9,12 +9,16 @@ import java.util.function.Consumer
 
 class LayoutScreenTab<T>(
     private val title: Text,
-    val layout: T,
     val padding: Insets = Insets.ZERO,
+    private val layoutFactory: () -> T,
 ) : Tab where T : ResizableLayout, T : LayoutWidget {
     override fun getTitle(): Text = this.title
 
     override fun getNarratedHint(): Text = Text.empty()
+
+    val layout by lazy {
+        layoutFactory()
+    }
 
     override fun forEachChild(consumer: Consumer<ClickableWidget>) = layout.forEachChild(consumer)
 

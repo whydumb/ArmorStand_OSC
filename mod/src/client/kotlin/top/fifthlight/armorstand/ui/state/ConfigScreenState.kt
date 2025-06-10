@@ -7,6 +7,7 @@ import java.nio.file.Path
 
 data class ConfigScreenState(
     val currentModel: Path? = null,
+    val currentMetadata: Metadata? = null,
     val showOtherPlayerModel: Boolean = true,
     val sendModelData: Boolean = true,
     val modelScale: Double = 1.0,

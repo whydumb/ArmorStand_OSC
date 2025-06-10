@@ -4,12 +4,15 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import net.minecraft.client.gui.Element
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.gui.tab.TabManager
-import net.minecraft.client.gui.widget.*
+import net.minecraft.client.gui.widget.ButtonWidget
+import net.minecraft.client.gui.widget.Positioner
+import net.minecraft.client.gui.widget.TabNavigationWidget
+import net.minecraft.client.gui.widget.TextWidget
 import net.minecraft.screen.ScreenTexts
 import net.minecraft.text.Text
+import net.minecraft.util.Colors
 import net.minecraft.util.Formatting
 import org.lwjgl.glfw.GLFW
 import top.fifthlight.armorstand.config.ConfigHolder
@@ -21,6 +24,7 @@ import top.fifthlight.armorstand.ui.util.checkbox
 import top.fifthlight.armorstand.ui.util.slider
 import top.fifthlight.armorstand.ui.util.textField
 import top.fifthlight.armorstand.util.ceilDiv
+import kotlin.math.exp
 
 class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, ConfigViewModel>(
     parent = parent,
@@ -209,7 +213,8 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
     private val previewTab = LayoutScreenTab(
         title = Text.translatable("armorstand.config.tab.preview"),
         padding = Insets(8),
-        layout = BorderLayout(
+    ) {
+        BorderLayout(
             direction = BorderLayout.Direction.VERTICAL,
         ).apply {
             setCenterElement(
@@ -234,16 +239,23 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
                     pack()
                 }
             )
-        },
-    )
+        }
+    }
 
     private val metadataTab = LayoutScreenTab(
         title = Text.translatable("armorstand.config.tab.metadata"),
         padding = Insets(8),
-        layout = LinearLayout().apply {
-
-        },
-    )
+    ) {
+        BorderLayout().apply {
+            setCenterElement(MetadataWidget(currentClient).also {
+                scope.launch {
+                    viewModel.uiState.collect { state ->
+                        it.metadata = state.currentMetadata
+                    }
+                }
+            }, Positioner.create().margin(8))
+        }
+    }
 
     private val tabManager = TabManager(
         { addDrawableChild(it) },
@@ -379,6 +391,10 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
         } else {
             tabManager.currentTab?.forEachChild { addDrawableChild(it) }
         }
+    }
+
+    override fun tick() {
+        viewModel.tick()
     }
 
     override fun close() {

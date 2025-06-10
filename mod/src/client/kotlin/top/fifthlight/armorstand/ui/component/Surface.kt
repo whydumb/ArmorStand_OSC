@@ -21,10 +21,12 @@ fun interface Surface {
             }
         }
 
+        fun color(color: Int) = color(color.toUInt())
         fun color(color: UInt) = Surface { context, x, y, width, height ->
             context.fill(x, y, x + width, y + height, color.toInt())
         }
 
+        fun border(color: Int) = border(color.toUInt())
         fun border(color: UInt) = Surface { context, x, y, width, height ->
             context.drawBorder(x, y, width, height, color.toInt())
         }

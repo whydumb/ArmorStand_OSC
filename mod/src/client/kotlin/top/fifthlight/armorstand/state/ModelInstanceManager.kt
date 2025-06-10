@@ -6,6 +6,7 @@ import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.MinecraftClient
 import top.fifthlight.blazerod.animation.AnimationItem
 import top.fifthlight.blazerod.animation.AnimationLoader
+import top.fifthlight.blazerod.model.Metadata
 import top.fifthlight.blazerod.model.ModelBufferManager
 import top.fifthlight.blazerod.model.ModelInstance
 import top.fifthlight.blazerod.model.ModelLoader
@@ -33,6 +34,7 @@ object ModelInstanceManager {
         data object Failed : ModelCache()
 
         data class Loaded(
+            val metadata: Metadata?,
             val scene: RenderScene,
             val animations: List<AnimationItem>,
         ) : RefCount by scene, ModelCache()
@@ -49,6 +51,7 @@ object ModelInstanceManager {
             override val path: Path,
             val animations: List<AnimationItem>,
             var lastAccessTime: Long,
+            val metadata: Metadata?,
             val instance: ModelInstance,
             var controller: ModelController,
         ) : RefCount by instance, ModelInstanceItem
@@ -71,6 +74,7 @@ object ModelInstanceManager {
                 ModelCache.Loaded(
                     scene = scene,
                     animations = animations,
+                    metadata = result.metadata,
                 )
             } ?: ModelCache.Failed
             result
@@ -123,6 +127,7 @@ object ModelInstanceManager {
                 ModelInstanceItem.Model(
                     path = path,
                     animations = cache.animations,
+                    metadata = cache.metadata,
                     lastAccessTime = lastAccessTime,
                     instance = ModelInstance(scene, ModelBufferManager.getEntry(scene)),
                     controller = when (val animation = cache.animations.firstOrNull()) {
