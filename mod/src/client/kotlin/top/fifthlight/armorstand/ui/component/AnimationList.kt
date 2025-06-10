@@ -42,15 +42,19 @@ class AnimationList(
     }
 
     inner class Entry(val item: AnimationScreenState.AnimationItem) : AlwaysSelectedEntryListWidget.Entry<Entry>() {
-        private val name = item.name?.let { name -> Text.literal(name) } ?: Text.translatable("armorstand.animation.name.unnamed")
+        private val name =
+            item.name?.let { name -> Text.literal(name) } ?: Text.translatable("armorstand.animation.name.unnamed")
         private val length = item.duration?.let { duration ->
             val minutes = (duration / 60).toInt().toString().padStart(2, '0')
             val seconds = (duration % 60).toInt().toString().padStart(2, '0')
             Text.literal("$minutes:$seconds")
         }
         private val source = when (val source = item.source) {
-            is AnimationScreenState.AnimationItem.Source.Embed -> Text.literal("Embed in model")
-            is AnimationScreenState.AnimationItem.Source.External -> Text.literal("File: ${source.path.fileName}")
+            is AnimationScreenState.AnimationItem.Source.Embed -> Text.translatable("armorstand.animation.source.embed")
+            is AnimationScreenState.AnimationItem.Source.External -> Text.translatable(
+                "armorstand.animation.source.external",
+                source.path.fileName
+            )
         }
 
         override fun getNarration(): Text = Text.empty()

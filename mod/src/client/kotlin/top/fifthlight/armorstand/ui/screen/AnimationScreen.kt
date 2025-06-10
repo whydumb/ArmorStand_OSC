@@ -182,7 +182,7 @@ class AnimationScreen(parent: Screen? = null) : ArmorStandScreen<AnimationScreen
                 widget = TextWidget(
                     animationPanelWidth - 16,
                     textRenderer.fontHeight,
-                    Text.literal("Animations").formatted(Formatting.BOLD).formatted(Formatting.UNDERLINE),
+                    Text.translatable("armorstand.animation.title").formatted(Formatting.BOLD).formatted(Formatting.UNDERLINE),
                     textRenderer,
                 ),
                 positioner = Positioner.create().margin(8, 8),
