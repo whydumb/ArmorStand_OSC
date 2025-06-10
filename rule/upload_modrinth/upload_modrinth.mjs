@@ -15,6 +15,7 @@ const projectId = getEnvironmentVariable("MODRINTH_PROJECT_ID");
 const modrinthToken = getEnvironmentVariable("MODRINTH_TOKEN");
 const modVersion = getEnvironmentVariable("MOD_VERSION");
 const gameVersion = getEnvironmentVariable("GAME_VERSION");
+const extraGameVersions = getEnvironmentVariable("EXTRA_GAME_VERSIONS").split(",").filter(v => v.length > 0);
 
 const execFile = util.promisify(childProcess.execFile);
 const gitCommit = (await execFile("git", ["rev-parse", "HEAD"])).stdout.trim();
@@ -68,7 +69,7 @@ await (async () => {
         "featured": false,
         "file_parts": ["primary_file"],
         "primary_file": "primary_file",
-        "game_versions": [gameVersion],
+        "game_versions": [gameVersion].concat(extraGameVersions),
         "loaders": ["fabric"],
         "dependencies": [
             {
