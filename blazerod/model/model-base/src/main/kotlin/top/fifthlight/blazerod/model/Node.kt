@@ -13,7 +13,9 @@ sealed class NodeTransform {
     data class Matrix(
         override val matrix: Matrix4f = Matrix4f()
     ) : NodeTransform() {
-        override fun clone(): NodeTransform = copy()
+        override fun clone() = Matrix(
+            matrix = Matrix4f(matrix),
+        )
     }
 
     data class Decomposed(
@@ -25,7 +27,17 @@ sealed class NodeTransform {
         override val matrix: Matrix4f
             get() = cacheMatrix.translationRotateScale(translation, rotation, scale)
 
-        override fun clone(): NodeTransform = copy()
+        fun set(other: Decomposed) {
+            translation.set(other.translation)
+            rotation.set(other.rotation)
+            scale.set(other.scale)
+        }
+
+        override fun clone() = Decomposed(
+            translation = Vector3f(translation),
+            rotation = Quaternionf(rotation),
+            scale = Vector3f(scale),
+        )
     }
 }
 

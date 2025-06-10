@@ -4,8 +4,13 @@ import org.joml.Quaternionf
 import org.joml.Quaternionfc
 import org.joml.Vector3f
 import org.joml.Vector3fc
+import top.fifthlight.blazerod.model.NodeTransform
 
 abstract class AnimationInterpolation(val elements: Int) {
+    init {
+        require(elements in 1 .. MAX_ELEMENTS) { "Bad elements count: should be in [1, $MAX_ELEMENTS]" }
+    }
+
     abstract fun interpolateVector3f(
         delta: Float,
         startValue: List<Vector3fc>,
@@ -20,6 +25,8 @@ abstract class AnimationInterpolation(val elements: Int) {
     )
 
     companion object {
+        const val MAX_ELEMENTS = 4
+
         val linear = object : AnimationInterpolation(1) {
             override fun interpolateVector3f(
                 delta: Float,
@@ -160,4 +167,65 @@ object QuaternionAnimationInterpolator : AnimationInterpolator<Quaternionf> {
         endValue = endValue,
         result = result,
     )
+}
+
+object NodeTransformAnimationInterpolator : AnimationInterpolator<NodeTransform.Decomposed> {
+    override fun set(
+        value: List<NodeTransform.Decomposed>,
+        result: NodeTransform.Decomposed,
+    ) {
+        result.set(value[0])
+    }
+
+    private val vec3ElementsStart = List(AnimationInterpolation.MAX_ELEMENTS) { Vector3f() }
+    private val vec3ElementsEnd = List(AnimationInterpolation.MAX_ELEMENTS) { Vector3f() }
+    private val quatElementsStart = List(AnimationInterpolation.MAX_ELEMENTS) { Quaternionf() }
+    private val quatElementsEnd = List(AnimationInterpolation.MAX_ELEMENTS) { Quaternionf() }
+
+    override fun interpolate(
+        delta: Float,
+        type: AnimationInterpolation,
+        startValue: List<NodeTransform.Decomposed>,
+        endValue: List<NodeTransform.Decomposed>,
+        result: NodeTransform.Decomposed,
+    ) = with(result) {
+        startValue.forEachIndexed { index, value ->
+            vec3ElementsStart[index].set(value.translation)
+        }
+        endValue.forEachIndexed { index, value ->
+            vec3ElementsEnd[index].set(value.translation)
+        }
+        type.interpolateVector3f(
+            delta = delta,
+            startValue = vec3ElementsStart,
+            endValue = vec3ElementsEnd,
+            result = translation,
+        )
+
+        startValue.forEachIndexed { index, value ->
+            vec3ElementsStart[index].set(value.scale)
+        }
+        endValue.forEachIndexed { index, value ->
+            vec3ElementsEnd[index].set(value.scale)
+        }
+        type.interpolateVector3f(
+            delta = delta,
+            startValue = vec3ElementsStart,
+            endValue = vec3ElementsEnd,
+            result = scale,
+        )
+
+        startValue.forEachIndexed { index, value ->
+            quatElementsStart[index].set(value.rotation)
+        }
+        endValue.forEachIndexed { index, value ->
+            quatElementsEnd[index].set(value.rotation)
+        }
+        type.interpolateQuaternionf(
+            delta,
+            startValue = quatElementsStart,
+            endValue = quatElementsEnd,
+            result = rotation,
+        )
+    }
 }

@@ -78,8 +78,7 @@ object VmdLoader : ModelFileLoader {
 
     private class BoneChannel {
         val indexList = FloatArrayList()
-        val translationList = FloatArrayList()
-        val rotationList = FloatArrayList()
+        val transformList = FloatArrayList()
     }
 
     private const val FRAME_TIME_SEC = 1f / 24f
@@ -94,11 +93,17 @@ object VmdLoader : ModelFileLoader {
             val frameNumber = buffer.getInt()
             val frameTime = frameNumber * FRAME_TIME_SEC
             channel.indexList.add(frameTime)
-            repeat(3) {
-                channel.translationList.add(buffer.getFloat())
-            }
+            // translation, invert X axis
+            channel.transformList.add(-buffer.getFloat())
+            channel.transformList.add(buffer.getFloat())
+            channel.transformList.add(buffer.getFloat())
+            // rotation
             repeat(4) {
-                channel.rotationList.add(buffer.getFloat())
+                channel.transformList.add(buffer.getFloat())
+            }
+            // scale
+            repeat(3) {
+                channel.transformList.add(1f)
             }
 
             // Skip curve data (not supported for now)
@@ -109,25 +114,13 @@ object VmdLoader : ModelFileLoader {
             val indexer = ListAnimationKeyFrameIndexer(channel.indexList)
             listOf(
                 SimpleAnimationChannel(
-                    type = AnimationChannel.Type.Translation,
+                    type = AnimationChannel.Type.RelativeNodeTransformItem,
                     targetNode = null,
                     targetNodeName = name,
                     targetHumanoidTag = HumanoidTag.fromPmxJapanese(name),
                     indexer = indexer,
-                    keyframeData = AnimationKeyFrameData.ofVector3f(
-                        values = channel.translationList,
-                        elements = 1,
-                    ),
-                    interpolation = AnimationInterpolation.linear,
-                ),
-                SimpleAnimationChannel(
-                    type = AnimationChannel.Type.Rotation,
-                    targetNode = null,
-                    targetNodeName = name,
-                    targetHumanoidTag = HumanoidTag.fromPmxJapanese(name),
-                    indexer = indexer,
-                    keyframeData = AnimationKeyFrameData.ofQuaternionf(
-                        values = channel.rotationList,
+                    keyframeData = AnimationKeyFrameData.ofDecomposedNodeTransform(
+                        values = channel.transformList,
                         elements = 1,
                     ),
                     interpolation = AnimationInterpolation.linear,

@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.floats.FloatList
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import top.fifthlight.blazerod.model.Accessor
+import top.fifthlight.blazerod.model.NodeTransform
 
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -64,6 +65,20 @@ fun AnimationKeyFrameData.Companion.ofQuaternionf(
             list.getFloat(offset + 3)
         )
     },
+)
+
+fun AnimationKeyFrameData.Companion.ofDecomposedNodeTransform(
+    values: FloatList,
+    elements: Int,
+) = FloatListAnimationKeyFrameData<NodeTransform.Decomposed>(
+    values = values,
+    elements = elements,
+    componentCount = 10,
+    elementGetter = { list, offset, result ->
+        result.translation.set(list.getFloat(offset), list.getFloat(offset + 1), list.getFloat(2))
+        result.rotation.set(list.getFloat(offset + 3), list.getFloat(offset + 4), list.getFloat(offset + 5), list.getFloat(offset + 6))
+        result.scale.set(list.getFloat(offset + 7), list.getFloat(offset + 8), list.getFloat(offset + 9))
+    }
 )
 
 class AccessorAnimationKeyFrameData<T>(

@@ -2,6 +2,7 @@ package top.fifthlight.blazerod.animation
 
 import org.joml.Quaternionf
 import org.joml.Vector3f
+import top.fifthlight.blazerod.model.NodeTransform
 import top.fifthlight.blazerod.model.RenderScene
 import top.fifthlight.blazerod.model.animation.Animation
 import top.fifthlight.blazerod.model.animation.AnimationChannel
@@ -22,6 +23,11 @@ object AnimationLoader {
         fun mapAnimationChannel(channel: AnimationChannel<*>): AnimationChannelItem<*>? {
             val index = findTargetTransformIndex(channel) ?: return null
             return when (channel.type) {
+                AnimationChannel.Type.RelativeNodeTransformItem -> AnimationChannelItem.RelativeNodeTransformItem(
+                    index = index,
+                    channel = channel as AnimationChannel<NodeTransform.Decomposed>,
+                )
+
                 AnimationChannel.Type.Translation -> AnimationChannelItem.TranslationItem(
                     index = index,
                     channel = channel as AnimationChannel<Vector3f>,

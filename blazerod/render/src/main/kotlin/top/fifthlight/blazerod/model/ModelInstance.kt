@@ -43,9 +43,13 @@ class ModelInstance(
             bufferEntry.increaseReferenceCount()
         }
 
-        val transforms = scene.transformNodeIndices.mapToArray { nodeIndex ->
+        val defaultTransforms = scene.transformNodeIndices.mapToArray { nodeIndex ->
             val node = scene.nodes[nodeIndex] as RenderNode.Transform
             node.defaultTransform?.clone()
+        }
+
+        val transforms = Array(scene.transformNodeIndices.size) { transformIndex ->
+            defaultTransforms[transformIndex]?.clone()
         }
 
         val transformsDirty = Array(scene.transformNodeIndices.size) { true }
@@ -128,6 +132,45 @@ class ModelInstance(
 
             null -> {
                 val newTransform = NodeTransform.Decomposed()
+                updater(newTransform)
+                modelData.transforms[index] = newTransform
+            }
+        }
+        modelData.transformsDirty[index] = true
+    }
+
+    inline fun setRelativeTransformDecomposed(index: Int, crossinline updater: NodeTransform.Decomposed.() -> Unit) {
+        val defaultTransform = when (val transform = modelData.defaultTransforms[index]) {
+            is NodeTransform.Decomposed -> {
+                transform
+            }
+
+            is NodeTransform.Matrix -> {
+                val prevMatrix = transform.matrix
+                val newTransform = NodeTransform.Decomposed(
+                    translation = Vector3f().also { prevMatrix.getTranslation(it) },
+                    scale = Vector3f().also { prevMatrix.getScale(it) },
+                    rotation = Quaternionf().also { prevMatrix.getNormalizedRotation(it) },
+                )
+                modelData.defaultTransforms[index] = newTransform
+                newTransform
+            }
+
+            null -> {
+                val newTransform = NodeTransform.Decomposed()
+                modelData.defaultTransforms[index] = newTransform
+                newTransform
+            }
+        }
+
+        when (val currentTransform = modelData.transforms[index]) {
+            is NodeTransform.Decomposed -> {
+                currentTransform.set(defaultTransform)
+                updater(currentTransform)
+            }
+
+            else -> {
+                val newTransform = defaultTransform.clone()
                 updater(newTransform)
                 modelData.transforms[index] = newTransform
             }

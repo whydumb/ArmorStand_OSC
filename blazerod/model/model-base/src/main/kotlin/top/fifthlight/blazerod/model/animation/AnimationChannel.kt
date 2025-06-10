@@ -4,9 +4,12 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 import top.fifthlight.blazerod.model.HumanoidTag
 import top.fifthlight.blazerod.model.Node
+import top.fifthlight.blazerod.model.NodeTransform
 
 interface AnimationChannel<T: Any> {
     sealed class Type<T: Any> {
+        // For VMD
+        data object RelativeNodeTransformItem: Type<NodeTransform.Decomposed>()
         data object Translation: Type<Vector3f>()
         data object Scale: Type<Vector3f>()
         data object Rotation: Type<Quaternionf>()
@@ -96,4 +99,25 @@ fun SimpleAnimationChannel(
     keyframeData = keyframeData,
     interpolation = interpolation,
     defaultValue = ::Quaternionf,
+)
+
+@JvmName("NodeTransformSimpleAnimationChannel")
+fun SimpleAnimationChannel(
+    type: AnimationChannel.Type<NodeTransform.Decomposed>,
+    targetNode: Node?,
+    targetNodeName: String?,
+    targetHumanoidTag: HumanoidTag?,
+    indexer: AnimationKeyFrameIndexer,
+    keyframeData: AnimationKeyFrameData<NodeTransform.Decomposed>,
+    interpolation: AnimationInterpolation,
+): SimpleAnimationChannel<NodeTransform.Decomposed> = SimpleAnimationChannel(
+    type = type,
+    targetNode = targetNode,
+    targetNodeName = targetNodeName,
+    targetHumanoidTag = targetHumanoidTag,
+    indexer = indexer,
+    interpolator = NodeTransformAnimationInterpolator,
+    keyframeData = keyframeData,
+    interpolation = interpolation,
+    defaultValue = NodeTransform::Decomposed,
 )

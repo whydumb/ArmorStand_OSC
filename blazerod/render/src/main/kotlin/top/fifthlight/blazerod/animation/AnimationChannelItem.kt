@@ -3,12 +3,33 @@ package top.fifthlight.blazerod.animation
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import top.fifthlight.blazerod.model.ModelInstance
+import top.fifthlight.blazerod.model.NodeTransform
 import top.fifthlight.blazerod.model.animation.AnimationChannel
 
 sealed class AnimationChannelItem<T : Any>(
     val channel: AnimationChannel<T>
 ) {
     abstract fun apply(instance: ModelInstance, time: Float)
+
+    class RelativeNodeTransformItem(
+        private val index: Int,
+        channel: AnimationChannel<NodeTransform.Decomposed>,
+    ) : AnimationChannelItem<NodeTransform.Decomposed>(channel) {
+        init {
+            require(channel.type == AnimationChannel.Type.RelativeNodeTransformItem) { "Unmatched animation channel: want relative node transform, but got ${channel.type}" }
+        }
+
+        private val transform = NodeTransform.Decomposed()
+
+        override fun apply(instance: ModelInstance, time: Float) {
+            instance.setRelativeTransformDecomposed(index) {
+                channel.getKeyFrameData(time, transform)
+                translation.add(transform.translation)
+                rotation.mul(transform.rotation)
+                scale.mul(transform.scale)
+            }
+        }
+    }
 
     class TranslationItem(
         private val index: Int,
