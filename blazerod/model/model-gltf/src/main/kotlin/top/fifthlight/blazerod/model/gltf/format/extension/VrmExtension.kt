@@ -37,7 +37,7 @@ internal data class VrmV0Extension(
                 AllowedUserName.ONLY_AUTHOR -> Metadata.AllowedUser.ONLY_AUTHOR
                 AllowedUserName.EXPLICITLY_LICENSED_PERSON -> Metadata.AllowedUser.EXPLICITLY_LICENSED_PERSON
                 AllowedUserName.EVERYONE -> Metadata.AllowedUser.EVERYONE
-                null -> TODO()
+                null -> null
             },
             allowViolentUsage = violentUssageName?.usable,
             allowSexualUsage = sexualUssageName?.usable,
