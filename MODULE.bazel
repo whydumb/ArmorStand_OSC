@@ -5,6 +5,8 @@ module(
     version = "0.0.1+dev",
 )
 
+game_version = "1.21.6-pre4"
+
 bazel_dep(name = "rules_java", version = "8.12.0")
 bazel_dep(name = "rules_kotlin", version = "2.1.4")
 bazel_dep(name = "rules_jvm_external", version = "6.7")
@@ -17,7 +19,7 @@ maven.install(
     artifacts = [
         # mapping
         "net.fabricmc:yarn:1.21.6-pre3+build.1:v2",
-        "net.fabricmc:intermediary:1.21.6-pre3:v2",
+        "net.fabricmc:intermediary:%s:v2" % game_version,
 
         # build dependencies
         "net.fabricmc:tiny-remapper:0.11.1",
@@ -31,7 +33,7 @@ maven.install(
         # mod dependencies
         "net.fabricmc:fabric-loader:0.16.14",
         "com.terraformersmc:modmenu:14.0.0-rc.2",
-        "net.fabricmc.fabric-api:fabric-api:0.125.3+1.21.6",
+        "net.fabricmc.fabric-api:fabric-api:0.126.1+1.21.6",
         "net.fabricmc:fabric-language-kotlin:1.13.1+kotlin.2.1.10",
         "net.fabricmc:sponge-mixin:0.15.4+mixin.0.8.7",
         "io.github.llamalad7:mixinextras-fabric:0.4.1",
@@ -67,13 +69,13 @@ use_repo(maven, "maven")
 
 minecraft = use_extension("//repo:minecraft_jar.bzl", "minecraft")
 minecraft.minecraft_jar(
-    version = "1.21.6-pre3",
+    version = game_version,
     type = "client",
     assets = True,
     mapping = False,
 )
 minecraft.minecraft_jar(
-    version = "1.21.6-pre3",
+    version = game_version,
     type = "server",
     mapping = False,
 )
