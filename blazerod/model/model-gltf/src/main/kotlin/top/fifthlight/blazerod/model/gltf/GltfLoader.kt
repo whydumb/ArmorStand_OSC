@@ -469,31 +469,14 @@ internal class GltfLoader(
     private fun loadExpressions() {
         val vrmV0 = gltf.extensions?.vrmV0?.blendShapeMaster?.blendShapeGroups
         if (vrmV0 != null) {
-            expressions = vrmV0.mapNotNull { expression ->
-                Expression(
+            expressions = vrmV0.map { expression ->
+                Expression.Target(
                     name = expression.name,
-                    tag = when (expression.presetName?.replaceFirstChar(Char::uppercase)) {
-                        "Neutral" -> Expression.Tag.Neutral
-                        "A" -> Expression.Tag.Lip.AA
-                        "E" -> Expression.Tag.Lip.EE
-                        "I" -> Expression.Tag.Lip.IH
-                        "O" -> Expression.Tag.Lip.OH
-                        "U" -> Expression.Tag.Lip.OU
-                        "Blink" -> Expression.Tag.Blink.BLINK
-                        "Blink_L" -> Expression.Tag.Blink.BLINK_LEFT
-                        "Blink_R" -> Expression.Tag.Blink.BLINK_RIGHT
-                        "Fun" -> Expression.Tag.Emotion.RELAXED
-                        "Angry" -> Expression.Tag.Emotion.ANGRY
-                        "Joy" -> Expression.Tag.Emotion.HAPPY
-                        "Sorrow" -> Expression.Tag.Emotion.SAD
-                        "LookUp" -> Expression.Tag.Gaze.LOOK_UP
-                        "LookDown" -> Expression.Tag.Gaze.LOOK_DOWN
-                        "LookLeft" -> Expression.Tag.Gaze.LOOK_LEFT
-                        "LookRight" -> Expression.Tag.Gaze.LOOK_RIGHT
-                        else -> return@mapNotNull null
+                    tag = Expression.Tag.entries.firstOrNull {
+                        it.vrm0Name.equals(expression.presetName, ignoreCase = true)
                     },
                     bindings = expression.binds?.map { bind ->
-                        Expression.Binding.MeshMorphTarget(
+                        Expression.Target.Binding.MeshMorphTarget(
                             meshId = MeshId(uuid, bind.mesh),
                             index = bind.index,
                             weight = bind.weight?.let { it / 100f } ?: 1f,
@@ -507,33 +490,15 @@ internal class GltfLoader(
         val vrmV1 = gltf.extensions?.vrmV1?.expressions
         if (vrmV1 != null) {
             expressions = ((vrmV1.preset?.entries?.asSequence() ?: sequenceOf()) + (vrmV1.custom?.entries?.asSequence()
-                ?: sequenceOf())).mapNotNull { (key, value) ->
-                Expression(
-                    name = key,
+                ?: sequenceOf())).map { (name, value) ->
+                Expression.Target(
+                    name = name,
                     isBinary = value.isBinary ?: false,
-                    tag = when (key.replaceFirstChar(Char::lowercase)) {
-                        "neutral" -> Expression.Tag.Neutral
-                        "aa" -> Expression.Tag.Lip.AA
-                        "ee" -> Expression.Tag.Lip.EE
-                        "ih" -> Expression.Tag.Lip.IH
-                        "oh" -> Expression.Tag.Lip.OH
-                        "ou" -> Expression.Tag.Lip.OU
-                        "blink" -> Expression.Tag.Blink.BLINK
-                        "blinkLeft" -> Expression.Tag.Blink.BLINK_LEFT
-                        "blinkRight" -> Expression.Tag.Blink.BLINK_RIGHT
-                        "relaxed" -> Expression.Tag.Emotion.RELAXED
-                        "angry" -> Expression.Tag.Emotion.ANGRY
-                        "happy" -> Expression.Tag.Emotion.HAPPY
-                        "sad" -> Expression.Tag.Emotion.SAD
-                        "surprised" -> Expression.Tag.Emotion.SURPRISED
-                        "lookUp" -> Expression.Tag.Gaze.LOOK_UP
-                        "lookDown" -> Expression.Tag.Gaze.LOOK_DOWN
-                        "lookLeft" -> Expression.Tag.Gaze.LOOK_LEFT
-                        "lookRight" -> Expression.Tag.Gaze.LOOK_RIGHT
-                        else -> return@mapNotNull null
+                    tag = Expression.Tag.entries.firstOrNull {
+                        it.vrm1Name.equals(name, ignoreCase = true)
                     },
                     bindings = value.morphTargetBinds?.map { bind ->
-                        Expression.Binding.NodeMorphTarget(
+                        Expression.Target.Binding.NodeMorphTarget(
                             nodeId = NodeId(uuid, bind.node),
                             index = bind.index,
                             weight = bind.weight?.let { it / 100f } ?: 1f,

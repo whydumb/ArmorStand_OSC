@@ -21,6 +21,8 @@ import top.fifthlight.blazerod.render.VertexBuffer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.collections.get
+import kotlin.contracts.contract
+import kotlin.math.exp
 
 class ModelLoader {
     private lateinit var skinsMap: Map<Skin, Pair<Int, RenderSkin>>
@@ -537,6 +539,7 @@ class ModelLoader {
         val rootTransformId = nodes.size
         transformNodeIndices.add(rootTransformId)
         appendRenderNode(rootNode)
+        val expressionTargetMap = mutableMapOf<Int, Int>()
         return RenderScene(
             rootNode = rootNode,
             nodes = nodes,
@@ -548,35 +551,61 @@ class ModelLoader {
             humanoidTagToTransformMap = humanoidJointTransformIndices,
             nodeNameToTransformMap = nodeNameTransformMap,
             nodeIdToTransformMap = nodeIdTransformMap,
-            expressions = expressions.mapNotNull { expression ->
-                RenderExpression(
-                    name = expression.name,
-                    tag = expression.tag,
-                    isBinary = expression.isBinary,
-                    bindings = expression.bindings.flatMap {
-                        when (it) {
-                            is Expression.Binding.MeshMorphTarget -> {
-                                meshToMorphedPrimitiveMap[it.meshId]?.map { index ->
-                                    RenderExpression.Binding.MorphTarget(
-                                        morphedPrimitiveIndex = index,
-                                        groupIndex = it.index,
-                                        weight = it.weight,
-                                    )
-                                } ?: listOf()
-                            }
+            expressions = buildList {
+                for ((expressionIndex, expression) in expressions.withIndex()) {
+                    if (expression !is Expression.Target) {
+                        continue
+                    }
+                    val expression = RenderExpression(
+                        name = expression.name,
+                        tag = expression.tag,
+                        isBinary = expression.isBinary,
+                        bindings = expression.bindings.flatMap {
+                            when (it) {
+                                is Expression.Target.Binding.MeshMorphTarget -> {
+                                    meshToMorphedPrimitiveMap[it.meshId]?.map { index ->
+                                        RenderExpression.Binding.MorphTarget(
+                                            morphedPrimitiveIndex = index,
+                                            groupIndex = it.index,
+                                            weight = it.weight,
+                                        )
+                                    } ?: listOf()
+                                }
 
-                            is Expression.Binding.NodeMorphTarget -> {
-                                nodeToMorphedPrimitiveMap[it.nodeId]?.map { index ->
-                                    RenderExpression.Binding.MorphTarget(
-                                        morphedPrimitiveIndex = index,
-                                        groupIndex = it.index,
-                                        weight = it.weight,
-                                    )
-                                } ?: listOf()
+                                is Expression.Target.Binding.NodeMorphTarget -> {
+                                    nodeToMorphedPrimitiveMap[it.nodeId]?.map { index ->
+                                        RenderExpression.Binding.MorphTarget(
+                                            morphedPrimitiveIndex = index,
+                                            groupIndex = it.index,
+                                            weight = it.weight,
+                                        )
+                                    } ?: listOf()
+                                }
                             }
                         }
+                    )
+                    if (expression.bindings.isEmpty()) {
+                        continue
                     }
-                ).takeIf { it.bindings.isNotEmpty() }
+                    expressionTargetMap[expressionIndex] = this.size
+                    add(expression)
+                }
+            },
+            expressionGroups = expressions.mapNotNull { expression ->
+                if (expression !is Expression.Group) {
+                    return@mapNotNull null
+                }
+                RenderExpressionGroup(
+                    name = expression.name,
+                    tag = expression.tag,
+                    items = expression.targets.mapNotNull {
+                        val targetIndex = expressions.indexOf(it.target).takeIf { index -> index != -1 } ?: return@mapNotNull null
+                        RenderExpressionGroup.Item(
+                            expressionIndex = expressionTargetMap[targetIndex] ?: return@mapNotNull null,
+                            influence = it.influence,
+                        )
+                    }
+                )
             }
         )
     }

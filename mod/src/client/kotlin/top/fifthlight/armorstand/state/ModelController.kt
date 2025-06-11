@@ -14,6 +14,7 @@ import top.fifthlight.blazerod.model.RenderScene
 import top.fifthlight.blazerod.util.toRadian
 import top.fifthlight.blazerod.model.Expression
 import top.fifthlight.blazerod.model.HumanoidTag
+import top.fifthlight.blazerod.model.RenderExpressionGroup
 import java.util.UUID
 import kotlin.math.abs
 
@@ -34,10 +35,37 @@ sealed class ModelController {
         }
     }
 
+    private sealed class ExpressionItem {
+        abstract fun apply(instance: ModelInstance, weight: Float)
+
+        fun RenderExpression.apply(instance: ModelInstance, weight: Float) = bindings.forEach { binding ->
+            when (binding) {
+                is RenderExpression.Binding.MorphTarget -> {
+                    instance.setGroupWeight(binding.morphedPrimitiveIndex, binding.groupIndex, weight)
+                }
+            }
+        }
+
+        data class Expression(
+            val expression: RenderExpression,
+        ) : ExpressionItem() {
+            override fun apply(instance: ModelInstance, weight: Float) = expression.apply(instance, weight)
+        }
+
+        data class Group(
+            val group: RenderExpressionGroup,
+        ) : ExpressionItem() {
+            override fun apply(instance: ModelInstance, weight: Float) = group.items.forEach { item ->
+                val expression = instance.scene.expressions[item.expressionIndex]
+                expression.apply(instance, weight * item.influence)
+            }
+        }
+    }
+
     class LiveUpdated private constructor(
         private val center: JointItem?,
         private val head: JointItem?,
-        private val blinkExpression: RenderExpression?,
+        private val blinkExpression: ExpressionItem?,
     ) : ModelController() {
         private var bodyYaw: Float = 0f
         private var headYaw: Float = 0f
@@ -47,7 +75,7 @@ sealed class ModelController {
         constructor(scene: RenderScene) : this(
             center = scene.getBone(HumanoidTag.CENTER),
             head = scene.getBone(HumanoidTag.HEAD),
-            blinkExpression = scene.expressions.firstOrNull { it.tag == Expression.Tag.Blink.BLINK },
+            blinkExpression = scene.getExpression(Expression.Tag.BLINK),
         )
 
         companion object {
@@ -60,6 +88,10 @@ sealed class ModelController {
                         transformIndex = transformIndex,
                     )
                 }
+
+            private fun RenderScene.getExpression(tag: Expression.Tag) =
+                expressions.firstOrNull { it.tag == tag }?.let { ExpressionItem.Expression(it) }
+                    ?: expressionGroups.firstOrNull { it.tag == tag }?.let { ExpressionItem.Group(it) }
         }
 
         override fun update(uuid: UUID, vanillaState: PlayerEntityRenderState) {
@@ -76,15 +108,7 @@ sealed class ModelController {
             head?.update(instance) {
                 rotateYXZ(headYaw, headPitch, 0f)
             }
-            blinkExpression?.let { expression ->
-                expression.bindings.forEach { binding ->
-                    when (binding) {
-                        is RenderExpression.Binding.MorphTarget -> {
-                            instance.setGroupWeight(binding.morphedPrimitiveIndex, binding.groupIndex, blinkProgress)
-                        }
-                    }
-                }
-            }
+            blinkExpression?.apply(instance, blinkProgress)
         }
     }
 

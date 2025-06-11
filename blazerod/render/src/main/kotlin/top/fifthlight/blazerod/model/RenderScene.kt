@@ -20,6 +20,7 @@ class RenderScene(
     val nodeNameToTransformMap: Object2IntMap<String>,
     val humanoidTagToTransformMap: Reference2IntMap<HumanoidTag>,
     val expressions: List<RenderExpression>,
+    val expressionGroups: List<RenderExpressionGroup>,
 ): AbstractRefCount() {
     companion object {
         private val TYPE_ID = Identifier.of("blazerod", "scene")

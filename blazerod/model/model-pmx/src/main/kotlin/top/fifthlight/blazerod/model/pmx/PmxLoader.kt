@@ -5,6 +5,7 @@ import org.joml.Vector3f
 import top.fifthlight.blazerod.model.Accessor
 import top.fifthlight.blazerod.model.Buffer
 import top.fifthlight.blazerod.model.BufferView
+import top.fifthlight.blazerod.model.Expression
 import top.fifthlight.blazerod.model.HumanoidTag
 import top.fifthlight.blazerod.model.Material
 import top.fifthlight.blazerod.model.Mesh
@@ -26,6 +27,10 @@ import top.fifthlight.blazerod.model.pmx.format.PmxGlobals
 import top.fifthlight.blazerod.model.pmx.format.PmxHeader
 import top.fifthlight.blazerod.model.pmx.format.PmxMaterial
 import top.fifthlight.blazerod.model.pmx.format.PmxMorph
+import top.fifthlight.blazerod.model.pmx.format.PmxMorphGroup
+import top.fifthlight.blazerod.model.pmx.format.PmxMorphGroup.*
+import top.fifthlight.blazerod.model.pmx.format.PmxMorphPanelType
+import top.fifthlight.blazerod.model.pmx.format.PmxMorphType
 
 import top.fifthlight.blazerod.model.util.readAll
 
@@ -84,7 +89,8 @@ object PmxLoader : ModelFileLoader {
         private lateinit var textures: List<Texture>
         private lateinit var materials: List<PmxMaterial>
         private lateinit var bones: List<PmxBone>
-        private lateinit var morphTargets: List<Primitive.Attributes>
+        private lateinit var morphTargets: List<PmxMorph>
+        private lateinit var morphTargetGroups: List<PmxMorphGroup>
         private val childBoneMap = mutableMapOf<Int, MutableList<Int>>()
         private val rootBones = mutableListOf<Int>()
 
@@ -169,6 +175,34 @@ object PmxLoader : ModelFileLoader {
                 }
             }
         )
+
+        private fun loadBoneIndex(buffer: ByteBuffer): Int = when (globals.boneIndexSize) {
+            1 -> buffer.get().toInt()
+            2 -> buffer.getShort().toInt()
+            4 -> buffer.getInt()
+            else -> throw PmxLoadException("Bad bone index size: ${globals.boneIndexSize}")
+        }
+
+        private fun loadTextureIndex(buffer: ByteBuffer): Int = when (globals.textureIndexSize) {
+            1 -> buffer.get().toInt()
+            2 -> buffer.getShort().toInt()
+            4 -> buffer.getInt()
+            else -> throw PmxLoadException("Bad texture index size: ${globals.boneIndexSize}")
+        }
+
+        private fun loadMorphIndex(buffer: ByteBuffer) = when (globals.morphIndexSize) {
+            1 -> buffer.get().toInt()
+            2 -> buffer.getShort().toInt()
+            4 -> buffer.getInt()
+            else -> throw PmxLoadException("Bad morph index size: ${globals.boneIndexSize}")
+        }
+
+        private fun loadVertexIndex(buffer: ByteBuffer) = when (globals.vertexIndexSize) {
+            1 -> buffer.get().toInt()
+            2 -> buffer.getShort().toInt()
+            4 -> buffer.getInt()
+            else -> throw PmxLoadException("Bad vertex index size: ${globals.boneIndexSize}")
+        }
 
         private fun loadString(buffer: ByteBuffer): String {
             if (buffer.remaining() < 4) {
@@ -539,13 +573,6 @@ object PmxLoader : ModelFileLoader {
                 )
             }
 
-            fun loadTextureIndex(buffer: ByteBuffer): Int = when (globals.textureIndexSize) {
-                1 -> buffer.get().toInt()
-                2 -> buffer.getShort().toInt()
-                4 -> buffer.getInt()
-                else -> throw AssertionError()
-            }
-
             materials = (0 until materialCount).map {
                 PmxMaterial(
                     nameLocal = loadString(buffer),
@@ -590,13 +617,6 @@ object PmxLoader : ModelFileLoader {
             val boneCount = buffer.getInt()
             if (boneCount < 0) {
                 throw PmxLoadException("Bad PMX model: bones count less than zero")
-            }
-
-            fun loadBoneIndex(buffer: ByteBuffer): Int = when (globals.boneIndexSize) {
-                1 -> buffer.get().toInt()
-                2 -> buffer.getShort().toInt()
-                4 -> buffer.getInt()
-                else -> throw AssertionError()
             }
 
             fun loadBoneFlags(buffer: ByteBuffer): PmxBone.Flags {
@@ -712,33 +732,91 @@ object PmxLoader : ModelFileLoader {
             if (morphTargetCount < 0) {
                 throw PmxLoadException("Bad PMX model: morph targets count less than zero")
             }
-            morphTargets = (0 until morphTargetCount).map { index ->
+
+            val targets = mutableListOf<PmxMorph>()
+            val morphGroups = mutableListOf<PmxMorphGroup>()
+            for (index in 0 until morphTargetCount) {
                 val nameLocal = loadString(buffer)
                 val nameUniversal = loadString(buffer)
-                val panelType =
-                    buffer.get().toInt().let { type -> PmxMorph.PanelType.entries.firstOrNull { it.value == type } }
-                        ?: throw PmxLoadException("Unknown panel type")
-                val morphType =
-                    buffer.get().toInt().let { type -> PmxMorph.Type.entries.firstOrNull { it.value == type } }
-                        ?: throw PmxLoadException("Unknown panel type")
+                val expressionTag =
+                    Expression.Tag.entries.firstOrNull { it.pmxJapanese.equals(nameLocal, ignoreCase = true) }
+                        ?: Expression.Tag.entries.firstOrNull { it.pmxEnglish.equals(nameUniversal, ignoreCase = true) }
+                val panelType = buffer.get().toInt()
+                    .let { type -> PmxMorphPanelType.entries.firstOrNull { it.value == type } }
+                    ?: throw PmxLoadException("Unknown panel type")
+                val morphType = buffer.get().toInt()
+                    .let { type -> PmxMorphType.entries.firstOrNull { it.value == type } }
+                    ?: throw PmxLoadException("Unknown panel type")
                 val offsetSize = buffer.getInt()
                 if (offsetSize < 1) {
                     throw PmxLoadException("Bad morph offset size: $offsetSize")
                 }
                 when (morphType) {
-                    PmxMorph.Type.GROUP -> TODO()
-                    PmxMorph.Type.VERTEX -> TODO()
-                    PmxMorph.Type.BONE -> TODO()
-                    PmxMorph.Type.UV -> TODO()
-                    PmxMorph.Type.UV_EXT1 -> TODO()
-                    PmxMorph.Type.UV_EXT2 -> TODO()
-                    PmxMorph.Type.UV_EXT3 -> TODO()
-                    PmxMorph.Type.UV_EXT4 -> TODO()
-                    PmxMorph.Type.MATERIAL -> TODO()
-                    PmxMorph.Type.FLIP -> TODO()
-                    PmxMorph.Type.IMPULSE -> TODO()
+                    PmxMorphType.VERTEX -> {
+                        val itemSize = 12
+                        val morphBuffer = ByteBuffer.allocateDirect(vertices * itemSize).order(ByteOrder.nativeOrder())
+                        for (i in 0 until offsetSize) {
+                            val index = loadVertexIndex(buffer)
+                            morphBuffer.position(index * itemSize)
+                            morphBuffer.putFloat(-buffer.getFloat())
+                            morphBuffer.putFloat(buffer.getFloat())
+                            morphBuffer.putFloat(buffer.getFloat())
+                        }
+                        morphBuffer.position(0)
+                        targets.add(
+                            PmxMorph(
+                                pmxIndex = index,
+                                targetIndex = targets.size,
+                                nameLocal = nameLocal.takeIf(String::isNotBlank),
+                                nameUniversal = nameUniversal.takeIf(String::isNotBlank),
+                                tag = expressionTag,
+                                data = Primitive.Attributes.MorphTarget(
+                                    position = Accessor(
+                                        name = "Morph #$index vertex buffer",
+                                        bufferView = BufferView(
+                                            buffer = Buffer(
+                                                buffer = morphBuffer,
+                                            ),
+                                            byteLength = morphBuffer.capacity(),
+                                            byteOffset = 0,
+                                            byteStride = itemSize,
+                                        ),
+                                        componentType = Accessor.ComponentType.FLOAT,
+                                        count = vertices,
+                                        type = Accessor.AccessorType.VEC3,
+                                    )
+                                )
+                            )
+                        )
+                    }
+
+                    PmxMorphType.GROUP -> {
+                        morphGroups.add(
+                            PmxMorphGroup(
+                                nameLocal = nameLocal.takeIf(String::isNotBlank),
+                                nameUniversal = nameUniversal.takeIf(String::isNotBlank),
+                                tag = expressionTag,
+                                items = (0 until offsetSize).map {
+                                    MorphItem(
+                                        index = loadMorphIndex(buffer),
+                                        influence = buffer.getFloat(),
+                                    )
+                                },
+                            )
+                        )
+                    }
+
+                    PmxMorphType.UV, PmxMorphType.UV_EXT1, PmxMorphType.UV_EXT2, PmxMorphType.UV_EXT3, PmxMorphType.UV_EXT4 -> {
+                        // Just skip, not really supported
+                        val itemSize = globals.vertexIndexSize + 16
+                        buffer.position(buffer.position() + itemSize * offsetSize)
+                    }
+
+                    else -> throw PmxLoadException("Unsupported morph type: $morphType")
                 }
             }
+            morphTargets = targets
+            morphTargetGroups = morphGroups
         }
 
         fun load(buffer: ByteBuffer): ModelFileLoader.LoadResult {
@@ -748,7 +826,7 @@ object PmxLoader : ModelFileLoader {
             loadTextures(buffer)
             loadMaterials(buffer)
             loadBones(buffer)
-            // loadMorphTargets(buffer)
+            loadMorphTargets(buffer)
 
             val modelId = UUID.randomUUID()
             val rootNodes = mutableListOf<Node>()
@@ -792,8 +870,12 @@ object PmxLoader : ModelFileLoader {
             )
 
             var indexOffset = 0
-            materials.forEach { pmxMaterial ->
-                val nodeId = nextNodeId++
+            val materialToMeshIds = mutableMapOf<Int, MeshId>()
+            materials.forEachIndexed { materialIndex, pmxMaterial ->
+                val nodeIndex = nextNodeId++
+                val nodeId = NodeId(modelId, nodeIndex)
+                val meshId = MeshId(modelId, nodeIndex)
+                materialToMeshIds[materialIndex] = meshId
                 val material = Material.Unlit(
                     name = pmxMaterial.nameLocal,
                     baseColor = pmxMaterial.diffuseColor,
@@ -804,12 +886,13 @@ object PmxLoader : ModelFileLoader {
                     },
                     doubleSided = pmxMaterial.drawingFlags.noCull,
                 )
+
                 Node(
                     name = "Node for material ${pmxMaterial.nameLocal}",
-                    id = NodeId(modelId, nodeId),
+                    id = nodeId,
                     skin = skin,
                     mesh = Mesh(
-                        id = MeshId(modelId, nodeId),
+                        id = meshId,
                         primitives = listOf(
                             Primitive(
                                 mode = Primitive.Mode.TRIANGLES,
@@ -823,8 +906,7 @@ object PmxLoader : ModelFileLoader {
                                     count = pmxMaterial.surfaceCount,
                                     type = Accessor.AccessorType.SCALAR,
                                 ),
-                                // targets = morphTargets,
-                                targets = listOf(),
+                                targets = morphTargets.map { it.data },
                             )
                         ),
                         weights = null,
@@ -842,6 +924,7 @@ object PmxLoader : ModelFileLoader {
                 ),
             )
 
+            val pmxIndexToExpressions = mutableMapOf<Int, Expression.Target>()
             return ModelFileLoader.LoadResult(
                 metadata = Metadata(
                     title = header.modelNameLocal,
@@ -852,6 +935,40 @@ object PmxLoader : ModelFileLoader {
                 model = Model(
                     scenes = listOf(scene),
                     skins = listOf(skin),
+                    expressions = buildList {
+                        for (target in morphTargets) {
+                            val expression = Expression.Target(
+                                name = target.nameLocal ?: target.nameUniversal,
+                                tag = target.tag,
+                                isBinary = false,
+                                // TODO: filter out meshes affected by this morph target
+                                bindings = materials.indices.mapNotNull { materialIndex ->
+                                    Expression.Target.Binding.MeshMorphTarget(
+                                        meshId = materialToMeshIds[materialIndex] ?: return@mapNotNull null,
+                                        index = target.targetIndex,
+                                        weight = 0f,
+                                    )
+                                }.takeIf { it.isNotEmpty() } ?: continue,
+                            )
+                            pmxIndexToExpressions[target.pmxIndex] = expression
+                            add(expression)
+                        }
+                        for (group in morphTargetGroups) {
+                            add(
+                                Expression.Group(
+                                    name = group.nameLocal ?: group.nameUniversal,
+                                    tag = group.tag,
+                                    targets = group.items.mapNotNull { item ->
+                                        val target = pmxIndexToExpressions[item.index] ?: return@mapNotNull null
+                                        Expression.Group.TargetItem(
+                                            target = target,
+                                            influence = item.influence,
+                                        )
+                                    }
+                                )
+                            )
+                        }
+                    },
                     defaultScene = scene,
                 ),
                 animations = listOf(),
