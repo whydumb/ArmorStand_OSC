@@ -2,6 +2,7 @@
   "armorstand.config": "ArmorStand config",
   "armorstand.config.show_other_players": "Show other players' models",
   "armorstand.config.send_model_data": "Send model data to server",
+  "armorstand.config.hide_player_shadow": "Hide shadow of players",
   "armorstand.config.model_scale": "Model scale: %s",
   "armorstand.config.third_person_distance_scale": "Third person distance scale: %s",
   "armorstand.config.open_model_directory": "Open Model Folder",

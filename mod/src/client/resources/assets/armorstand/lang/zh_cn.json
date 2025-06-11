@@ -2,6 +2,7 @@
   "armorstand.config": "盔甲架设置",
   "armorstand.config.show_other_players": "查看其他玩家的模型",
   "armorstand.config.send_model_data": "发送模型数据到服务器",
+  "armorstand.config.hide_player_shadow": "隐藏玩家的影子",
   "armorstand.config.model_scale": "模型缩放：%s",
   "armorstand.config.third_person_distance_scale": "第三人称距离缩放：%s",
   "armorstand.config.open_model_directory": "打开模型文件夹",

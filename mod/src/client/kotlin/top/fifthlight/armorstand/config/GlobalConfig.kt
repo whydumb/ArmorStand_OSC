@@ -21,6 +21,7 @@ data class GlobalConfig(
     val model: String? = null,
     val showOtherPlayerModel: Boolean = true,
     val sendModelData: Boolean = true,
+    val hidePlayerShadow: Boolean = false,
     val modelScale: Float = 1f,
     val thirdPersonDistanceScale: Float = 1f,
 ) {
