@@ -36,7 +36,10 @@ class RenderScene(
         nodeIdToTransformMap.defaultReturnValue(-1)
     }
 
-    fun update(modelInstance: ModelInstance, matrixStack: Matrix4fStack) = rootNode.update(modelInstance, matrixStack, false)
+    fun update(modelInstance: ModelInstance, matrixStack: Matrix4fStack) {
+        rootNode.preUpdate(modelInstance, matrixStack, false)
+        rootNode.update(modelInstance, matrixStack, false)
+    }
 
     fun render(instance: ModelInstance, modelViewMatrix: Matrix4fc, light: Int) {
         for (node in primitiveNodes) {

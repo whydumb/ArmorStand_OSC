@@ -5,6 +5,11 @@ import net.minecraft.util.Identifier
 import org.joml.Matrix4f
 import org.joml.Matrix4fStack
 import org.joml.Matrix4fc
+import org.joml.Quaternionf
+import org.joml.Vector3f
+import org.joml.Vector3fc
+import org.joml.Vector4f
+import top.fifthlight.blazerod.model.pmx.format.PmxBone
 import top.fifthlight.blazerod.util.AbstractRefCount
 import top.fifthlight.blazerod.util.SlottedGpuBuffer
 import top.fifthlight.blazerod.util.iteratorOf
@@ -19,15 +24,27 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
 
     var parent: RenderNode? = null
 
+    abstract val doesPreUpdate: Boolean
+
+    open fun preUpdate(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) = Unit
+
     open fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) = Unit
 
     class Group(val children: List<RenderNode>) : RenderNode() {
+        override val doesPreUpdate = children.any { it.doesPreUpdate }
+
         init {
             children.forEach { it.increaseReferenceCount() }
         }
 
         override fun onClosed() {
             children.forEach { it.decreaseReferenceCount() }
+        }
+
+        override fun preUpdate(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) = children.forEach {
+            if (it.doesPreUpdate) {
+                it.preUpdate(instance, matrixStack, updateTransform)
+            }
         }
 
         override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) =
@@ -49,6 +66,9 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         override fun onClosed() {
             primitive.decreaseReferenceCount()
         }
+
+        override val doesPreUpdate
+            get() = false
 
         override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
             if (!updateTransform) {
@@ -110,6 +130,30 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
             child.increaseReferenceCount()
         }
 
+        override val doesPreUpdate: Boolean
+            get() = child.doesPreUpdate
+
+        override fun preUpdate(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
+            if (!child.doesPreUpdate) {
+                return
+            }
+
+            val transformsDirty = instance.modelData.transformsDirty[transformIndex]
+            if (transformsDirty) {
+                instance.modelData.transformsDirty[transformIndex] = false
+            }
+            val updateTransform = updateTransform || transformsDirty
+            val transform = instance.modelData.transforms[transformIndex]
+            transform?.matrix?.let { matrix ->
+                matrixStack.pushMatrix()
+                matrixStack.mul(matrix)
+                child.preUpdate(instance, matrixStack, updateTransform)
+                matrixStack.popMatrix()
+            } ?: run {
+                child.preUpdate(instance, matrixStack, updateTransform)
+            }
+        }
+
         override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
             val transformsDirty = instance.modelData.transformsDirty[transformIndex]
             if (transformsDirty) {
@@ -135,10 +179,12 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
     }
 
     class Joint(
-        val name: String?,
         val skinIndex: Int,
         val jointIndex: Int,
     ) : RenderNode() {
+        override val doesPreUpdate: Boolean
+            get() = false
+
         private val cacheMatrix = Matrix4f()
 
         override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
@@ -157,6 +203,36 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
 
         override fun iterator() = iteratorOf<RenderNode>()
 
-        override fun onClosed() {}
+        override fun onClosed() = Unit
+    }
+
+    class Ik(
+        val loopCount: Int,
+        val limitRadian: Float,
+        val ikLinks: List<IkLinkItem>,
+    ) : RenderNode() {
+        data class IkLinkItem(
+            val index: NodeId,
+            val position: Vector3f,
+            val limit: IkTarget.IkLink.Limits?,
+        ) {
+            constructor(link: IkTarget.IkLink): this(
+                index = link.index,
+                position = Vector3f(),
+                limit = link.limit,
+            )
+        }
+
+        override val doesPreUpdate: Boolean
+            get() = true
+
+        private val pos = Vector3f()
+        override fun preUpdate(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
+            matrixStack.getTranslation(pos)
+        }
+
+        override fun iterator() = iteratorOf<RenderNode>()
+
+        override fun onClosed() = Unit
     }
 }

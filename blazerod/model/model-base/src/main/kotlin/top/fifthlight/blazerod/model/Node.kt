@@ -53,4 +53,5 @@ data class Node(
     val transform: NodeTransform? = null,
     val mesh: Mesh? = null,
     val skin: Skin? = null,
+    val ikTarget: IkTarget? = null,
 )
