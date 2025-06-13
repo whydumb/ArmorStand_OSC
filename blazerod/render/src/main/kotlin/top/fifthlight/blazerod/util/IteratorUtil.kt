@@ -2,14 +2,13 @@ package top.fifthlight.blazerod.util
 
 import it.unimi.dsi.fastutil.ints.IntIterable
 
-private object EmptyIterator: Iterator<Any?> {
+private object EmptyIterator: Iterator<Nothing> {
     override fun next() = throw NoSuchElementException()
 
     override fun hasNext() = false
 }
 
-@Suppress("UNCHECKED_CAST")
-fun <T> iteratorOf(): Iterator<T> = EmptyIterator as Iterator<T>
+fun <T> iteratorOf(): Iterator<T> = EmptyIterator
 
 fun <T> iteratorOf(item: T) = object : Iterator<T> {
     private var finished = false

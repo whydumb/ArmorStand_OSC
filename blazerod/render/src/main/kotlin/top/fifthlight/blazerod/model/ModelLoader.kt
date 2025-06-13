@@ -408,11 +408,13 @@ class ModelLoader {
     ): RenderNode.Primitive? {
         val hasSkinElements =
             skin != null && primitive.attributes.joints.isNotEmpty() && primitive.attributes.weights.isNotEmpty()
-        val material = loadMaterial(
-            material = primitive.material,
-            hasSkinElements = hasSkinElements,
-            hasMorphTarget = primitive.targets.isNotEmpty()
-        ) ?: RenderMaterial.defaultMaterial
+        val material = primitive.material?.let {
+            loadMaterial(
+                material = it,
+                hasSkinElements = hasSkinElements,
+                hasMorphTarget = primitive.targets.isNotEmpty()
+            )
+        } ?: RenderMaterial.defaultMaterial
         val vertexElements = loadVertexElements(primitive.attributes, material)
         val verticesCount = primitive.attributes.position.count
         val vertexBuffer = RenderSystem.getDevice().createVertexBuffer(
@@ -598,7 +600,8 @@ class ModelLoader {
                     name = expression.name,
                     tag = expression.tag,
                     items = expression.targets.mapNotNull {
-                        val targetIndex = expressions.indexOf(it.target).takeIf { index -> index != -1 } ?: return@mapNotNull null
+                        val targetIndex =
+                            expressions.indexOf(it.target).takeIf { index -> index != -1 } ?: return@mapNotNull null
                         RenderExpressionGroup.Item(
                             expressionIndex = expressionTargetMap[targetIndex] ?: return@mapNotNull null,
                             influence = it.influence,

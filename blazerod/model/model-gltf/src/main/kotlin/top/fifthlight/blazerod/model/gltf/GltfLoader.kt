@@ -48,6 +48,7 @@ internal class GltfLoader(
     private lateinit var materials: List<Material>
     private lateinit var meshes: List<Mesh>
     private lateinit var skins: List<Skin>
+    private lateinit var cameras: List<Camera>
     private val nodes = mutableMapOf<Int, Node>()
     private lateinit var scenes: List<Scene>
     private lateinit var animations: List<Animation>
@@ -345,6 +346,34 @@ internal class GltfLoader(
         } ?: listOf()
     }
 
+    private fun loadCameras() {
+        cameras = gltf.cameras?.map { camera ->
+            when (camera.type) {
+                GltfCameraType.PERSPECTIVE -> {
+                    camera.perspective?.let { perspective ->
+                        Camera.Perspective(
+                            name = null,
+                            aspectRatio = perspective.aspectRatio,
+                            yfov = perspective.yfov,
+                            znear = perspective.znear,
+                        )
+                    } ?: throw GltfLoadException("Bad perspective camera: no perspective")
+                }
+                GltfCameraType.ORTHOGRAPHIC -> {
+                    camera.orthographic?.let { orthographic ->
+                        Camera.Orthographic(
+                            name = null,
+                            xmag = orthographic.xmag,
+                            ymag = orthographic.ymag,
+                            zfar = orthographic.zfar,
+                            znear = orthographic.znear,
+                        )
+                    } ?: throw GltfLoadException("Bad orthographic camera: no orthographic")
+                }
+            }
+        } ?: listOf()
+    }
+
     private fun loadNode(index: Int): Node = nodes.getOrPut(index) {
         // TODO avoid stack overflow on bad models
         val node = gltf.nodes?.getOrNull(index) ?: throw GltfLoadException("No node at index $index")
@@ -368,6 +397,7 @@ internal class GltfLoader(
             mesh = node.mesh?.let { meshes.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown mesh $it") },
             transform = transform,
             skin = node.skin?.let { skins.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown skin $it") },
+            camera = node.camera?.let { cameras.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown camera $it") },
         )
     }
 
@@ -554,6 +584,7 @@ internal class GltfLoader(
         loadMaterials()
         loadMeshes()
         loadSkins()
+        loadCameras()
         loadScenes()
         loadAnimations()
         loadExpressions()
