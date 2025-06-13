@@ -85,6 +85,8 @@ class ModelInstance(
             targetBuffers
         }
 
+        val cameraTransforms = scene.cameras.mapToArray { CameraTransform(it.camera) }
+
         override fun close() {
             // release slots
             modelMatricesBuffer.close()
@@ -192,6 +194,10 @@ class ModelInstance(
     }
 
     private val updateMatrixStack = Matrix4fStack(BlazeRod.MAX_TRANSFORM_DEPTH)
+
+    fun updateCamera() {
+        scene.updateCamera(this, updateMatrixStack)
+    }
 
     fun update() {
         scene.update(this, updateMatrixStack)

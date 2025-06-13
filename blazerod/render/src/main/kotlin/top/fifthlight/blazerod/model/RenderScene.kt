@@ -21,6 +21,7 @@ class RenderScene(
     val humanoidTagToTransformMap: Reference2IntMap<HumanoidTag>,
     val expressions: List<RenderExpression>,
     val expressionGroups: List<RenderExpressionGroup>,
+    val cameras: List<RenderCamera>,
 ): AbstractRefCount() {
     companion object {
         private val TYPE_ID = Identifier.of("blazerod", "scene")
@@ -34,6 +35,13 @@ class RenderScene(
         humanoidTagToTransformMap.defaultReturnValue(-1)
         nodeNameToTransformMap.defaultReturnValue(-1)
         nodeIdToTransformMap.defaultReturnValue(-1)
+    }
+
+    fun updateCamera(modelInstance: ModelInstance, matrixStack: Matrix4fStack) {
+        if (cameras.isEmpty()) {
+            return
+        }
+        rootNode.updateCamera(modelInstance, matrixStack, false)
     }
 
     fun update(modelInstance: ModelInstance, matrixStack: Matrix4fStack) = rootNode.update(modelInstance, matrixStack, false)

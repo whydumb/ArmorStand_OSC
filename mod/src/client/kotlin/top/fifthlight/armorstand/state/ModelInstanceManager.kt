@@ -90,6 +90,8 @@ object ModelInstanceManager {
         item
     }
 
+    fun getSelfItem() = selfUuid?.let { get(it, time = null) }
+
     fun get(uuid: UUID, time: Long?): ModelInstanceItem? {
         val isSelf = uuid == selfUuid
         if (isSelf && !ConfigHolder.config.value.showOtherPlayerModel) {

@@ -18,6 +18,9 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         get() = TYPE_ID
 
     var parent: RenderNode? = null
+    abstract val containsCamera: Boolean
+
+    open fun updateCamera(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) = Unit
 
     open fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) = Unit
 
@@ -29,6 +32,11 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         override fun onClosed() {
             children.forEach { it.decreaseReferenceCount() }
         }
+
+        override val containsCamera: Boolean = children.any { it.containsCamera }
+
+        override fun updateCamera(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) =
+            children.forEach { it.updateCamera(instance, matrixStack, updateTransform) }
 
         override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) =
             children.forEach { it.update(instance, matrixStack, updateTransform) }
@@ -49,6 +57,9 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         override fun onClosed() {
             primitive.decreaseReferenceCount()
         }
+
+        override val containsCamera
+            get() = false
 
         override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
             if (!updateTransform) {
@@ -110,6 +121,26 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
             child.increaseReferenceCount()
         }
 
+        override val containsCamera
+            get() = child.containsCamera
+
+        override fun updateCamera(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
+            val transformsDirty = instance.modelData.transformsDirty[transformIndex]
+            if (transformsDirty) {
+                instance.modelData.transformsDirty[transformIndex] = false
+            }
+            val updateTransform = updateTransform || transformsDirty
+            val transform = instance.modelData.transforms[transformIndex]
+            transform?.matrix?.let { matrix ->
+                matrixStack.pushMatrix()
+                matrixStack.mul(matrix)
+                child.update(instance, matrixStack, updateTransform)
+                matrixStack.popMatrix()
+            } ?: run {
+                child.update(instance, matrixStack, updateTransform)
+            }
+        }
+
         override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
             val transformsDirty = instance.modelData.transformsDirty[transformIndex]
             if (transformsDirty) {
@@ -139,6 +170,9 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         val skinIndex: Int,
         val jointIndex: Int,
     ) : RenderNode() {
+        override val containsCamera: Boolean
+            get() = false
+
         private val cacheMatrix = Matrix4f()
 
         override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
@@ -158,5 +192,21 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         override fun iterator() = iteratorOf<RenderNode>()
 
         override fun onClosed() {}
+    }
+
+    class Camera(
+        val cameraTransformIndex: Int,
+    ): RenderNode() {
+        override val containsCamera: Boolean
+            get() = true
+        
+        override fun onClosed() = Unit
+
+        override fun updateCamera(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
+            val cameraTransform = instance.modelData.cameraTransforms[cameraTransformIndex]
+            cameraTransform.update(matrixStack)
+        }
+
+        override fun iterator() = iteratorOf<RenderNode>()
     }
 }

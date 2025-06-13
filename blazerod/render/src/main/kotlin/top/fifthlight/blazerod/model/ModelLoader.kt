@@ -21,8 +21,6 @@ import top.fifthlight.blazerod.render.VertexBuffer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.collections.get
-import kotlin.contracts.contract
-import kotlin.math.exp
 
 class ModelLoader {
     private lateinit var skinsMap: Map<Skin, Pair<Int, RenderSkin>>
@@ -73,6 +71,7 @@ class ModelLoader {
     private val humanoidJointTransformIndices = Reference2IntOpenHashMap<HumanoidTag>()
     private val textureCache = mutableMapOf<Texture, RefCountedGpuTexture>()
     private val vertexBufferCache = mutableMapOf<Buffer, RefCountedGpuBuffer>()
+    private val cameras = mutableListOf<RenderCamera>()
 
     private fun loadTexture(texture: Material.TextureInfo): RenderTexture? {
         val gpuTexture = texture.texture.let { texture ->
@@ -493,7 +492,16 @@ class ModelLoader {
                     add(primitiveNode)
                     appendRenderNode(primitiveNode)
                 }
-
+            }
+            node.camera?.let {
+                val cameraTransformIndex = cameras.size
+                cameras.add(
+                    RenderCamera(
+                        cameraTransformIndex = cameraTransformIndex,
+                        camera = it,
+                    )
+                )
+                add(RenderNode.Camera(cameraTransformIndex))
             }
             node.children.forEach { loadNode(it)?.let { child -> add(child) } }
         }
@@ -608,7 +616,8 @@ class ModelLoader {
                         )
                     }
                 )
-            }
+            },
+            cameras = cameras,
         )
     }
 
