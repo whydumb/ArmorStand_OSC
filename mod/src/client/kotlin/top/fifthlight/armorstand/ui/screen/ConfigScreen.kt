@@ -308,7 +308,7 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
                 gap = gap,
             ).apply {
                 add(
-                    BorderLayout(
+                    widget = BorderLayout(
                         direction = BorderLayout.Direction.VERTICAL,
                         surface = Surface.listBackgroundWithSeparator(),
                     ).apply {
@@ -370,7 +370,8 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
                         setSecondElement(pager, Positioner.create().margin(padding))
                         addDrawable(this)
                         addDrawable(loadingOverlay)
-                    }
+                    },
+                    weight = 2
                 )
                 add(
                     TabNavigationWrapper(
