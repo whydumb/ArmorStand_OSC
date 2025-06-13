@@ -274,7 +274,7 @@ internal class GltfLoader(
             mode = primitive.mode,
             material = primitive.material?.let {
                 materials.getOrNull(it) ?: throw GltfLoadException("Bad primitive: unknown material $it")
-            } ?: Material.Default,
+            },
             attributes = loadAttributes(primitive.attributes, false) as Primitive.Attributes.Primitive,
             indices = primitive.indices?.let { indices ->
                 accessors.getOrNull(indices)

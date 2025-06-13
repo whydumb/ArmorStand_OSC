@@ -109,7 +109,6 @@ class ModelLoader {
         hasSkinElements: Boolean,
         hasMorphTarget: Boolean,
     ): RenderMaterial<*>? = when (material) {
-        Material.Default -> RenderMaterial.Fallback
         is Material.Pbr -> RenderMaterial.Unlit(
             // TODO load PBR material
             name = material.name,
@@ -413,7 +412,7 @@ class ModelLoader {
             material = primitive.material,
             hasSkinElements = hasSkinElements,
             hasMorphTarget = primitive.targets.isNotEmpty()
-        ) ?: RenderMaterial.Fallback
+        ) ?: RenderMaterial.defaultMaterial
         val vertexElements = loadVertexElements(primitive.attributes, material)
         val verticesCount = primitive.attributes.position.count
         val vertexBuffer = RenderSystem.getDevice().createVertexBuffer(

@@ -5,7 +5,7 @@ import top.fifthlight.blazerod.model.Primitive.Attributes.Key
 
 data class Primitive(
     val mode: Mode,
-    val material: Material,
+    val material: Material?,
     val attributes: Attributes.Primitive,
     val indices: Accessor?,
     val targets: List<Attributes.MorphTarget>,
