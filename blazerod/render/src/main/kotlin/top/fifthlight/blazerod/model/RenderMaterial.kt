@@ -28,7 +28,8 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         )
 
         val defaultMaterial by lazy {
-            Unlit(name = "Default")
+            // Increase reference count to avoid being closed
+            Unlit(name = "Default").apply { increaseReferenceCount() }
         }
 
         fun initialize() {
