@@ -17,7 +17,7 @@ import java.nio.ByteBuffer
 import java.nio.file.Path
 import java.util.*
 
-class GltfLoadException(message: String) : Exception(message)
+class GltfLoadException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 internal class GltfLoader(
     private val buffer: ByteBuffer?,
@@ -53,8 +53,35 @@ internal class GltfLoader(
     private lateinit var animations: List<Animation>
     private lateinit var expressions: List<Expression>
 
-    private fun loadExternalUri(uri: URI): ByteBuffer = externalBuffers.getOrPut(uri) {
-        TODO("URI resources is not supported for now")
+    private fun parseDataUri(dataUri: URI): ByteBuffer {
+        require(dataUri.scheme.equals("data", ignoreCase = true)) { "Bad scheme: ${dataUri.scheme}" }
+        val data = dataUri.rawSchemeSpecificPart
+        val commaIndex = data.indexOf(',').takeIf { it >= 0 } ?: throw GltfLoadException("No comma in data URI")
+
+        val metadataPart = data.substring(0, commaIndex)
+        val encoding = metadataPart.substringAfter(";", "").takeIf(String::isNotEmpty)
+
+        val byteArray = when (encoding) {
+            null -> data.substring(commaIndex + 1).encodeToByteArray()
+            "base64" -> try {
+                Base64.getDecoder().decode(data.substring(commaIndex + 1))
+            } catch (e: IllegalArgumentException) {
+                throw GltfLoadException("Bad base64 data URI", e)
+            }
+            else -> throw GltfLoadException("Unknown encoding: $encoding")
+        }
+        val directBuffer = ByteBuffer.allocateDirect(byteArray.size)
+        directBuffer.put(byteArray)
+        directBuffer.flip()
+        return directBuffer
+    }
+
+    private fun loadExternalUri(uri: URI): ByteBuffer = if (uri.scheme.equals("data", ignoreCase = true)) {
+        parseDataUri(uri)
+    } else {
+        externalBuffers.getOrPut(uri) {
+            TODO("External URI resources is not supported for now")
+        }
     }
 
     private fun loadBuffers() {
