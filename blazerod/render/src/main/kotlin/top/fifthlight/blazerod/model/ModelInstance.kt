@@ -1,5 +1,7 @@
 package top.fifthlight.blazerod.model
 
+import net.minecraft.client.render.VertexConsumerProvider
+import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.util.Identifier
 import org.joml.Matrix4f
 import org.joml.Matrix4fStack
@@ -192,6 +194,10 @@ class ModelInstance(
     }
 
     private val updateMatrixStack = Matrix4fStack(BlazeRod.MAX_TRANSFORM_DEPTH)
+
+    fun debugRender(matrixStack: MatrixStack, consumers: VertexConsumerProvider) {
+        scene.debugRender(this, matrixStack, consumers)
+    }
 
     fun update() {
         scene.update(this, updateMatrixStack)

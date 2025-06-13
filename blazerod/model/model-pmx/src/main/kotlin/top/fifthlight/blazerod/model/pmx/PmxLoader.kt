@@ -1,6 +1,7 @@
 package top.fifthlight.blazerod.model.pmx
 
 import org.joml.Matrix4f
+import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector3fc
 import top.fifthlight.blazerod.model.Accessor
@@ -43,6 +44,7 @@ import java.nio.charset.CodingErrorAction
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.util.UUID
+import kotlin.math.PI
 
 class PmxLoadException(message: String) : Exception(message)
 
@@ -289,10 +291,12 @@ object PmxLoader : ModelFileLoader {
                 inputPosition += 12
             }
 
-            val copyBaseVertexSize = BASE_VERTEX_ATTRIBUTE_SIZE - 4
+            val copyBaseVertexSize = BASE_VERTEX_ATTRIBUTE_SIZE - 12
             for (i in 0 until vertexCount) {
-                // Read vertex data
-                // invert x axis
+                // Read vertex data, invert z
+                outputBuffer.put(outputPosition, buffer, inputPosition, 8)
+                outputPosition += 8
+                inputPosition += 8
                 outputBuffer.putFloat(outputPosition, -readFloat())
                 outputPosition += 4
                 // POSITION_NORMAL_UV_JOINT_WEIGHT
@@ -614,7 +618,7 @@ object PmxLoader : ModelFileLoader {
             }
         }
 
-        private fun Vector3f.invertX() = also { x = -x }
+        private fun Vector3f.invertZ() = also { z = -z }
 
         private fun loadBones(buffer: ByteBuffer) {
             val boneCount = buffer.getInt()
@@ -645,14 +649,14 @@ object PmxLoader : ModelFileLoader {
             fun loadBone(buffer: ByteBuffer): PmxBone {
                 val nameLocal = loadString(buffer)
                 val nameUniversal = loadString(buffer)
-                val position = loadVector3f(buffer).invertX()
+                val position = loadVector3f(buffer).invertZ()
                 val parentBoneIndex = loadBoneIndex(buffer)
                 val layer = buffer.getInt()
                 val flags = loadBoneFlags(buffer)
                 val tailPosition = if (flags.indexedTailPosition) {
                     PmxBone.TailPosition.Indexed(loadBoneIndex(buffer))
                 } else {
-                    PmxBone.TailPosition.Scalar(loadVector3f(buffer).invertX())
+                    PmxBone.TailPosition.Scalar(loadVector3f(buffer).invertZ())
                 }
                 val inheritParent = if (flags.inheritRotation || flags.inheritTranslation) {
                     Pair(loadBoneIndex(buffer), buffer.getFloat())
@@ -660,12 +664,12 @@ object PmxLoader : ModelFileLoader {
                     null
                 }
                 val axisDirection = if (flags.fixedAxis) {
-                    loadVector3f(buffer).invertX()
+                    loadVector3f(buffer).invertZ()
                 } else {
                     null
                 }
                 val localCoordinate = if (flags.localCoordinate) {
-                    PmxBone.LocalCoordinate(loadVector3f(buffer).invertX(), loadVector3f(buffer).invertX())
+                    PmxBone.LocalCoordinate(loadVector3f(buffer).invertZ(), loadVector3f(buffer).invertZ())
                 } else {
                     null
                 }
@@ -684,8 +688,8 @@ object PmxLoader : ModelFileLoader {
                         ikAffectedBoneIndices += index
                         val limits = if (buffer.get() != 0.toByte()) {
                             PmxBone.IkLink.Limits(
-                                limitMin = loadVector3f(buffer).invertX(),
-                                limitMax = loadVector3f(buffer).invertX(),
+                                limitMin = loadVector3f(buffer).invertZ(),
+                                limitMax = loadVector3f(buffer).invertZ(),
                             )
                         } else {
                             null
@@ -764,9 +768,9 @@ object PmxLoader : ModelFileLoader {
                         for (i in 0 until offsetSize) {
                             val index = loadVertexIndex(buffer)
                             morphBuffer.position(index * itemSize)
+                            morphBuffer.putFloat(buffer.getFloat())
+                            morphBuffer.putFloat(buffer.getFloat())
                             morphBuffer.putFloat(-buffer.getFloat())
-                            morphBuffer.putFloat(buffer.getFloat())
-                            morphBuffer.putFloat(buffer.getFloat())
                         }
                         morphBuffer.position(0)
                         targets.add(
@@ -988,6 +992,7 @@ object PmxLoader : ModelFileLoader {
                 nodes = rootNodes,
                 initialTransform = NodeTransform.Decomposed(
                     scale = Vector3f(0.1f),
+                    rotation = Quaternionf().rotateY(PI.toFloat()),
                 ),
             )
 

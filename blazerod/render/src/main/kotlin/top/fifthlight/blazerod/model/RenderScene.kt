@@ -3,6 +3,8 @@ package top.fifthlight.blazerod.model
 import it.unimi.dsi.fastutil.ints.IntList
 import it.unimi.dsi.fastutil.objects.Object2IntMap
 import it.unimi.dsi.fastutil.objects.Reference2IntMap
+import net.minecraft.client.render.VertexConsumerProvider
+import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.util.Identifier
 import org.joml.Matrix4fStack
 import org.joml.Matrix4fc
@@ -34,6 +36,10 @@ class RenderScene(
         humanoidTagToTransformMap.defaultReturnValue(-1)
         nodeNameToTransformMap.defaultReturnValue(-1)
         nodeIdToTransformMap.defaultReturnValue(-1)
+    }
+
+    fun debugRender(instance: ModelInstance, matrixStack: MatrixStack, consumers: VertexConsumerProvider) {
+        rootNode.debugRender(instance, matrixStack, consumers)
     }
 
     fun update(modelInstance: ModelInstance, matrixStack: Matrix4fStack) {

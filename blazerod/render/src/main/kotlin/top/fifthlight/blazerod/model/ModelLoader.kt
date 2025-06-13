@@ -492,7 +492,7 @@ class ModelLoader {
                     appendRenderNode(primitiveNode)
                 }
             }
-            node.ikTarget?.let { ikTarget ->
+            node.ikTarget?.takeIf { it.ikLinks.isNotEmpty() }?.let { ikTarget ->
                 add(
                     RenderNode.Ik(
                         loopCount = ikTarget.loopCount,

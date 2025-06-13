@@ -11,6 +11,7 @@ object AnimationLoader {
     fun load(
         scene: RenderScene,
         animation: Animation,
+        missingChannelHandler: (AnimationChannel<*>) -> Unit = {},
     ): AnimationItem {
         fun findTargetTransformIndex(channel: AnimationChannel<*>): Int? =
             channel.targetNode?.id.let { nodeId -> scene.nodeIdToTransformMap.getInt(nodeId).takeIf { it >= 0 } }
@@ -21,7 +22,10 @@ object AnimationLoader {
 
         @Suppress("UNCHECKED_CAST")
         fun mapAnimationChannel(channel: AnimationChannel<*>): AnimationChannelItem<*>? {
-            val index = findTargetTransformIndex(channel) ?: return null
+            val index = findTargetTransformIndex(channel) ?: run {
+                missingChannelHandler(channel)
+                return null
+            }
             return when (channel.type) {
                 AnimationChannel.Type.RelativeNodeTransformItem -> AnimationChannelItem.RelativeNodeTransformItem(
                     index = index,

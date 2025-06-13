@@ -38,19 +38,27 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
     )
     var debug: Boolean = false
         private set
+    var debugBone: Boolean = false
+        private set
 
     override lateinit var scope: CoroutineScope
         private set
 
     override fun onInitializeClient() {
         super.onInitialize()
-        if (System.getProperty("armorstand.debug.gui") == "true") {
-            System.setProperty("java.awt.headless", "false")
-            SwingUtilities.invokeLater {
-                try {
-                    ModelManagerDebugFrame().isVisible = true
-                } catch (ex: Exception) {
-                    LOGGER.info("Failed to show debug windows", ex)
+        if (System.getProperty("armorstand.debug") == "true") {
+            debug = true
+            if (System.getProperty("armorstand.debug.bone") == "true") {
+                debugBone = true
+            }
+            if (System.getProperty("armorstand.debug.gui") == "true") {
+                System.setProperty("java.awt.headless", "false")
+                SwingUtilities.invokeLater {
+                    try {
+                        ModelManagerDebugFrame().isVisible = true
+                    } catch (ex: Exception) {
+                        LOGGER.info("Failed to show debug windows", ex)
+                    }
                 }
             }
         }

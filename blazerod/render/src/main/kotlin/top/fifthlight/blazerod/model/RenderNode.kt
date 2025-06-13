@@ -1,18 +1,20 @@
 package top.fifthlight.blazerod.model
 
 import net.minecraft.client.gl.RenderPassImpl
+import net.minecraft.client.render.RenderLayer
+import net.minecraft.client.render.RenderLayers
+import net.minecraft.client.render.VertexConsumerProvider
+import net.minecraft.client.util.math.MatrixStack
+import net.minecraft.util.Colors
 import net.minecraft.util.Identifier
 import org.joml.Matrix4f
 import org.joml.Matrix4fStack
 import org.joml.Matrix4fc
-import org.joml.Quaternionf
 import org.joml.Vector3f
-import org.joml.Vector3fc
-import org.joml.Vector4f
-import top.fifthlight.blazerod.model.pmx.format.PmxBone
 import top.fifthlight.blazerod.util.AbstractRefCount
 import top.fifthlight.blazerod.util.SlottedGpuBuffer
 import top.fifthlight.blazerod.util.iteratorOf
+import java.awt.Color
 
 sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
     companion object {
@@ -25,6 +27,12 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
     var parent: RenderNode? = null
 
     abstract val doesPreUpdate: Boolean
+
+    open fun debugRender(
+        instance: ModelInstance,
+        matrixStack: MatrixStack,
+        consumers: VertexConsumerProvider,
+    ) = Unit
 
     open fun preUpdate(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) = Unit
 
@@ -41,11 +49,18 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
             children.forEach { it.decreaseReferenceCount() }
         }
 
-        override fun preUpdate(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) = children.forEach {
-            if (it.doesPreUpdate) {
-                it.preUpdate(instance, matrixStack, updateTransform)
+        override fun debugRender(
+            instance: ModelInstance,
+            matrixStack: MatrixStack,
+            consumers: VertexConsumerProvider,
+        ) = children.forEach { it.debugRender(instance, matrixStack, consumers) }
+
+        override fun preUpdate(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) =
+            children.forEach {
+                if (it.doesPreUpdate) {
+                    it.preUpdate(instance, matrixStack, updateTransform)
+                }
             }
-        }
 
         override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) =
             children.forEach { it.update(instance, matrixStack, updateTransform) }
@@ -133,6 +148,22 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         override val doesPreUpdate: Boolean
             get() = child.doesPreUpdate
 
+        override fun debugRender(
+            instance: ModelInstance,
+            matrixStack: MatrixStack,
+            consumers: VertexConsumerProvider,
+        ) {
+            val transform = instance.modelData.transforms[transformIndex]
+            transform?.matrix?.let { matrix ->
+                matrixStack.push()
+                matrixStack.multiplyPositionMatrix(matrix)
+                child.debugRender(instance, matrixStack, consumers)
+                matrixStack.pop()
+            } ?: run {
+                child.debugRender(instance, matrixStack, consumers)
+            }
+        }
+
         override fun preUpdate(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
             if (!child.doesPreUpdate) {
                 return
@@ -187,6 +218,43 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
 
         private val cacheMatrix = Matrix4f()
 
+        private val parentJoint: Joint? by lazy {
+            var current = parent
+            while (current != null) {
+                when (current) {
+                    is Transform -> {
+                        current = current.parent
+                        continue
+                    }
+
+                    is Group -> {
+                        for (sibling in current.children) {
+                            if (sibling is Joint && sibling != this && sibling.skinIndex == skinIndex) {
+                                return@lazy sibling
+                            }
+                        }
+                    }
+
+                    else -> return@lazy null
+                }
+                current = current.parent
+            }
+            null
+        }
+        private val debugMatrix = Matrix4f()
+        override fun debugRender(
+            instance: ModelInstance,
+            matrixStack: MatrixStack,
+            consumers: VertexConsumerProvider,
+        ) {
+            matrixStack.peek().positionMatrix.get(debugMatrix)
+            parentJoint?.let { parentJoint ->
+                val buffer = consumers.getBuffer(RenderLayer.getDebugLineStrip(1.0))
+                buffer.vertex(parentJoint.debugMatrix, 0f, 0f, 0f).color(Colors.YELLOW)
+                buffer.vertex(matrixStack.peek().positionMatrix, 0f, 0f, 0f).color(Colors.RED)
+            }
+        }
+
         override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
             if (!updateTransform) {
                 return
@@ -211,12 +279,16 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         val limitRadian: Float,
         val ikLinks: List<IkLinkItem>,
     ) : RenderNode() {
+        init {
+            require(ikLinks.isNotEmpty()) { "IK bone without links" }
+        }
+
         data class IkLinkItem(
             val index: NodeId,
             val position: Vector3f,
             val limit: IkTarget.IkLink.Limits?,
         ) {
-            constructor(link: IkTarget.IkLink): this(
+            constructor(link: IkTarget.IkLink) : this(
                 index = link.index,
                 position = Vector3f(),
                 limit = link.limit,
@@ -226,9 +298,38 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         override val doesPreUpdate: Boolean
             get() = true
 
-        private val pos = Vector3f()
+        override fun debugRender(instance: ModelInstance, matrixStack: MatrixStack, consumers: VertexConsumerProvider) {
+            val buffer = consumers.getBuffer(RenderLayer.getDebugFilledBox())
+            val matrix = matrixStack.peek().positionMatrix
+
+            val boxSize = 0.15f
+            buffer.vertex(matrix, -boxSize, -boxSize, -boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, boxSize, -boxSize, -boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, boxSize, boxSize, -boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, -boxSize, boxSize, -boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, -boxSize, -boxSize, boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, boxSize, -boxSize, boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, boxSize, boxSize, boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, -boxSize, boxSize, boxSize).color(Colors.CYAN)
+
+            buffer.vertex(matrix, -boxSize, -boxSize, -boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, -boxSize, -boxSize, boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, boxSize, -boxSize, -boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, boxSize, -boxSize, boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, boxSize, boxSize, -boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, boxSize, boxSize, boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, -boxSize, boxSize, -boxSize).color(Colors.CYAN)
+            buffer.vertex(matrix, -boxSize, boxSize, boxSize).color(Colors.CYAN)
+        }
+
+
+        private val targetPos = Vector3f()
         override fun preUpdate(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
-            matrixStack.getTranslation(pos)
+            matrixStack.getTranslation(targetPos)
+
+            for (i in 0 until loopCount) {
+                val last = ikLinks.last()
+            }
         }
 
         override fun iterator() = iteratorOf<RenderNode>()

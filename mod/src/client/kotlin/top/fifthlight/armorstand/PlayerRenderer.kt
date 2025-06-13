@@ -1,9 +1,12 @@
 package top.fifthlight.armorstand
 
 import com.mojang.blaze3d.systems.RenderSystem
+import net.minecraft.client.gl.RenderPipelines
+import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.client.util.math.MatrixStack
 import org.joml.Matrix4f
+import org.joml.Matrix4fStack
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.blazerod.model.TaskMap
 import top.fifthlight.armorstand.state.ModelInstanceManager
@@ -24,6 +27,7 @@ object PlayerRenderer {
         uuid: UUID,
         vanillaState: PlayerEntityRenderState,
         matrixStack: MatrixStack,
+        consumers: VertexConsumerProvider,
         light: Int,
     ): Boolean {
         val entry = ModelInstanceManager.get(uuid, System.nanoTime())
@@ -42,13 +46,17 @@ object PlayerRenderer {
         matrixStack.pop()
         matrixStack.push()
 
-        matrix.set(matrixStack.peek().positionMatrix)
-        matrix.scale(ConfigHolder.config.value.modelScale.toFloat())
-        matrix.mulLocal(RenderSystem.getModelViewStack())
-        if (renderingWorld) {
-            taskMap.addTask(instance.schedule(matrix, light))
+        if (ArmorStandClient.debugBone) {
+            instance.debugRender(matrixStack, consumers)
         } else {
-            instance.render(matrix, light)
+            matrix.set(matrixStack.peek().positionMatrix)
+            matrix.scale(ConfigHolder.config.value.modelScale)
+            matrix.mulLocal(RenderSystem.getModelViewStack())
+            if (renderingWorld) {
+                taskMap.addTask(instance.schedule(matrix, light))
+            } else {
+                instance.render(matrix, light)
+            }
         }
 
         matrixStack.pop()
