@@ -242,6 +242,7 @@ class MetadataWidget(
             override fun getTexts(metadata: Metadata?) = listOfNotNull(
                 metadata?.comment
                     ?.takeIf(String::isNotBlank)
+                    ?.replace("\r\n", "\n")
                     ?.let { Text.translatable("armorstand.metadata.comments", it) }
             )
         }

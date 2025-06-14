@@ -74,7 +74,7 @@ object PlayerRenderer {
         matrixStack.push()
 
         matrix.set(matrixStack.peek().positionMatrix)
-        matrix.scale(ConfigHolder.config.value.modelScale.toFloat())
+        matrix.scale(ConfigHolder.config.value.modelScale)
         matrix.mulLocal(RenderSystem.getModelViewStack())
         if (renderingWorld) {
             taskMap.addTask(instance.schedule(matrix, light))
