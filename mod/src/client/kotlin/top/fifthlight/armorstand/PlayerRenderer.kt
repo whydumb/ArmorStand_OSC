@@ -1,8 +1,12 @@
 package top.fifthlight.armorstand
 
 import com.mojang.blaze3d.systems.RenderSystem
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.client.util.math.MatrixStack
 import org.joml.Matrix4f
@@ -19,17 +23,17 @@ object PlayerRenderer {
     private val taskMap = TaskMap()
 
     private var prevModelItem = WeakReference<ModelInstanceManager.ModelInstanceItem.Model?>(null)
-    private var _selectedCameraIndex = MutableStateFlow<Int?>(null)
-    val selectedCameraIndex = _selectedCameraIndex.asStateFlow()
-    private var _totalCameras = MutableStateFlow<List<RenderCamera>?>(listOf())
+    val selectedCameraIndex = MutableStateFlow<Int?>(null)
+    private val _totalCameras = MutableStateFlow<List<RenderCamera>?>(listOf())
     val totalCameras = _totalCameras.asStateFlow()
+    private var cameraTransform: CameraTransform? = null
 
+    @JvmStatic
     fun getCurrentCameraTransform(): CameraTransform? {
-        val selectedIndex = _selectedCameraIndex.value ?: return null
-
-        val entry = ModelInstanceManager.getSelfItem() ?: return null
+        cameraTransform?.let { return it }
+        val entry = ModelInstanceManager.getSelfItem(load = false) ?: return null
         if (prevModelItem.get() != entry) {
-            _selectedCameraIndex.value = null
+            selectedCameraIndex.value = null
             if (entry is ModelInstanceManager.ModelInstanceItem.Model) {
                 _totalCameras.value = entry.instance.scene.cameras
                 prevModelItem = WeakReference(entry)
@@ -38,10 +42,16 @@ object PlayerRenderer {
             }
             return null
         }
+        val selectedIndex = selectedCameraIndex.value ?: return null
         val instance = entry.instance
         instance.updateCamera()
 
-        return instance.modelData.cameraTransforms[selectedIndex]
+        return instance.modelData.cameraTransforms.getOrNull(selectedIndex).also {
+            cameraTransform = it
+        } ?: run {
+            selectedCameraIndex.value = null
+            null
+        }
     }
 
     fun startRenderWorld() {
@@ -94,5 +104,9 @@ object PlayerRenderer {
     fun executeDraw() {
         renderingWorld = false
         taskMap.executeTasks()
+    }
+
+    fun endFrame() {
+        cameraTransform = null
     }
 }

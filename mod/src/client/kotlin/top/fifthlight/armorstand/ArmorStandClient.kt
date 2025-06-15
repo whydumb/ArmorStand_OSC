@@ -63,6 +63,9 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
         WorldRenderEvents.AFTER_ENTITIES.register { context ->
             PlayerRenderer.executeDraw()
         }
+        WorldRenderEvents.END.register { context ->
+            PlayerRenderer.endFrame()
+        }
 
 
         ClientLifecycleEvents.CLIENT_STARTED.register { client ->

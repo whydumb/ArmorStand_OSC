@@ -134,10 +134,10 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
             transform?.matrix?.let { matrix ->
                 matrixStack.pushMatrix()
                 matrixStack.mul(matrix)
-                child.update(instance, matrixStack, updateTransform)
+                child.updateCamera(instance, matrixStack, updateTransform)
                 matrixStack.popMatrix()
             } ?: run {
-                child.update(instance, matrixStack, updateTransform)
+                child.updateCamera(instance, matrixStack, updateTransform)
             }
         }
 
