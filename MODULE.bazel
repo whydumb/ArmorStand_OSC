@@ -5,7 +5,7 @@ module(
     version = "0.0.1+dev",
 )
 
-game_version = "1.21.6-pre4"
+game_version = "1.21.6-rc1"
 
 bazel_dep(name = "rules_java", version = "8.12.0")
 bazel_dep(name = "rules_kotlin", version = "2.1.4")
@@ -18,7 +18,7 @@ maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(
     artifacts = [
         # mapping
-        "net.fabricmc:yarn:1.21.6-pre3+build.1:v2",
+        "net.fabricmc:yarn:1.21.6-rc1+build.1:v2",
         "net.fabricmc:intermediary:%s:v2" % game_version,
 
         # build dependencies
