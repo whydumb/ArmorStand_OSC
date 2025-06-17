@@ -83,7 +83,7 @@ object VmdLoader : ModelFileLoader {
 
     private const val FRAME_TIME_SEC = 1f / 24f
 
-    private fun loadBone(buffer: ByteBuffer): List<AnimationChannel<*>> {
+    private fun loadBone(buffer: ByteBuffer): List<AnimationChannel<*, *>> {
         val channels = mutableMapOf<String, BoneChannel>()
         val boneKeyframeCount = buffer.getInt()
         repeat(boneKeyframeCount) {
@@ -115,9 +115,11 @@ object VmdLoader : ModelFileLoader {
             listOf(
                 SimpleAnimationChannel(
                     type = AnimationChannel.Type.RelativeNodeTransformItem,
-                    targetNode = null,
-                    targetNodeName = name,
-                    targetHumanoidTag = HumanoidTag.fromPmxJapanese(name),
+                    data = AnimationChannel.Type.NodeData(
+                        targetNode = null,
+                        targetNodeName = name,
+                        targetHumanoidTag = HumanoidTag.fromPmxJapanese(name),
+                    ),
                     indexer = indexer,
                     keyframeData = AnimationKeyFrameData.ofDecomposedNodeTransform(
                         values = channel.transformList,

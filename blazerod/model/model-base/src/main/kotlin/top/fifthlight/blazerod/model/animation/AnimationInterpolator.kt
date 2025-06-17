@@ -1,14 +1,16 @@
 package top.fifthlight.blazerod.model.animation
 
+import org.joml.Math
 import org.joml.Quaternionf
 import org.joml.Quaternionfc
 import org.joml.Vector3f
 import org.joml.Vector3fc
 import top.fifthlight.blazerod.model.NodeTransform
+import top.fifthlight.blazerod.model.util.MutableFloat
 
 abstract class AnimationInterpolation(val elements: Int) {
     init {
-        require(elements in 1 .. MAX_ELEMENTS) { "Bad elements count: should be in [1, $MAX_ELEMENTS]" }
+        require(elements in 1..MAX_ELEMENTS) { "Bad elements count: should be in [1, $MAX_ELEMENTS]" }
     }
 
     abstract fun interpolateVector3f(
@@ -17,11 +19,19 @@ abstract class AnimationInterpolation(val elements: Int) {
         endValue: List<Vector3fc>,
         result: Vector3f,
     )
+
     abstract fun interpolateQuaternionf(
         delta: Float,
         startValue: List<Quaternionfc>,
         endValue: List<Quaternionfc>,
         result: Quaternionf,
+    )
+
+    abstract fun interpolateFloat(
+        delta: Float,
+        startValue: List<MutableFloat>,
+        endValue: List<MutableFloat>,
+        result: MutableFloat,
     )
 
     companion object {
@@ -45,6 +55,15 @@ abstract class AnimationInterpolation(val elements: Int) {
             ) {
                 result.set(startValue[0]).slerp(endValue[0], delta)
             }
+
+            override fun interpolateFloat(
+                delta: Float,
+                startValue: List<MutableFloat>,
+                endValue: List<MutableFloat>,
+                result: MutableFloat,
+            ) {
+                result.value = Math.lerp(startValue[0].value, endValue[0].value, delta)
+            }
         }
 
         val step = object : AnimationInterpolation(1) {
@@ -64,6 +83,15 @@ abstract class AnimationInterpolation(val elements: Int) {
                 result: Quaternionf,
             ) {
                 result.set(startValue[0])
+            }
+
+            override fun interpolateFloat(
+                delta: Float,
+                startValue: List<MutableFloat>,
+                endValue: List<MutableFloat>,
+                result: MutableFloat,
+            ) {
+                result.value = startValue[0].value
             }
         }
 
@@ -114,6 +142,30 @@ abstract class AnimationInterpolation(val elements: Int) {
                 endValue[0].mul(h4, tempQuaternion)
                 result.add(tempQuaternion)
                 result.normalize()
+            }
+
+            override fun interpolateFloat(
+                delta: Float,
+                startValue: List<MutableFloat>,
+                endValue: List<MutableFloat>,
+                result: MutableFloat,
+            ) {
+
+                val t = delta
+                val t2 = t * t
+                val t3 = t2 * t
+
+                // Hermite spline formula
+                val h1 = 2f * t3 - 3f * t2 + 1f
+                val h2 = t3 - 2f * t2 + t
+                val h3 = -2f * t3 + 3f * t2
+                val h4 = t3 - t2
+
+                result.value = Math.fma(
+                    h1,
+                    startValue[1].value,
+                    Math.fma(h2, startValue[2].value, Math.fma(h3, endValue[1].value, h4 * endValue[0].value))
+                )
             }
         }
     }
@@ -226,6 +278,30 @@ object NodeTransformAnimationInterpolator : AnimationInterpolator<NodeTransform.
             startValue = quatElementsStart,
             endValue = quatElementsEnd,
             result = rotation,
+        )
+    }
+}
+
+object FloatAnimationInterpolator : AnimationInterpolator<MutableFloat> {
+    override fun set(
+        value: List<MutableFloat>,
+        result: MutableFloat,
+    ) {
+        result.value = value[0].value
+    }
+
+    override fun interpolate(
+        delta: Float,
+        type: AnimationInterpolation,
+        startValue: List<MutableFloat>,
+        endValue: List<MutableFloat>,
+        result: MutableFloat,
+    ) {
+        type.interpolateFloat(
+            delta = delta,
+            startValue = startValue,
+            endValue = endValue,
+            result = result,
         )
     }
 }
