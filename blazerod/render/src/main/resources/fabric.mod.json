@@ -21,5 +21,11 @@
       "environment": "client",
       "config": "blazerod.mixins.json"
     }
-  ]
+  ],
+  "custom": {
+    "modmenu": {
+      "parent": "blazerod",
+      "badges": ["library"]
+    }
+  }
 }
