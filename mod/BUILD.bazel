@@ -14,7 +14,7 @@ extract_access_widener(
     name = "access_widener_dep_intermediary",
     inputs = [
         "@maven//:net_fabricmc_fabric_api_fabric_api",
-        "@modmenu//:modmenu",
+        "@maven//:com_terraformersmc_modmenu",
     ],
 )
 
@@ -25,7 +25,7 @@ remap_jar(
     ],
     inputs = [
         "@maven//:net_fabricmc_fabric_api_fabric_api",
-        "@modmenu//:modmenu",
+        "@maven//:com_terraformersmc_modmenu",
         "@maven//:eu_pb4_placeholder_api",
     ],
     mixin = True,

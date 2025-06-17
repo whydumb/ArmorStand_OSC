@@ -5416,46 +5416,6 @@
         ]
       }
     },
-    "//repo:modmenu.bzl%modmenu": {
-      "general": {
-        "bzlTransitiveDigest": "gws6JbmLywKrtohhAIwilVgASCMIJtTlVaG6ywbua2I=",
-        "usagesDigest": "ff6mZ1ymoO7ZMPTJUmji4gJZeyDXulk3emkQKTsxZ9A=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "modmenu": {
-            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
-            "attributes": {
-              "url": "https://maven.terraformersmc.com/releases/com/terraformersmc/modmenu/14.0.0-rc.2/modmenu-14.0.0-rc.2-sources.jar",
-              "sha256": "9d374878db50f92cc41067d43e8584069d19eceee3be7777217f5e5465397c8d",
-              "build_file": "@@//modmenu:modmenu.BUILD.bazel",
-              "patch_strip": 1,
-              "patches": [
-                "@@//modmenu/patches:text-render-mixin.patch",
-                "@@//modmenu/patches:mod-list-widget.patch",
-                "@@//modmenu/patches:descrption-list-widget.patch",
-                "@@//modmenu/patches:mods-screen.patch",
-                "@@//modmenu/patches:update-checker-util.patch",
-                "@@//modmenu/patches:http-util.patch",
-                "@@//modmenu/patches:drawing-util.patch",
-                "@@//modmenu/patches:legacy-textured-button-widget.patch",
-                "@@//modmenu/patches:mod-list-entry.patch",
-                "@@//modmenu/patches:parent-entry.patch",
-                "@@//modmenu/patches:update-avaliable-badge.patch"
-              ]
-            }
-          }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "",
-            "bazel_tools",
-            "bazel_tools"
-          ]
-        ]
-      }
-    },
     "@@aspect_rules_js+//npm:extensions.bzl%pnpm": {
       "general": {
         "bzlTransitiveDigest": "1nM+pre81k6SWR6mI+hI8KuV3vjVS7yJK04grtKOkcU=",
