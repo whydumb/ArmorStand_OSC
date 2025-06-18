@@ -313,6 +313,7 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         val limitRadian: Float,
         val ikLinks: List<IkLinkItem>,
     ) : RenderNode() {
+
         init {
             require(ikLinks.isNotEmpty()) { "IK bone without links" }
         }
@@ -331,6 +332,9 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
 
         override val doesPreUpdate: Boolean
             get() = true
+
+        override val containsCamera: Boolean
+            get() = false
 
         override fun debugRender(instance: ModelInstance, matrixStack: MatrixStack, consumers: VertexConsumerProvider) {
             val buffer = consumers.getBuffer(RenderLayer.getDebugFilledBox())
@@ -374,6 +378,9 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
     class Camera(
         val cameraTransformIndex: Int,
     ): RenderNode() {
+        override val doesPreUpdate: Boolean
+            get() = false
+
         override val containsCamera: Boolean
             get() = true
 
