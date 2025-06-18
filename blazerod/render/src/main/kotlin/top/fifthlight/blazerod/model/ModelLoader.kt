@@ -468,7 +468,6 @@ class ModelLoader {
         val children = buildList {
             jointSkin?.forEach { (skinIndex, jointIndex) ->
                 val jointNode = RenderNode.Joint(
-                    name = node.name,
                     skinIndex = skinIndex,
                     jointIndex = jointIndex,
                 )
@@ -492,7 +491,15 @@ class ModelLoader {
                     add(primitiveNode)
                     appendRenderNode(primitiveNode)
                 }
-
+            }
+            node.ikTarget?.takeIf { it.ikLinks.isNotEmpty() }?.let { ikTarget ->
+                add(
+                    RenderNode.Ik(
+                        loopCount = ikTarget.loopCount,
+                        limitRadian = ikTarget.limitRadian,
+                        ikLinks = ikTarget.ikLinks.map { RenderNode.Ik.IkLinkItem(it) },
+                    )
+                )
             }
             node.children.forEach { loadNode(it)?.let { child -> add(child) } }
         }
@@ -599,7 +606,8 @@ class ModelLoader {
                     name = expression.name,
                     tag = expression.tag,
                     items = expression.targets.mapNotNull {
-                        val targetIndex = expressions.indexOf(it.target).takeIf { index -> index != -1 } ?: return@mapNotNull null
+                        val targetIndex =
+                            expressions.indexOf(it.target).takeIf { index -> index != -1 } ?: return@mapNotNull null
                         RenderExpressionGroup.Item(
                             expressionIndex = expressionTargetMap[targetIndex] ?: return@mapNotNull null,
                             influence = it.influence,

@@ -40,7 +40,7 @@ public abstract class PlayerModelMixin {
         if (uuid == null) {
             return original.call(instance, state, showBody, translucent, showOutline);
         }
-        if (!PlayerRenderer.appendPlayer(uuid, (PlayerEntityRenderState) state, matrixStack, light)) {
+        if (!PlayerRenderer.appendPlayer(uuid, (PlayerEntityRenderState) state, matrixStack, vertexConsumerProvider, light)) {
             return original.call(instance, state, showBody, translucent, showOutline);
         }
         return null;

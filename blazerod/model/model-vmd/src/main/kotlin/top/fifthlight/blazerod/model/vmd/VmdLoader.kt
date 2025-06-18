@@ -93,14 +93,15 @@ object VmdLoader : ModelFileLoader {
             val frameNumber = buffer.getInt()
             val frameTime = frameNumber * FRAME_TIME_SEC
             channel.indexList.add(frameTime)
-            // translation, invert X axis
+            // translation, invert Z axis
+            channel.transformList.add(buffer.getFloat())
+            channel.transformList.add(buffer.getFloat())
+            channel.transformList.add(-buffer.getFloat())
+            // rotation, invert X and Y
+            channel.transformList.add(-buffer.getFloat())
             channel.transformList.add(-buffer.getFloat())
             channel.transformList.add(buffer.getFloat())
             channel.transformList.add(buffer.getFloat())
-            // rotation
-            repeat(4) {
-                channel.transformList.add(buffer.getFloat())
-            }
             // scale
             repeat(3) {
                 channel.transformList.add(1f)

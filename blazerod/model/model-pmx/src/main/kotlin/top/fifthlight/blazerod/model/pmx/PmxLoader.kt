@@ -1,12 +1,15 @@
 package top.fifthlight.blazerod.model.pmx
 
 import org.joml.Matrix4f
+import org.joml.Quaternionf
 import org.joml.Vector3f
+import org.joml.Vector3fc
 import top.fifthlight.blazerod.model.Accessor
 import top.fifthlight.blazerod.model.Buffer
 import top.fifthlight.blazerod.model.BufferView
 import top.fifthlight.blazerod.model.Expression
 import top.fifthlight.blazerod.model.HumanoidTag
+import top.fifthlight.blazerod.model.IkTarget
 import top.fifthlight.blazerod.model.Material
 import top.fifthlight.blazerod.model.Mesh
 import top.fifthlight.blazerod.model.MeshId
@@ -41,6 +44,7 @@ import java.nio.charset.CodingErrorAction
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.util.UUID
+import kotlin.math.PI
 
 class PmxLoadException(message: String) : Exception(message)
 
@@ -89,6 +93,7 @@ object PmxLoader : ModelFileLoader {
         private lateinit var textures: List<Texture>
         private lateinit var materials: List<PmxMaterial>
         private lateinit var bones: List<PmxBone>
+        private lateinit var ikAffectedBoneIndices: Set<Int>
         private lateinit var morphTargets: List<PmxMorph>
         private lateinit var morphTargetGroups: List<PmxMorphGroup>
         private val childBoneMap = mutableMapOf<Int, MutableList<Int>>()
@@ -286,10 +291,12 @@ object PmxLoader : ModelFileLoader {
                 inputPosition += 12
             }
 
-            val copyBaseVertexSize = BASE_VERTEX_ATTRIBUTE_SIZE - 4
+            val copyBaseVertexSize = BASE_VERTEX_ATTRIBUTE_SIZE - 12
             for (i in 0 until vertexCount) {
-                // Read vertex data
-                // invert x axis
+                // Read vertex data, invert z
+                outputBuffer.put(outputPosition, buffer, inputPosition, 8)
+                outputPosition += 8
+                inputPosition += 8
                 outputBuffer.putFloat(outputPosition, -readFloat())
                 outputPosition += 4
                 // POSITION_NORMAL_UV_JOINT_WEIGHT
@@ -611,7 +618,7 @@ object PmxLoader : ModelFileLoader {
             }
         }
 
-        private fun Vector3f.invertX() = also { x = -x }
+        private fun Vector3f.invertZ() = also { z = -z }
 
         private fun loadBones(buffer: ByteBuffer) {
             val boneCount = buffer.getInt()
@@ -638,17 +645,18 @@ object PmxLoader : ModelFileLoader {
                 )
             }
 
+            val ikAffectedBoneIndices = mutableSetOf<Int>()
             fun loadBone(buffer: ByteBuffer): PmxBone {
                 val nameLocal = loadString(buffer)
                 val nameUniversal = loadString(buffer)
-                val position = loadVector3f(buffer).invertX()
+                val position = loadVector3f(buffer).invertZ()
                 val parentBoneIndex = loadBoneIndex(buffer)
                 val layer = buffer.getInt()
                 val flags = loadBoneFlags(buffer)
                 val tailPosition = if (flags.indexedTailPosition) {
                     PmxBone.TailPosition.Indexed(loadBoneIndex(buffer))
                 } else {
-                    PmxBone.TailPosition.Scalar(loadVector3f(buffer).invertX())
+                    PmxBone.TailPosition.Scalar(loadVector3f(buffer).invertZ())
                 }
                 val inheritParent = if (flags.inheritRotation || flags.inheritTranslation) {
                     Pair(loadBoneIndex(buffer), buffer.getFloat())
@@ -656,12 +664,12 @@ object PmxLoader : ModelFileLoader {
                     null
                 }
                 val axisDirection = if (flags.fixedAxis) {
-                    loadVector3f(buffer).invertX()
+                    loadVector3f(buffer).invertZ()
                 } else {
                     null
                 }
                 val localCoordinate = if (flags.localCoordinate) {
-                    PmxBone.LocalCoordinate(loadVector3f(buffer).invertX(), loadVector3f(buffer).invertX())
+                    PmxBone.LocalCoordinate(loadVector3f(buffer).invertZ(), loadVector3f(buffer).invertZ())
                 } else {
                     null
                 }
@@ -677,10 +685,11 @@ object PmxLoader : ModelFileLoader {
                     val linkCount = buffer.getInt()
                     val links = (0 until linkCount).map {
                         val index = loadBoneIndex(buffer)
+                        ikAffectedBoneIndices += index
                         val limits = if (buffer.get() != 0.toByte()) {
                             PmxBone.IkLink.Limits(
-                                limitMin = loadVector3f(buffer).invertX(),
-                                limitMax = loadVector3f(buffer).invertX(),
+                                limitMin = loadVector3f(buffer).invertZ(),
+                                limitMax = loadVector3f(buffer).invertZ(),
                             )
                         } else {
                             null
@@ -715,6 +724,7 @@ object PmxLoader : ModelFileLoader {
                     ikData = ikData,
                 )
             }
+            this.ikAffectedBoneIndices = ikAffectedBoneIndices
 
             bones = (0 until boneCount).map { index ->
                 loadBone(buffer).also { bone ->
@@ -758,9 +768,9 @@ object PmxLoader : ModelFileLoader {
                         for (i in 0 until offsetSize) {
                             val index = loadVertexIndex(buffer)
                             morphBuffer.position(index * itemSize)
+                            morphBuffer.putFloat(buffer.getFloat())
+                            morphBuffer.putFloat(buffer.getFloat())
                             morphBuffer.putFloat(-buffer.getFloat())
-                            morphBuffer.putFloat(buffer.getFloat())
-                            morphBuffer.putFloat(buffer.getFloat())
                         }
                         morphBuffer.position(0)
                         targets.add(
@@ -832,15 +842,39 @@ object PmxLoader : ModelFileLoader {
             val rootNodes = mutableListOf<Node>()
             var nextNodeId = 0
 
-            val jointIds = mutableMapOf<Int, NodeId>()
-            fun addBone(index: Int, parentPosition: Vector3f? = null): Node {
-                val bone = bones[index]
+            val boneNodeIds = mutableListOf<NodeId>()
+            val ikBoneNodeIds = mutableListOf<NodeId?>()
+            // Pre allocate ID, to avoid problems
+            for ((boneIndex, bone) in bones.withIndex()) {
                 val nodeIndex = nextNodeId++
                 val nodeId = NodeId(modelId, nodeIndex)
-                jointIds[index] = nodeId
-                val children = childBoneMap[index]?.map {
+                boneNodeIds.add(nodeId)
+                if (boneIndex in ikAffectedBoneIndices) {
+                    val nodeIndex = nextNodeId++
+                    val nodeId = NodeId(modelId, nodeIndex)
+                    ikBoneNodeIds.add(nodeId)
+                } else {
+                    ikBoneNodeIds.add(null)
+                }
+            }
+
+            fun addBone(index: Int, parentPosition: Vector3fc? = null): Node {
+                val bone = bones[index]
+                val nodeId = boneNodeIds[index]
+                var children = childBoneMap[index]?.map {
                     addBone(it, bone.position)
                 } ?: listOf()
+                if (index in ikAffectedBoneIndices) {
+                    val nodeId = ikBoneNodeIds[index]!!
+                    children = listOf(
+                        Node(
+                            name = "Ik transform bone for ${bone.nameLocal}",
+                            id = nodeId,
+                            children = children,
+                            transform = NodeTransform.Decomposed(),
+                        )
+                    )
+                }
                 return Node(
                     name = bone.nameLocal,
                     id = nodeId,
@@ -851,22 +885,59 @@ object PmxLoader : ModelFileLoader {
                                 it.sub(parentPosition)
                             }
                         },
-                    )
+                    ),
+                    ikTarget = bone.ikData?.let { ikData ->
+                        IkTarget(
+                            loopCount = ikData.loopCount,
+                            limitRadian = ikData.limitRadian,
+                            ikLinks = ikData.links.map { link ->
+                                IkTarget.IkLink(
+                                    index = ikBoneNodeIds[link.index]!!,
+                                    limit = link.limits?.let {
+                                        IkTarget.IkLink.Limits(
+                                            min = it.limitMin,
+                                            max = it.limitMax,
+                                        )
+                                    }
+                                )
+                            }
+                        )
+                    }
                 )
             }
             rootBones.forEach { index ->
                 rootNodes.add(addBone(index))
             }
 
+            val joints = mutableListOf<NodeId>()
+            val inverseBindMatrices = mutableListOf<Matrix4f>()
+            val jointHumanoidTags = mutableListOf<HumanoidTag?>()
+            for (boneIndex in 0 until bones.size) {
+                val bone = bones[boneIndex]
+                val inverseBindMatrix = Matrix4f().translation(bone.position).invertAffine()
+
+                val nodeId = ikBoneNodeIds[boneIndex] ?: boneNodeIds[boneIndex]
+                joints.add(nodeId)
+                inverseBindMatrices.add(inverseBindMatrix)
+                jointHumanoidTags.add(
+                    HumanoidTag.fromPmxJapanese(bone.nameLocal)
+                        ?: HumanoidTag.fromPmxEnglish(bone.nameUniversal)
+                )
+            }
+            for (boneIndex in 0 until bones.size) {
+                if (ikBoneNodeIds[boneIndex] == null) {
+                    continue
+                }
+                val boneNodeId = boneNodeIds[boneIndex]
+                joints.add(boneNodeId)
+                inverseBindMatrices.add(inverseBindMatrices[boneIndex])
+                jointHumanoidTags.add(null)
+            }
             val skin = Skin(
                 name = "PMX skin",
-                joints = (0 until bones.size).map { jointIds[it]!! },
-                inverseBindMatrices = bones.map { Matrix4f().translation(it.position).invertAffine() },
-                jointHumanoidTags = bones.map {
-                    HumanoidTag.fromPmxJapanese(it.nameLocal) ?: HumanoidTag.fromPmxEnglish(
-                        it.nameUniversal
-                    )
-                },
+                joints = joints,
+                inverseBindMatrices = inverseBindMatrices,
+                jointHumanoidTags = jointHumanoidTags,
             )
 
             var indexOffset = 0
@@ -921,6 +992,7 @@ object PmxLoader : ModelFileLoader {
                 nodes = rootNodes,
                 initialTransform = NodeTransform.Decomposed(
                     scale = Vector3f(0.1f),
+                    rotation = Quaternionf().rotateY(PI.toFloat()),
                 ),
             )
 
