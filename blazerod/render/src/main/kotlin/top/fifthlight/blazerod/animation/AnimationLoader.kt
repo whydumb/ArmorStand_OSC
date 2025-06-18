@@ -14,20 +14,16 @@ object AnimationLoader {
     fun load(
         scene: RenderScene,
         animation: Animation,
-        missingChannelHandler: (AnimationChannel<*>) -> Unit = {},
     ): AnimationItem {
         fun AnimationChannel.Type.NodeData.findTargetTransformIndex(): Int? =
             targetNode?.id.let { nodeId -> scene.nodeIdToTransformMap.getInt(nodeId).takeIf { it >= 0 } }
                 ?: targetNodeName?.let { name -> scene.nodeNameToTransformMap.getInt(name).takeIf { it >= 0 } }
                 ?: targetHumanoidTag?.let { humanoid ->
                     scene.humanoidTagToTransformMap.getInt(humanoid).takeIf { it >= 0 }
-                } ?: run {
-                    missingChannelHandler(channel)
-                    return null
                 }
 
         @Suppress("UNCHECKED_CAST")
-        fun mapAnimationChannel(channel: AnimationChannel<*>): AnimationChannelItem<*>? {
+        fun mapAnimationChannel(channel: AnimationChannel<*, *>): AnimationChannelItem<*, *>? {
             return when (channel.type) {
                 AnimationChannel.Type.RelativeNodeTransformItem -> {
                     val data = channel.data as AnimationChannel.Type.NodeData
@@ -74,14 +70,10 @@ object AnimationLoader {
                     val channel =
                         channel as AnimationChannel<MutableFloat, AnimationChannel.Type.Expression.ExpressionData>
                     val data = channel.data
-                    scene.expressions.firstOrNull { it.name == data.name || it.tag == data.tag }
+                    scene.expressions.firstOrNull { (it.name != null && it.name == data.name) || (it.tag != null && it.tag == data.tag) }
                         ?.let { ExpressionItem(it, channel) }
-                        ?: scene.expressionGroups.firstOrNull { it.name == data.name || it.tag == data.tag }
+                        ?: scene.expressionGroups.firstOrNull { (it.name != null && it.name == data.name) || (it.tag != null && it.tag == data.tag) }
                             ?.let { ExpressionGroupItem(it, channel) }
-                        ?: run {
-                            missingChannelHandler(channel)
-                            return null
-                        }
                 }
             }
         }

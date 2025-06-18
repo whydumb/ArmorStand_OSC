@@ -140,9 +140,7 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
                         val path = ModelManager.modelDir.resolve(source.path)
                         val result = ModelFileLoaders.probeAndLoad(path)
                         val animation = result?.animations?.firstOrNull() ?: error("No animation in file")
-                        val animationItem = AnimationLoader.load(instanceItem.instance.scene, animation) {
-                            logger.warn("Missing channel for ${it.targetNodeName}")
-                        }
+                        val animationItem = AnimationLoader.load(instanceItem.instance.scene, animation)
                         instanceItem.controller = ModelController.Predefined(animationItem)
                     } catch (ex: Throwable) {
                         logger.warn("Failed to load animation", ex)
