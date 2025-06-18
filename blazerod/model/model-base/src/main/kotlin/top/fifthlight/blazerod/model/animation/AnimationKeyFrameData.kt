@@ -5,6 +5,7 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 import top.fifthlight.blazerod.model.Accessor
 import top.fifthlight.blazerod.model.NodeTransform
+import top.fifthlight.blazerod.model.util.MutableFloat
 
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -81,6 +82,16 @@ fun AnimationKeyFrameData.Companion.ofDecomposedNodeTransform(
     }
 )
 
+fun AnimationKeyFrameData.Companion.ofFloat(
+    values: FloatList,
+    elements: Int,
+) = FloatListAnimationKeyFrameData<MutableFloat>(
+    values = values,
+    elements = elements,
+    componentCount = 1,
+    elementGetter = { list, offset, result -> result.value = list.getFloat(offset) },
+)
+
 class AccessorAnimationKeyFrameData<T>(
     private val accessor: Accessor,
     override val elements: Int,
@@ -88,24 +99,28 @@ class AccessorAnimationKeyFrameData<T>(
 ) : AnimationKeyFrameData<T> {
     init {
         require(accessor.count % elements == 0) { "Invalid data size ${accessor.count} for elements $elements" }
-        accessor.bufferView?.let { require(it.byteStride == 0) { "Byte stride is not zero" } }
     }
 
     override val frames = accessor.count / elements
 
     private val isZeroFilled = accessor.bufferView == null
     private val itemLength = accessor.componentType.byteLength * accessor.type.components
-    private val elementLength = itemLength * elements
+    private val itemStride = accessor.bufferView?.byteStride?.takeIf { it != 0 } ?: itemLength
+    private val elementStride = itemStride * elements
     private val slice = accessor.bufferView?.let { bufferView ->
         bufferView.buffer.buffer
             .slice(accessor.byteOffset + bufferView.byteOffset, accessor.totalByteLength)
+            .asReadOnlyBuffer()
             .order(ByteOrder.LITTLE_ENDIAN)
     } ?: run {
-        ByteBuffer.allocate(itemLength).order(ByteOrder.LITTLE_ENDIAN)
+        ByteBuffer
+            .allocateDirect(itemLength)
+            .asReadOnlyBuffer()
+            .order(ByteOrder.LITTLE_ENDIAN)
     }
 
     override fun get(index: Int, data: List<T>) {
-        var position = index * elementLength
+        var position = index * elementStride
         for (i in 0 until elements) {
             if (isZeroFilled) {
                 slice.clear()
@@ -115,7 +130,7 @@ class AccessorAnimationKeyFrameData<T>(
                 slice.position(position)
                 slice.limit(position + itemLength)
                 elementGetter(slice, data[i])
-                position += itemLength
+                position += itemStride
             }
         }
     }

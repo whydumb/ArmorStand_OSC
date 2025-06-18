@@ -54,4 +54,5 @@ data class Node(
     val mesh: Mesh? = null,
     val skin: Skin? = null,
     val camera: Camera? = null,
+    val ikTarget: IkTarget? = null,
 )

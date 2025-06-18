@@ -1,11 +1,13 @@
 package top.fifthlight.blazerod.model.vmd
 
 import it.unimi.dsi.fastutil.floats.FloatArrayList
+import it.unimi.dsi.fastutil.ints.IntArrayList
 import top.fifthlight.blazerod.model.HumanoidTag
 import top.fifthlight.blazerod.model.ModelFileLoader
+import top.fifthlight.blazerod.model.NodeTransform
 import top.fifthlight.blazerod.model.animation.*
+import top.fifthlight.blazerod.model.util.MutableFloat
 import top.fifthlight.blazerod.model.util.readAll
-
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
@@ -77,13 +79,34 @@ object VmdLoader : ModelFileLoader {
     }
 
     private class BoneChannel {
-        val indexList = FloatArrayList()
+        val frameList = IntArrayList()
         val transformList = FloatArrayList()
+
+        fun toData(): Pair<AnimationKeyFrameIndexer, AnimationKeyFrameData<NodeTransform.Decomposed>> {
+            val indices = IntArrayList(frameList.size)
+            repeat(frameList.size) { indices.add(it) }
+            indices.sort { a, b -> frameList.getInt(a) - frameList.getInt(b) }
+
+            val sortedTimeList = FloatArrayList(frameList.size)
+            val sortedTransformList = FloatArrayList(transformList.size)
+            for (i in indices) {
+                sortedTimeList.add(frameList.getInt(i) * FRAME_TIME_SEC)
+                val start = i * 10
+                for (j in 0 until 10) {
+                    sortedTransformList.add(transformList.getFloat(start + j))
+                }
+            }
+
+            return Pair(
+                ListAnimationKeyFrameIndexer(sortedTimeList),
+                AnimationKeyFrameData.ofDecomposedNodeTransform(sortedTransformList, 1)
+            )
+        }
     }
 
     private const val FRAME_TIME_SEC = 1f / 24f
 
-    private fun loadBone(buffer: ByteBuffer): List<AnimationChannel<*>> {
+    private fun loadBone(buffer: ByteBuffer): List<AnimationChannel<*, *>> {
         val channels = mutableMapOf<String, BoneChannel>()
         val boneKeyframeCount = buffer.getInt()
         repeat(boneKeyframeCount) {
@@ -91,16 +114,16 @@ object VmdLoader : ModelFileLoader {
             val channel = channels.getOrPut(boneName, ::BoneChannel)
 
             val frameNumber = buffer.getInt()
-            val frameTime = frameNumber * FRAME_TIME_SEC
-            channel.indexList.add(frameTime)
-            // translation, invert X axis
+            channel.frameList.add(frameNumber)
+            // translation, invert Z axis
+            channel.transformList.add(buffer.getFloat())
+            channel.transformList.add(buffer.getFloat())
+            channel.transformList.add(-buffer.getFloat())
+            // rotation, invert X and Y
+            channel.transformList.add(-buffer.getFloat())
             channel.transformList.add(-buffer.getFloat())
             channel.transformList.add(buffer.getFloat())
             channel.transformList.add(buffer.getFloat())
-            // rotation
-            repeat(4) {
-                channel.transformList.add(buffer.getFloat())
-            }
             // scale
             repeat(3) {
                 channel.transformList.add(1f)
@@ -111,18 +134,68 @@ object VmdLoader : ModelFileLoader {
         }
 
         return channels.flatMap { (name, channel) ->
-            val indexer = ListAnimationKeyFrameIndexer(channel.indexList)
+            val (indexer, data) = channel.toData()
             listOf(
                 SimpleAnimationChannel(
                     type = AnimationChannel.Type.RelativeNodeTransformItem,
-                    targetNode = null,
-                    targetNodeName = name,
-                    targetHumanoidTag = HumanoidTag.fromPmxJapanese(name),
-                    indexer = indexer,
-                    keyframeData = AnimationKeyFrameData.ofDecomposedNodeTransform(
-                        values = channel.transformList,
-                        elements = 1,
+                    data = AnimationChannel.Type.NodeData(
+                        targetNode = null,
+                        targetNodeName = name,
+                        targetHumanoidTag = HumanoidTag.fromPmxJapanese(name),
                     ),
+                    indexer = indexer,
+                    keyframeData = data,
+                    interpolation = AnimationInterpolation.linear,
+                ),
+            )
+        }
+    }
+
+    private class WeightChannel {
+        val frameList = IntArrayList()
+        val weightList = FloatArrayList()
+
+        fun toData(): Pair<AnimationKeyFrameIndexer, AnimationKeyFrameData<MutableFloat>> {
+            val indices = IntArrayList(frameList.size)
+            repeat(frameList.size) { indices.add(it) }
+            indices.sort { a, b -> frameList.getInt(a) - frameList.getInt(b) }
+
+            val sortedTimeList = FloatArrayList(frameList.size)
+            val sortedWeightList = FloatArrayList(weightList.size)
+            for (i in indices) {
+                sortedTimeList.add(frameList.getInt(i) * FRAME_TIME_SEC)
+                sortedWeightList.add(weightList.getFloat(i))
+            }
+
+            return Pair(
+                ListAnimationKeyFrameIndexer(sortedTimeList),
+                AnimationKeyFrameData.ofFloat(sortedWeightList, 1)
+            )
+        }
+    }
+
+    private fun loadFace(buffer: ByteBuffer): List<AnimationChannel<*, *>> {
+        val channels = mutableMapOf<String, WeightChannel>()
+        val faceKeyframeCount = buffer.getInt()
+        repeat(faceKeyframeCount) {
+            val faceName = loadString(buffer, 15)
+            val channel = channels.getOrPut(faceName, ::WeightChannel)
+
+            val frameNumber = buffer.getInt()
+            channel.frameList.add(frameNumber)
+
+            val weight = buffer.getFloat()
+            channel.weightList.add(weight)
+        }
+
+        return channels.flatMap { (name, channel) ->
+            val (indexer, data) = channel.toData()
+            listOf(
+                SimpleAnimationChannel(
+                    type = AnimationChannel.Type.Expression,
+                    data = AnimationChannel.Type.Expression.ExpressionData(name = name),
+                    indexer = indexer,
+                    keyframeData = data,
                     interpolation = AnimationInterpolation.linear,
                 ),
             )
@@ -132,17 +205,22 @@ object VmdLoader : ModelFileLoader {
     private fun load(buffer: ByteBuffer): ModelFileLoader.LoadResult {
         val modelName = loadHeader(buffer)
         val boneChannels = loadBone(buffer)
+        val faceChannels = if (buffer.hasRemaining()) {
+            loadFace(buffer)
+        } else {
+            listOf()
+        }
 
         return ModelFileLoader.LoadResult(
             metadata = null,
             model = null,
-            animations = listOf(Animation(channels = boneChannels)),
+            animations = listOf(Animation(channels = boneChannels + faceChannels)),
         )
     }
 
     override fun load(
         path: Path,
-        basePath: Path
+        basePath: Path,
     ) = FileChannel.open(path, StandardOpenOption.READ).use { channel ->
         val fileSize = channel.size()
         val buffer = runCatching {

@@ -429,9 +429,11 @@ internal class GltfLoader(
                     when (channel.target.path) {
                         GltfAnimationTarget.Path.TRANSLATION -> SimpleAnimationChannel(
                             type = AnimationChannel.Type.Translation,
-                            targetNode = targetNode,
-                            targetNodeName = targetNodeName,
-                            targetHumanoidTag = targetHumanoidTag,
+                            data = AnimationChannel.Type.NodeData(
+                                targetNode = targetNode,
+                                targetNodeName = targetNodeName,
+                                targetHumanoidTag = targetHumanoidTag,
+                            ),
                             indexer = AccessorAnimationKeyFrameIndexer(inputAccessor),
                             keyframeData = AccessorAnimationKeyFrameData(
                                 accessor = outputAccessor,
@@ -443,9 +445,11 @@ internal class GltfLoader(
 
                         GltfAnimationTarget.Path.SCALE -> SimpleAnimationChannel(
                             type = AnimationChannel.Type.Scale,
-                            targetNode = targetNode,
-                            targetNodeName = targetNodeName,
-                            targetHumanoidTag = targetHumanoidTag,
+                            data = AnimationChannel.Type.NodeData(
+                                targetNode = targetNode,
+                                targetNodeName = targetNodeName,
+                                targetHumanoidTag = targetHumanoidTag,
+                            ),
                             indexer = AccessorAnimationKeyFrameIndexer(inputAccessor),
                             keyframeData = AccessorAnimationKeyFrameData(
                                 accessor = outputAccessor,
@@ -457,9 +461,11 @@ internal class GltfLoader(
 
                         GltfAnimationTarget.Path.ROTATION -> SimpleAnimationChannel(
                             type = AnimationChannel.Type.Rotation,
-                            targetNode = targetNode,
-                            targetNodeName = targetNodeName,
-                            targetHumanoidTag = targetHumanoidTag,
+                            data = AnimationChannel.Type.NodeData(
+                                targetNode = targetNode,
+                                targetNodeName = targetNodeName,
+                                targetHumanoidTag = targetHumanoidTag,
+                            ),
                             indexer = AccessorAnimationKeyFrameIndexer(inputAccessor),
                             keyframeData = AccessorAnimationKeyFrameData(
                                 accessor = outputAccessor,

@@ -5,7 +5,7 @@ import kotlin.math.min
 
 data class AnimationItem(
     val name: String? = null,
-    val channels: List<AnimationChannelItem<*>>,
+    val channels: List<AnimationChannelItem<*, *>>,
 ) {
     val duration: Float = channels.takeIf { it.isNotEmpty() }?.maxOf { it.channel.duration } ?: 0f
 

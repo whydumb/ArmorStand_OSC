@@ -468,7 +468,6 @@ class ModelLoader {
         val children = buildList {
             jointSkin?.forEach { (skinIndex, jointIndex) ->
                 val jointNode = RenderNode.Joint(
-                    name = node.name,
                     skinIndex = skinIndex,
                     jointIndex = jointIndex,
                 )
@@ -502,6 +501,15 @@ class ModelLoader {
                     )
                 )
                 add(RenderNode.Camera(cameraTransformIndex))
+            }
+            node.ikTarget?.takeIf { it.ikLinks.isNotEmpty() }?.let { ikTarget ->
+                add(
+                    RenderNode.Ik(
+                        loopCount = ikTarget.loopCount,
+                        limitRadian = ikTarget.limitRadian,
+                        ikLinks = ikTarget.ikLinks.map { RenderNode.Ik.IkLinkItem(it) },
+                    )
+                )
             }
             node.children.forEach { loadNode(it)?.let { child -> add(child) } }
         }
