@@ -2,46 +2,79 @@ package top.fifthlight.blazerod.animation
 
 import org.joml.Quaternionf
 import org.joml.Vector3f
+import top.fifthlight.blazerod.animation.AnimationChannelItem.*
 import top.fifthlight.blazerod.model.NodeTransform
 import top.fifthlight.blazerod.model.RenderScene
 import top.fifthlight.blazerod.model.animation.Animation
 import top.fifthlight.blazerod.model.animation.AnimationChannel
+import top.fifthlight.blazerod.model.util.MutableFloat
+import kotlin.collections.mapNotNull
 
 object AnimationLoader {
     fun load(
         scene: RenderScene,
         animation: Animation,
     ): AnimationItem {
-        fun findTargetTransformIndex(channel: AnimationChannel<*>): Int? =
-            channel.targetNode?.id.let { nodeId -> scene.nodeIdToTransformMap.getInt(nodeId).takeIf { it >= 0 } }
-                ?: channel.targetNodeName?.let { name -> scene.nodeNameToTransformMap.getInt(name).takeIf { it >= 0 } }
-                ?: channel.targetHumanoidTag?.let { humanoid ->
+        fun AnimationChannel.Type.NodeData.findTargetTransformIndex(): Int? =
+            targetNode?.id.let { nodeId -> scene.nodeIdToTransformMap.getInt(nodeId).takeIf { it >= 0 } }
+                ?: targetNodeName?.let { name -> scene.nodeNameToTransformMap.getInt(name).takeIf { it >= 0 } }
+                ?: targetHumanoidTag?.let { humanoid ->
                     scene.humanoidTagToTransformMap.getInt(humanoid).takeIf { it >= 0 }
                 }
 
         @Suppress("UNCHECKED_CAST")
-        fun mapAnimationChannel(channel: AnimationChannel<*>): AnimationChannelItem<*>? {
-            val index = findTargetTransformIndex(channel) ?: return null
+        fun mapAnimationChannel(channel: AnimationChannel<*, *>): AnimationChannelItem<*, *>? {
             return when (channel.type) {
-                AnimationChannel.Type.RelativeNodeTransformItem -> AnimationChannelItem.RelativeNodeTransformItem(
-                    index = index,
-                    channel = channel as AnimationChannel<NodeTransform.Decomposed>,
-                )
+                AnimationChannel.Type.RelativeNodeTransformItem -> {
+                    val data = channel.data as AnimationChannel.Type.NodeData
+                    RelativeNodeTransformItem(
+                        index = data.findTargetTransformIndex() ?: return null,
+                        channel = channel as AnimationChannel<NodeTransform.Decomposed, Unit>,
+                    )
+                }
 
-                AnimationChannel.Type.Translation -> AnimationChannelItem.TranslationItem(
-                    index = index,
-                    channel = channel as AnimationChannel<Vector3f>,
-                )
+                AnimationChannel.Type.Translation -> {
+                    val data = channel.data as AnimationChannel.Type.NodeData
+                    TranslationItem(
+                        index = data.findTargetTransformIndex() ?: return null,
+                        channel = channel as AnimationChannel<Vector3f, Unit>,
+                    )
+                }
 
-                AnimationChannel.Type.Scale -> AnimationChannelItem.ScaleItem(
-                    index = index,
-                    channel = channel as AnimationChannel<Vector3f>,
-                )
+                AnimationChannel.Type.Scale -> {
+                    val data = channel.data as AnimationChannel.Type.NodeData
+                    ScaleItem(
+                        index = data.findTargetTransformIndex() ?: return null,
+                        channel = channel as AnimationChannel<Vector3f, Unit>,
+                    )
+                }
 
-                AnimationChannel.Type.Rotation -> AnimationChannelItem.RotationItem(
-                    index = index,
-                    channel = channel as AnimationChannel<Quaternionf>,
-                )
+                AnimationChannel.Type.Rotation -> {
+                    val data = channel.data as AnimationChannel.Type.NodeData
+                    RotationItem(
+                        index = data.findTargetTransformIndex() ?: return null,
+                        channel = channel as AnimationChannel<Quaternionf, Unit>,
+                    )
+                }
+
+                AnimationChannel.Type.Morph -> {
+                    val data = channel.data as AnimationChannel.Type.Morph.MorphData
+                    MorphItem(
+                        primitiveIndex = data.nodeData.findTargetTransformIndex() ?: return null,
+                        targetGroupIndex = data.targetMorphGroupIndex,
+                        channel = channel as AnimationChannel<MutableFloat, AnimationChannel.Type.Morph.MorphData>,
+                    )
+                }
+
+                AnimationChannel.Type.Expression -> {
+                    val channel =
+                        channel as AnimationChannel<MutableFloat, AnimationChannel.Type.Expression.ExpressionData>
+                    val data = channel.data
+                    scene.expressions.firstOrNull { (it.name != null && it.name == data.name) || (it.tag != null && it.tag == data.tag) }
+                        ?.let { ExpressionItem(it, channel) }
+                        ?: scene.expressionGroups.firstOrNull { (it.name != null && it.name == data.name) || (it.tag != null && it.tag == data.tag) }
+                            ?.let { ExpressionGroupItem(it, channel) }
+                }
             }
         }
 

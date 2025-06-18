@@ -17,7 +17,7 @@ import java.nio.ByteBuffer
 import java.nio.file.Path
 import java.util.*
 
-class GltfLoadException(message: String) : Exception(message)
+class GltfLoadException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 internal class GltfLoader(
     private val buffer: ByteBuffer?,
@@ -48,13 +48,41 @@ internal class GltfLoader(
     private lateinit var materials: List<Material>
     private lateinit var meshes: List<Mesh>
     private lateinit var skins: List<Skin>
+    private lateinit var cameras: List<Camera>
     private val nodes = mutableMapOf<Int, Node>()
     private lateinit var scenes: List<Scene>
     private lateinit var animations: List<Animation>
     private lateinit var expressions: List<Expression>
 
-    private fun loadExternalUri(uri: URI): ByteBuffer = externalBuffers.getOrPut(uri) {
-        TODO("URI resources is not supported for now")
+    private fun parseDataUri(dataUri: URI): ByteBuffer {
+        require(dataUri.scheme.equals("data", ignoreCase = true)) { "Bad scheme: ${dataUri.scheme}" }
+        val data = dataUri.rawSchemeSpecificPart
+        val commaIndex = data.indexOf(',').takeIf { it >= 0 } ?: throw GltfLoadException("No comma in data URI")
+
+        val metadataPart = data.substring(0, commaIndex)
+        val encoding = metadataPart.substringAfter(";", "").takeIf(String::isNotEmpty)
+
+        val byteArray = when (encoding) {
+            null -> data.substring(commaIndex + 1).encodeToByteArray()
+            "base64" -> try {
+                Base64.getDecoder().decode(data.substring(commaIndex + 1))
+            } catch (e: IllegalArgumentException) {
+                throw GltfLoadException("Bad base64 data URI", e)
+            }
+            else -> throw GltfLoadException("Unknown encoding: $encoding")
+        }
+        val directBuffer = ByteBuffer.allocateDirect(byteArray.size)
+        directBuffer.put(byteArray)
+        directBuffer.flip()
+        return directBuffer
+    }
+
+    private fun loadExternalUri(uri: URI): ByteBuffer = if (uri.scheme.equals("data", ignoreCase = true)) {
+        parseDataUri(uri)
+    } else {
+        externalBuffers.getOrPut(uri) {
+            TODO("External URI resources is not supported for now")
+        }
     }
 
     private fun loadBuffers() {
@@ -247,7 +275,7 @@ internal class GltfLoader(
             mode = primitive.mode,
             material = primitive.material?.let {
                 materials.getOrNull(it) ?: throw GltfLoadException("Bad primitive: unknown material $it")
-            } ?: Material.Default,
+            },
             attributes = loadAttributes(primitive.attributes, false) as Primitive.Attributes.Primitive,
             indices = primitive.indices?.let { indices ->
                 accessors.getOrNull(indices)
@@ -318,6 +346,34 @@ internal class GltfLoader(
         } ?: listOf()
     }
 
+    private fun loadCameras() {
+        cameras = gltf.cameras?.map { camera ->
+            when (camera.type) {
+                GltfCameraType.PERSPECTIVE -> {
+                    camera.perspective?.let { perspective ->
+                        Camera.Perspective(
+                            name = null,
+                            aspectRatio = perspective.aspectRatio,
+                            yfov = perspective.yfov,
+                            znear = perspective.znear,
+                        )
+                    } ?: throw GltfLoadException("Bad perspective camera: no perspective")
+                }
+                GltfCameraType.ORTHOGRAPHIC -> {
+                    camera.orthographic?.let { orthographic ->
+                        Camera.Orthographic(
+                            name = null,
+                            xmag = orthographic.xmag,
+                            ymag = orthographic.ymag,
+                            zfar = orthographic.zfar,
+                            znear = orthographic.znear,
+                        )
+                    } ?: throw GltfLoadException("Bad orthographic camera: no orthographic")
+                }
+            }
+        } ?: listOf()
+    }
+
     private fun loadNode(index: Int): Node = nodes.getOrPut(index) {
         // TODO avoid stack overflow on bad models
         val node = gltf.nodes?.getOrNull(index) ?: throw GltfLoadException("No node at index $index")
@@ -341,6 +397,7 @@ internal class GltfLoader(
             mesh = node.mesh?.let { meshes.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown mesh $it") },
             transform = transform,
             skin = node.skin?.let { skins.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown skin $it") },
+            camera = node.camera?.let { cameras.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown camera $it") },
         )
     }
 
@@ -372,9 +429,11 @@ internal class GltfLoader(
                     when (channel.target.path) {
                         GltfAnimationTarget.Path.TRANSLATION -> SimpleAnimationChannel(
                             type = AnimationChannel.Type.Translation,
-                            targetNode = targetNode,
-                            targetNodeName = targetNodeName,
-                            targetHumanoidTag = targetHumanoidTag,
+                            data = AnimationChannel.Type.NodeData(
+                                targetNode = targetNode,
+                                targetNodeName = targetNodeName,
+                                targetHumanoidTag = targetHumanoidTag,
+                            ),
                             indexer = AccessorAnimationKeyFrameIndexer(inputAccessor),
                             keyframeData = AccessorAnimationKeyFrameData(
                                 accessor = outputAccessor,
@@ -386,9 +445,11 @@ internal class GltfLoader(
 
                         GltfAnimationTarget.Path.SCALE -> SimpleAnimationChannel(
                             type = AnimationChannel.Type.Scale,
-                            targetNode = targetNode,
-                            targetNodeName = targetNodeName,
-                            targetHumanoidTag = targetHumanoidTag,
+                            data = AnimationChannel.Type.NodeData(
+                                targetNode = targetNode,
+                                targetNodeName = targetNodeName,
+                                targetHumanoidTag = targetHumanoidTag,
+                            ),
                             indexer = AccessorAnimationKeyFrameIndexer(inputAccessor),
                             keyframeData = AccessorAnimationKeyFrameData(
                                 accessor = outputAccessor,
@@ -400,9 +461,11 @@ internal class GltfLoader(
 
                         GltfAnimationTarget.Path.ROTATION -> SimpleAnimationChannel(
                             type = AnimationChannel.Type.Rotation,
-                            targetNode = targetNode,
-                            targetNodeName = targetNodeName,
-                            targetHumanoidTag = targetHumanoidTag,
+                            data = AnimationChannel.Type.NodeData(
+                                targetNode = targetNode,
+                                targetNodeName = targetNodeName,
+                                targetHumanoidTag = targetHumanoidTag,
+                            ),
                             indexer = AccessorAnimationKeyFrameIndexer(inputAccessor),
                             keyframeData = AccessorAnimationKeyFrameData(
                                 accessor = outputAccessor,
@@ -527,6 +590,7 @@ internal class GltfLoader(
         loadMaterials()
         loadMeshes()
         loadSkins()
+        loadCameras()
         loadScenes()
         loadAnimations()
         loadExpressions()

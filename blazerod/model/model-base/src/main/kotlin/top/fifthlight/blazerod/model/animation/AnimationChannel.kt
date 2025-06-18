@@ -5,35 +5,51 @@ import org.joml.Vector3f
 import top.fifthlight.blazerod.model.HumanoidTag
 import top.fifthlight.blazerod.model.Node
 import top.fifthlight.blazerod.model.NodeTransform
+import top.fifthlight.blazerod.model.util.MutableFloat
 
-interface AnimationChannel<T: Any> {
-    sealed class Type<T: Any> {
+interface AnimationChannel<T: Any, D> {
+    sealed class Type<T: Any, D> {
+        data class NodeData(
+            val targetNode: Node?,
+            val targetNodeName: String?,
+            val targetHumanoidTag: HumanoidTag?,
+        )
+
         // For VMD
-        data object RelativeNodeTransformItem: Type<NodeTransform.Decomposed>()
-        data object Translation: Type<Vector3f>()
-        data object Scale: Type<Vector3f>()
-        data object Rotation: Type<Quaternionf>()
+        data object RelativeNodeTransformItem: Type<NodeTransform.Decomposed, NodeData>()
+
+        data object Translation: Type<Vector3f, NodeData>()
+        data object Scale: Type<Vector3f, NodeData>()
+        data object Rotation: Type<Quaternionf, NodeData>()
+        data object Morph: Type<MutableFloat, Morph.MorphData>() {
+            data class MorphData(
+                val nodeData: NodeData,
+                val targetMorphGroupIndex: Int,
+            )
+        }
+        data object Expression: Type<MutableFloat, Expression.ExpressionData>() {
+            data class ExpressionData(
+                val name: String? = null,
+                val tag: top.fifthlight.blazerod.model.Expression.Tag? = null,
+            )
+        }
     }
 
-    val targetNode: Node?
-    val targetNodeName: String?
-    val targetHumanoidTag: HumanoidTag?
-    val type: Type<T>
+    val type: Type<T, D>
+    val data: D
     val duration: Float
     fun getKeyFrameData(time: Float, result: T)
 }
 
-data class SimpleAnimationChannel<T : Any>(
-    override val type: AnimationChannel.Type<T>,
-    override val targetNode: Node?,
-    override val targetNodeName: String?,
-    override val targetHumanoidTag: HumanoidTag?,
+data class SimpleAnimationChannel<T : Any, D>(
+    override val type: AnimationChannel.Type<T, D>,
+    override val data: D,
     val indexer: AnimationKeyFrameIndexer,
     val interpolator: AnimationInterpolator<T>,
     val keyframeData: AnimationKeyFrameData<T>,
     val interpolation: AnimationInterpolation,
     val defaultValue: () -> T,
-): AnimationChannel<T> {
+): AnimationChannel<T, D> {
     init {
         require(interpolation.elements == keyframeData.elements) { "Bad elements of keyframe data: ${keyframeData.elements}" }
     }
@@ -60,19 +76,15 @@ data class SimpleAnimationChannel<T : Any>(
 }
 
 @JvmName("Vector3fSimpleAnimationChannel")
-fun SimpleAnimationChannel(
-    type: AnimationChannel.Type<Vector3f>,
-    targetNode: Node?,
-    targetNodeName: String?,
-    targetHumanoidTag: HumanoidTag?,
+fun <D> SimpleAnimationChannel(
+    type: AnimationChannel.Type<Vector3f, D>,
+    data: D,
     indexer: AnimationKeyFrameIndexer,
     keyframeData: AnimationKeyFrameData<Vector3f>,
     interpolation: AnimationInterpolation,
-): SimpleAnimationChannel<Vector3f> = SimpleAnimationChannel(
+): SimpleAnimationChannel<Vector3f, D> = SimpleAnimationChannel(
     type = type,
-    targetNode = targetNode,
-    targetNodeName = targetNodeName,
-    targetHumanoidTag = targetHumanoidTag,
+    data = data,
     indexer = indexer,
     interpolator = Vector3AnimationInterpolator,
     keyframeData = keyframeData,
@@ -81,19 +93,15 @@ fun SimpleAnimationChannel(
 )
 
 @JvmName("QuaternionfSimpleAnimationChannel")
-fun SimpleAnimationChannel(
-    type: AnimationChannel.Type<Quaternionf>,
-    targetNode: Node?,
-    targetNodeName: String?,
-    targetHumanoidTag: HumanoidTag?,
+fun <D> SimpleAnimationChannel(
+    type: AnimationChannel.Type<Quaternionf, D>,
+    data: D,
     indexer: AnimationKeyFrameIndexer,
     keyframeData: AnimationKeyFrameData<Quaternionf>,
     interpolation: AnimationInterpolation,
-): SimpleAnimationChannel<Quaternionf> = SimpleAnimationChannel(
+): SimpleAnimationChannel<Quaternionf, D> = SimpleAnimationChannel(
     type = type,
-    targetNode = targetNode,
-    targetNodeName = targetNodeName,
-    targetHumanoidTag = targetHumanoidTag,
+    data = data,
     indexer = indexer,
     interpolator = QuaternionAnimationInterpolator,
     keyframeData = keyframeData,
@@ -102,22 +110,35 @@ fun SimpleAnimationChannel(
 )
 
 @JvmName("NodeTransformSimpleAnimationChannel")
-fun SimpleAnimationChannel(
-    type: AnimationChannel.Type<NodeTransform.Decomposed>,
-    targetNode: Node?,
-    targetNodeName: String?,
-    targetHumanoidTag: HumanoidTag?,
+fun <D> SimpleAnimationChannel(
+    type: AnimationChannel.Type<NodeTransform.Decomposed, D>,
+    data: D,
     indexer: AnimationKeyFrameIndexer,
     keyframeData: AnimationKeyFrameData<NodeTransform.Decomposed>,
     interpolation: AnimationInterpolation,
-): SimpleAnimationChannel<NodeTransform.Decomposed> = SimpleAnimationChannel(
+): SimpleAnimationChannel<NodeTransform.Decomposed, D> = SimpleAnimationChannel(
     type = type,
-    targetNode = targetNode,
-    targetNodeName = targetNodeName,
-    targetHumanoidTag = targetHumanoidTag,
+    data = data,
     indexer = indexer,
     interpolator = NodeTransformAnimationInterpolator,
     keyframeData = keyframeData,
     interpolation = interpolation,
     defaultValue = NodeTransform::Decomposed,
+)
+
+@JvmName("FloatSimpleAnimationChannel")
+fun <D> SimpleAnimationChannel(
+    type: AnimationChannel.Type<MutableFloat, D>,
+    data: D,
+    indexer: AnimationKeyFrameIndexer,
+    keyframeData: AnimationKeyFrameData<MutableFloat>,
+    interpolation: AnimationInterpolation,
+): SimpleAnimationChannel<MutableFloat, D> = SimpleAnimationChannel(
+    type = type,
+    data = data,
+    indexer = indexer,
+    interpolator = FloatAnimationInterpolator,
+    keyframeData = keyframeData,
+    interpolation = interpolation,
+    defaultValue = ::MutableFloat,
 )

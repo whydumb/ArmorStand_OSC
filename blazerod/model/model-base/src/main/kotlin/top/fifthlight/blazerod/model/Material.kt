@@ -43,13 +43,4 @@ sealed class Material {
         override val alphaCutoff: Float = .5f,
         override val doubleSided: Boolean = false,
     ): Material()
-
-    data object Default: Material() {
-        override val name = "Default"
-        override val baseColor = RgbaColor(1f, 0f, 1f, 1f)
-        override val baseColorTexture = null
-        override val alphaMode = AlphaMode.OPAQUE
-        override val alphaCutoff = .5f
-        override val doubleSided = true
-    }
 }

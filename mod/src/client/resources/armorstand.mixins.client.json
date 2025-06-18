@@ -7,7 +7,9 @@
   },
   "client": [
     "CameraMixin",
+    "GameRendererMixin",
     "EntityRenderDispatcherMixin",
+    "FrustumMixin",
     "PlayerEntityRendererMixin",
     "PlayerEntityRenderStateMixin",
     "PlayerModelMixin"

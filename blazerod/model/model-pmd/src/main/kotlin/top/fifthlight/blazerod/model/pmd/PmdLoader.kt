@@ -1,6 +1,7 @@
 package top.fifthlight.blazerod.model.pmd
 
 import org.joml.Matrix4f
+import org.joml.Quaternionf
 import org.joml.Vector3f
 import top.fifthlight.blazerod.model.*
 import top.fifthlight.blazerod.model.Material.TextureInfo
@@ -18,6 +19,7 @@ import java.nio.charset.CodingErrorAction
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.util.*
+import kotlin.math.PI
 
 class PmdLoadException(message: String) : Exception(message)
 
@@ -134,11 +136,14 @@ object PmdLoader: ModelFileLoader {
                 inputPosition += 4
             }
 
-            val copyBaseVertexSize = BASE_VERTEX_ATTRIBUTE_SIZE - 4
+            val copyBaseVertexSize = BASE_VERTEX_ATTRIBUTE_SIZE - 12
             // FORMAT: POSITION_NORMAL_UV_JOINT_WEIGHT
             for (i in 0 until vertexCount) {
                 // Read vertex data
-                // invert x axis
+                // invert z axis
+                outputBuffer.put(outputPosition, buffer, inputPosition, 8)
+                outputPosition += 8
+                inputPosition += 8
                 outputBuffer.putFloat(outputPosition, -readFloat())
                 outputPosition += 4
                 // POSITION_NORMAL_UV_JOINT_WEIGHT
@@ -253,7 +258,7 @@ object PmdLoader: ModelFileLoader {
             )
         }
 
-        private fun Vector3f.invertX() = also { x = -x }
+        private fun Vector3f.invertZ() = also { z = -z }
 
         private fun loadBones(buffer: ByteBuffer) {
             val boneCount = buffer.getShort()
@@ -267,7 +272,7 @@ object PmdLoader: ModelFileLoader {
                 tailBoneIndex = buffer.getShort().toInt().takeIf { it != -1 },
                 type = buffer.get().toUByte().toInt(),
                 targetBoneIndex = buffer.getShort().toInt().takeIf { it != -1 },
-                position = loadVector3f(buffer).invertX(),
+                position = loadVector3f(buffer).invertZ(),
             )
 
             bones = (0 until boneCount).map { index ->
@@ -433,6 +438,7 @@ object PmdLoader: ModelFileLoader {
                 nodes = rootNodes,
                 initialTransform = NodeTransform.Decomposed(
                     scale = Vector3f(0.1f),
+                    rotation = Quaternionf().rotateY(PI.toFloat()),
                 ),
             )
 

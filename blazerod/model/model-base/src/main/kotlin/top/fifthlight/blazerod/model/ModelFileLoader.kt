@@ -15,7 +15,7 @@ interface ModelFileLoader {
     val extensions: Map<String, Set<Ability>>
     val abilities: Set<Ability>
         get() = extensions.values.flatten().toSet()
-    val probeLength: Int
+    val probeLength: Int?
     fun probe(buffer: ByteBuffer): Boolean
 
     fun load(path: Path, basePath: Path = path.parent): LoadResult

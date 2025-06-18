@@ -37,6 +37,8 @@
   "armorstand.animation.source.embed": "内嵌在模型中",
   "armorstand.animation.source.external": "文件：%s",
   "armorstand.animation.refresh": "刷新",
+  "armorstand.animation.no_camera": "无相机",
+  "armorstand.animation.current_camera_name": "当前相机：%s",
   "armorstand.metadata.title": "标题：%s",
   "armorstand.metadata.title.unknown": "标题：未知",
   "armorstand.metadata.version": "版本：%s",

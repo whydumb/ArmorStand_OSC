@@ -25,8 +25,12 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         private val descriptors = listOf(
             // Pbr.Descriptor,
             Unlit.Descriptor,
-            Fallback.Descriptor,
         )
+
+        val defaultMaterial by lazy {
+            // Increase reference count to avoid being closed
+            Unlit(name = "Default").apply { increaseReferenceCount() }
+        }
 
         fun initialize() {
             for (descriptor in descriptors) {
@@ -286,9 +290,9 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         override val baseColorTexture: RenderTexture = RenderTexture.WHITE_RGBA_TEXTURE,
         override val alphaMode: AlphaMode = OPAQUE,
         override val alphaCutoff: Float = .5f,
-        override val doubleSided: Boolean,
-        override val skinned: Boolean,
-        override val morphed: Boolean,
+        override val doubleSided: Boolean = false,
+        override val skinned: Boolean = false,
+        override val morphed: Boolean = false,
     ) : RenderMaterial<Unlit.Descriptor>() {
         init {
             baseColorTexture.increaseReferenceCount()
@@ -361,50 +365,6 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
                     }
                     withUniform("UnlitData", UniformType.UNIFORM_BUFFER)
                 }.build()
-        }
-    }
-
-    object Fallback : RenderMaterial<Fallback.Descriptor>() {
-        override val descriptor
-            get() = Descriptor
-        override val vertexType: VertexType
-            get() = VertexType.POSITION
-        override val name: String
-            get() = "Fallback"
-        override val baseColor: RgbaColor
-            get() = RgbaColor(1f, 0f, 1f, 1f)
-        override val baseColorTexture: RenderTexture?
-            get() = null
-        override val alphaMode: AlphaMode
-            get() = OPAQUE
-        override val alphaCutoff: Float
-            get() = .5f
-        override val doubleSided: Boolean
-            get() = false
-        override val skinned: Boolean
-            get() = false
-        override val morphed: Boolean
-            get() = false
-
-        override fun onClosed() = Unit
-
-        object Descriptor : RenderMaterial.Descriptor() {
-            override val name: String = "fallback"
-
-            override val supportedPipelineElements = listOf(PipelineInfo.ELEMENT_DOUBLE_SIDED)
-
-            override fun setupPipeline(
-                info: PipelineInfo,
-                snippet: RenderPipeline.Snippet,
-                location: Identifier,
-            ): RenderPipeline = RenderPipeline.builder(snippet, RenderPipelines.POSITION_COLOR_SNIPPET).apply {
-                withLocation(location)
-                withVertexShader("core/position")
-                withFragmentShader("core/position")
-                withoutBlend()
-
-                withVertexType(VertexType.POSITION)
-            }.build()
         }
     }
 }

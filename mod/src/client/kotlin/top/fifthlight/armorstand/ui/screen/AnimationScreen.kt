@@ -1,5 +1,6 @@
 package top.fifthlight.armorstand.ui.screen
 
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -10,6 +11,7 @@ import net.minecraft.client.gui.widget.Positioner
 import net.minecraft.client.gui.widget.TextWidget
 import net.minecraft.text.Text
 import net.minecraft.util.Formatting
+import top.fifthlight.armorstand.PlayerRenderer
 import top.fifthlight.armorstand.ui.component.*
 import top.fifthlight.armorstand.ui.model.AnimationViewModel
 import top.fifthlight.armorstand.ui.state.AnimationScreenState
@@ -139,6 +141,27 @@ class AnimationScreen(parent: Screen? = null) : ArmorStandScreen<AnimationScreen
         viewModel.refreshAnimations()
     }.build()
 
+    private val switchCameraButton = ButtonWidget.builder(Text.translatable("armorstand.animation.no_camera")) {
+        viewModel.switchCamera()
+    }.width(100).build().also {
+        scope.launch {
+            PlayerRenderer.totalCameras.combine(PlayerRenderer.selectedCameraIndex, ::Pair).collect { (total, index) ->
+                if (total?.isEmpty() ?: true) {
+                    it.active = false
+                    it.message = Text.translatable("armorstand.animation.no_camera")
+                } else {
+                    it.active = true
+                    val current = index?.let { index -> total.getOrNull(index) }
+                    it.message = if (current == null) {
+                        Text.translatable("armorstand.animation.no_camera")
+                    } else {
+                        Text.translatable("armorstand.animation.current_camera_name", current.camera.name ?: "#$index")
+                    }
+                }
+            }
+        }
+    }
+
     override fun init() {
         val animationPanelWidth = 128
         val animationPanelHeight = 256.coerceAtMost(height / 3 * 2)
@@ -165,6 +188,10 @@ class AnimationScreen(parent: Screen? = null) : ArmorStandScreen<AnimationScreen
             widget = progressSlider,
             positioner = Positioner.create().margin(0, 8, 8, 8),
         )
+        controlBar.setSecondElement(
+            widget = switchCameraButton,
+            positioner = Positioner.create().margin(0, 8, 8, 8),
+        )
 
         controlBar.refreshPositions()
         addDrawable(controlBar)
@@ -182,7 +209,8 @@ class AnimationScreen(parent: Screen? = null) : ArmorStandScreen<AnimationScreen
                 widget = TextWidget(
                     animationPanelWidth - 16,
                     textRenderer.fontHeight,
-                    Text.translatable("armorstand.animation.title").formatted(Formatting.BOLD).formatted(Formatting.UNDERLINE),
+                    Text.translatable("armorstand.animation.title").formatted(Formatting.BOLD)
+                        .formatted(Formatting.UNDERLINE),
                     textRenderer,
                 ),
                 positioner = Positioner.create().margin(8, 8),

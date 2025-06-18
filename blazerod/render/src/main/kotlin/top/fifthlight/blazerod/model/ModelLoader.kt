@@ -21,8 +21,6 @@ import top.fifthlight.blazerod.render.VertexBuffer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.collections.get
-import kotlin.contracts.contract
-import kotlin.math.exp
 
 class ModelLoader {
     private lateinit var skinsMap: Map<Skin, Pair<Int, RenderSkin>>
@@ -73,6 +71,7 @@ class ModelLoader {
     private val humanoidJointTransformIndices = Reference2IntOpenHashMap<HumanoidTag>()
     private val textureCache = mutableMapOf<Texture, RefCountedGpuTexture>()
     private val vertexBufferCache = mutableMapOf<Buffer, RefCountedGpuBuffer>()
+    private val cameras = mutableListOf<RenderCamera>()
 
     private fun loadTexture(texture: Material.TextureInfo): RenderTexture? {
         val gpuTexture = texture.texture.let { texture ->
@@ -109,7 +108,6 @@ class ModelLoader {
         hasSkinElements: Boolean,
         hasMorphTarget: Boolean,
     ): RenderMaterial<*>? = when (material) {
-        Material.Default -> RenderMaterial.Fallback
         is Material.Pbr -> RenderMaterial.Unlit(
             // TODO load PBR material
             name = material.name,
@@ -409,11 +407,13 @@ class ModelLoader {
     ): RenderNode.Primitive? {
         val hasSkinElements =
             skin != null && primitive.attributes.joints.isNotEmpty() && primitive.attributes.weights.isNotEmpty()
-        val material = loadMaterial(
-            material = primitive.material,
-            hasSkinElements = hasSkinElements,
-            hasMorphTarget = primitive.targets.isNotEmpty()
-        ) ?: RenderMaterial.Fallback
+        val material = primitive.material?.let {
+            loadMaterial(
+                material = it,
+                hasSkinElements = hasSkinElements,
+                hasMorphTarget = primitive.targets.isNotEmpty()
+            )
+        } ?: RenderMaterial.defaultMaterial
         val vertexElements = loadVertexElements(primitive.attributes, material)
         val verticesCount = primitive.attributes.position.count
         val vertexBuffer = RenderSystem.getDevice().createVertexBuffer(
@@ -468,7 +468,6 @@ class ModelLoader {
         val children = buildList {
             jointSkin?.forEach { (skinIndex, jointIndex) ->
                 val jointNode = RenderNode.Joint(
-                    name = node.name,
                     skinIndex = skinIndex,
                     jointIndex = jointIndex,
                 )
@@ -492,7 +491,25 @@ class ModelLoader {
                     add(primitiveNode)
                     appendRenderNode(primitiveNode)
                 }
-
+            }
+            node.camera?.let {
+                val cameraTransformIndex = cameras.size
+                cameras.add(
+                    RenderCamera(
+                        cameraTransformIndex = cameraTransformIndex,
+                        camera = it,
+                    )
+                )
+                add(RenderNode.Camera(cameraTransformIndex))
+            }
+            node.ikTarget?.takeIf { it.ikLinks.isNotEmpty() }?.let { ikTarget ->
+                add(
+                    RenderNode.Ik(
+                        loopCount = ikTarget.loopCount,
+                        limitRadian = ikTarget.limitRadian,
+                        ikLinks = ikTarget.ikLinks.map { RenderNode.Ik.IkLinkItem(it) },
+                    )
+                )
             }
             node.children.forEach { loadNode(it)?.let { child -> add(child) } }
         }
@@ -599,14 +616,16 @@ class ModelLoader {
                     name = expression.name,
                     tag = expression.tag,
                     items = expression.targets.mapNotNull {
-                        val targetIndex = expressions.indexOf(it.target).takeIf { index -> index != -1 } ?: return@mapNotNull null
+                        val targetIndex =
+                            expressions.indexOf(it.target).takeIf { index -> index != -1 } ?: return@mapNotNull null
                         RenderExpressionGroup.Item(
                             expressionIndex = expressionTargetMap[targetIndex] ?: return@mapNotNull null,
                             influence = it.influence,
                         )
                     }
                 )
-            }
+            },
+            cameras = cameras,
         )
     }
 

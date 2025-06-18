@@ -5,10 +5,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.getAndUpdate
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.minecraft.client.MinecraftClient
 import org.slf4j.LoggerFactory
+import top.fifthlight.armorstand.ArmorStandClient
+import top.fifthlight.armorstand.PlayerRenderer
+import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.manage.ModelManager
+import top.fifthlight.armorstand.mixin.PlayerModelMixin
 import top.fifthlight.armorstand.state.ModelController
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.armorstand.ui.state.AnimationScreenState
@@ -153,6 +158,17 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
     fun refreshAnimations() {
         scope.launch {
             ModelManager.scheduleScan()
+        }
+    }
+
+    fun switchCamera() {
+        val cameras = PlayerRenderer.totalCameras.value?.size ?: return
+        PlayerRenderer.selectedCameraIndex.getAndUpdate {
+            when (it) {
+                null -> 0
+                cameras - 1 -> null
+                else -> it + 1
+            }
         }
     }
 }

@@ -233,9 +233,11 @@ java_binary(
         "-Ddev.launch.assetsPath=../+minecraft+minecraft_assets",
         "-Ddev.launch.mainClass=net.fabricmc.loader.impl.launch.knot.KnotClient",
         "-Dblazerod.debug=true",
-        "-Dblazerod.debug.gui=true",
+        "-Dblazerod.debug.gui=false",
         "-Darmorstand.modelDir=blazerod/model/model-gltf/src/test/resources",
-        "-Darmorstand.debug.gui=true",
+        "-Darmorstand.debug=true",
+        "-Darmorstand.debug.bone=false",
+        "-Darmorstand.debug.gui=false",
         "-Xmx4G",
     ],
 )

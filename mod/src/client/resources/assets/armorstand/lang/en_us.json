@@ -37,6 +37,8 @@
   "armorstand.animation.source.embed": "Embed in model",
   "armorstand.animation.source.external": "File: %s",
   "armorstand.animation.refresh": "Refresh",
+  "armorstand.animation.no_camera": "No camera",
+  "armorstand.animation.current_camera_name": "Current camera: %s",
   "armorstand.metadata.title": "Title: %s",
   "armorstand.metadata.title.unknown": "Title: Unknown",
   "armorstand.metadata.version": "Version: %s", 

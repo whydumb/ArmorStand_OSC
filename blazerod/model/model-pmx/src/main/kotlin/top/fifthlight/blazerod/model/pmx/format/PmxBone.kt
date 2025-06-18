@@ -1,18 +1,18 @@
 package top.fifthlight.blazerod.model.pmx.format
 
-import org.joml.Vector3f
+import org.joml.Vector3fc
 
 data class PmxBone(
     val nameLocal: String,
     val nameUniversal: String,
-    val position: Vector3f,
+    val position: Vector3fc,
     val parentBoneIndex: Int?,
     val layer: Int,
     val flags: Flags,
     val tailPosition: TailPosition,
     val inheritParentIndex: Int?,
     val inheritParentInfluence: Float?,
-    val axisDirection: Vector3f?,
+    val axisDirection: Vector3fc?,
     val localCoordinate: LocalCoordinate?,
     val externalParentIndex: Int?,
     val ikData: IkData?,
@@ -53,7 +53,7 @@ data class PmxBone(
             val boneIndex: Int,
         ): TailPosition()
         data class Scalar(
-            val position: Vector3f,
+            val position: Vector3fc,
         ): TailPosition()
     }
 
@@ -62,8 +62,8 @@ data class PmxBone(
         val limits: Limits?,
     ) {
         data class Limits(
-            val limitMin: Vector3f,
-            val limitMax: Vector3f,
+            val limitMin: Vector3fc,
+            val limitMax: Vector3fc,
         )
     }
 
@@ -75,7 +75,7 @@ data class PmxBone(
     )
 
     data class LocalCoordinate(
-        val xVector: Vector3f?,
-        val yVector: Vector3f?,
+        val xVector: Vector3fc?,
+        val yVector: Vector3fc?,
     )
 }

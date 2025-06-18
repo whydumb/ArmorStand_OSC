@@ -1,6 +1,7 @@
 package top.fifthlight.blazerod.model
 
 import top.fifthlight.blazerod.model.gltf.GltfBinaryLoader
+import top.fifthlight.blazerod.model.gltf.GltfTextLoader
 import top.fifthlight.blazerod.model.pmd.PmdLoader
 import top.fifthlight.blazerod.model.pmx.PmxLoader
 import top.fifthlight.blazerod.model.util.readRemaining
@@ -9,6 +10,7 @@ import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import kotlin.io.path.extension
 
 object ModelFileLoaders {
     val loaders = listOf(
@@ -16,30 +18,56 @@ object ModelFileLoaders {
         PmxLoader,
         PmdLoader,
         VmdLoader,
+        GltfTextLoader,
     )
 
     private val embedThumbnailLoaders by lazy {
         loaders.filter { ModelFileLoader.Ability.EMBED_THUMBNAIL in it.abilities }
     }
 
+    private val probableLoaders by lazy {
+        loaders.filter { it.probeLength != null }
+    }
+    private val unprobableLoaders by lazy {
+        loaders.filter { it.probeLength == null }
+    }
     private val probeBytes by lazy {
-        loaders.maxOf { it.probeLength }
+        loaders
+            .asSequence()
+            .mapNotNull { it.probeLength }
+            .maxOrNull()
     }
 
-    private fun probeLoader(loaders: List<ModelFileLoader>, path: Path) = FileChannel.open(path, StandardOpenOption.READ).use { channel ->
-        val buffer = ByteBuffer.allocate(probeBytes)
-        channel.readRemaining(buffer)
-        buffer.flip()
+    private fun probeByContent(loaders: List<ModelFileLoader>, path: Path) = probeBytes?.let { probeBytes ->
+        FileChannel.open(path, StandardOpenOption.READ).use { channel ->
+            val buffer = ByteBuffer.allocate(probeBytes)
+            channel.readRemaining(buffer)
+            buffer.flip()
 
-        for (loader in loaders) {
-            buffer.position(0)
-            if (buffer.remaining() >= loader.probeLength) {
-                if (loader.probe(buffer)) {
-                    return@use loader
+            for (loader in loaders) {
+                val probeLength = loader.probeLength ?: continue
+                buffer.position(0)
+                if (buffer.remaining() >= probeLength) {
+                    if (loader.probe(buffer)) {
+                        return@use loader
+                    }
                 }
             }
+            null
         }
-        null
+    }
+
+    private fun probeLoader(loaders: List<ModelFileLoader>, path: Path): ModelFileLoader? {
+        // First try probe by content
+        probeByContent(probableLoaders, path)?.let { return it }
+        // Second try probe by extension
+        val extension = path.extension.lowercase()
+        for (loader in unprobableLoaders) {
+            if (extension in loader.extensions) {
+                return loader
+            }
+        }
+        return null
     }
 
     @JvmOverloads
