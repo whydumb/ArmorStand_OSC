@@ -9,9 +9,4 @@ public class GlStateManagerHelper {
         RenderSystem.assertOnRenderThread();
         GL30.glDeleteVertexArrays(array);
     }
-
-    public static void _glCopyBufferSubData(int readTarget, int writeTarget, int readOffset, int writeOffset, int size) {
-        RenderSystem.assertOnRenderThread();
-        GL31.glCopyBufferSubData(readTarget, writeTarget, readOffset, writeOffset, size);
-    }
 }

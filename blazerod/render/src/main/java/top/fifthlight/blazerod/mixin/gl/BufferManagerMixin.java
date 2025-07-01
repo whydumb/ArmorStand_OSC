@@ -52,11 +52,6 @@ public abstract class BufferManagerMixin implements BufferManagerExtInternal {
             }
             ARBDirectStateAccess.glClearNamedBufferSubData(buffer, param.getInternalFormat(), offset, size, param.getFormat(), param.getType(), param.getData());
         }
-
-        @Override
-        public void blazerod$copyBuffer(int target, int source, int targetOffset, int sourceOffset, int size) {
-            ARBDirectStateAccess.glCopyNamedBufferSubData(source, target, sourceOffset, targetOffset, size);
-        }
     }
 
     @Mixin(BufferManager.DefaultBufferManager.class)
@@ -72,15 +67,6 @@ public abstract class BufferManagerMixin implements BufferManagerExtInternal {
             }
             GlStateManager._glBindBuffer(GlConst.GL_COPY_WRITE_BUFFER, buffer);
             ARBClearBufferObject.glClearBufferSubData(GlConst.GL_COPY_WRITE_BUFFER, param.getInternalFormat(), offset, size, param.getFormat(), param.getType(), param.getData());
-            GlStateManager._glBindBuffer(GlConst.GL_COPY_WRITE_BUFFER, 0);
-        }
-
-        @Override
-        public void blazerod$copyBuffer(int target, int source, int targetOffset, int sourceOffset, int size) {
-            GlStateManager._glBindBuffer(GlConst.GL_COPY_READ_BUFFER, source);
-            GlStateManager._glBindBuffer(GlConst.GL_COPY_WRITE_BUFFER, target);
-            GlStateManagerHelper._glCopyBufferSubData(GlConst.GL_COPY_READ_BUFFER, GlConst.GL_COPY_WRITE_BUFFER, sourceOffset, targetOffset, size);
-            GlStateManager._glBindBuffer(GlConst.GL_COPY_READ_BUFFER, 0);
             GlStateManager._glBindBuffer(GlConst.GL_COPY_WRITE_BUFFER, 0);
         }
     }

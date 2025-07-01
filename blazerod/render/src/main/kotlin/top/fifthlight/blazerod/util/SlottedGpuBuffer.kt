@@ -5,7 +5,6 @@ import com.mojang.blaze3d.systems.RenderSystem
 import it.unimi.dsi.fastutil.ints.IntHeapPriorityQueue
 import net.minecraft.client.gl.RenderPassImpl
 import net.minecraft.util.Identifier
-import top.fifthlight.blazerod.extension.copyBuffer
 import java.lang.AutoCloseable
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -47,7 +46,7 @@ class SlottedGpuBuffer(
         val device = RenderSystem.getDevice()
         val newBuffer = device.createBuffer(label?.let { { it } }, usage, newSize)
         val commandEncoder = device.createCommandEncoder()
-        commandEncoder.copyBuffer(newBuffer.slice(0, gpuBuffer.size), gpuBuffer.slice())
+        commandEncoder.copyToBuffer(gpuBuffer.slice(), newBuffer.slice(0, gpuBuffer.size))
         gpuBuffer.close()
         gpuBuffer = newBuffer
     }

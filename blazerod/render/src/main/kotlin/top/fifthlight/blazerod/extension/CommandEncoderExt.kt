@@ -6,6 +6,3 @@ import top.fifthlight.blazerod.extension.CommandEncoderExt
 
 fun CommandEncoder.clearBuffer(slice: GpuBufferSlice, clearType: CommandEncoderExt.ClearType) =
     (this as CommandEncoderExt).`blazerod$clearBuffer`(slice, clearType)
-
-fun CommandEncoder.copyBuffer(target: GpuBufferSlice, source: GpuBufferSlice) =
-    (this as CommandEncoderExt).`blazerod$copyBuffer`(target, source)

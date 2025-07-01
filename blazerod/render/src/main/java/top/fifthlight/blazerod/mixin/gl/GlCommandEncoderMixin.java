@@ -162,21 +162,4 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExt {
             writeToBuffer(slice, byteBuffer);
         }
     }
-
-    @Override
-    public void blazerod$copyBuffer(GpuBufferSlice target, GpuBufferSlice source) {
-        if (target.length() != source.length()) {
-            throw new IllegalArgumentException("Copy source length and target length mismatch: source is " + source.length() + ", but target is " + target.length());
-        }
-        var targetBuffer = (GlGpuBuffer) target.buffer();
-        var sourceBuffer = (GlGpuBuffer) source.buffer();
-        if ((sourceBuffer.usage() & GpuBuffer.USAGE_COPY_SRC) == 0) {
-            throw new IllegalArgumentException("Buffer to be copied from should have USAGE_COPY_SRC bit set");
-        }
-        if ((targetBuffer.usage() & GpuBuffer.USAGE_COPY_DST) == 0) {
-            throw new IllegalArgumentException("Buffer to be copied to should have USAGE_COPY_DST bit set");
-        }
-        var bufferManager = (BufferManagerExtInternal) this.backend.getBufferManager();
-        bufferManager.blazerod$copyBuffer(targetBuffer.id, sourceBuffer.id, target.offset(), source.offset(), target.length());
-    }
 }

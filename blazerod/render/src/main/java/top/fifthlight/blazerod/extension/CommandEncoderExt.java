@@ -10,6 +10,4 @@ public interface CommandEncoderExt {
     }
 
     void blazerod$clearBuffer(GpuBufferSlice slice, ClearType clearType);
-
-    void blazerod$copyBuffer(GpuBufferSlice target, GpuBufferSlice source);
 }
