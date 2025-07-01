@@ -2,12 +2,14 @@ package top.fifthlight.blazerod.model
 
 import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.systems.RenderSystem
+import com.mojang.blaze3d.textures.AddressMode
 import com.mojang.blaze3d.textures.GpuTexture
 import com.mojang.blaze3d.textures.TextureFormat
 import com.mojang.blaze3d.vertex.VertexFormat
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap
+import top.fifthlight.blazerod.extension.AddressModeExt
 import top.fifthlight.blazerod.util.blaze3d
 import top.fifthlight.blazerod.extension.CommandEncoderExt
 import top.fifthlight.blazerod.extension.NativeImageExt
@@ -16,8 +18,8 @@ import top.fifthlight.blazerod.extension.createBuffer
 import top.fifthlight.blazerod.extension.createVertexBuffer
 import top.fifthlight.blazerod.render.IndexBuffer
 import top.fifthlight.blazerod.render.RefCountedGpuBuffer
-import top.fifthlight.blazerod.render.RefCountedGpuTexture
 import top.fifthlight.blazerod.render.VertexBuffer
+import top.fifthlight.blazerod.util.useMipmap
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.collections.get
@@ -69,38 +71,37 @@ class ModelLoader {
     private val nodeIdTransformMap = Object2IntOpenHashMap<NodeId>()
     private val nodeNameTransformMap = Object2IntOpenHashMap<String>()
     private val humanoidJointTransformIndices = Reference2IntOpenHashMap<HumanoidTag>()
-    private val textureCache = mutableMapOf<Texture, RefCountedGpuTexture>()
+    private val textureCache = mutableMapOf<Texture, RenderTexture>()
     private val vertexBufferCache = mutableMapOf<Buffer, RefCountedGpuBuffer>()
     private val cameras = mutableListOf<RenderCamera>()
 
-    private fun loadTexture(texture: Material.TextureInfo): RenderTexture? {
-        val gpuTexture = texture.texture.let { texture ->
-            texture.bufferView?.let { bufferView ->
-                textureCache.getOrPut(texture) {
-                    val byteBuffer = bufferView.buffer.buffer.slice(bufferView.byteOffset, bufferView.byteLength)
-                    val nativeImage = NativeImageExt.read(null, texture.type, byteBuffer)
-                    RenderSystem.getDevice().let { device ->
-                        val gpuTexture = device.createTexture(
-                            texture.name,
-                            GpuTexture.USAGE_TEXTURE_BINDING or GpuTexture.USAGE_COPY_DST,
-                            TextureFormat.RGBA8,
-                            nativeImage.width,
-                            nativeImage.height,
-                            1,
-                            1
-                        )
-                        device.createCommandEncoder().writeToTexture(gpuTexture, nativeImage)
-                        val textureView = device.createTextureView(gpuTexture)
-                        RefCountedGpuTexture(gpuTexture, textureView)
-                    }
+    private fun loadTexture(texture: Material.TextureInfo): RenderTexture? = texture.texture.let { texture ->
+        texture.bufferView?.let { bufferView ->
+            textureCache.getOrPut(texture) {
+                val byteBuffer = bufferView.buffer.buffer.slice(bufferView.byteOffset, bufferView.byteLength)
+                val nativeImage = NativeImageExt.read(null, texture.type, byteBuffer)
+                RenderSystem.getDevice().let { device ->
+                    val gpuTexture = device.createTexture(
+                        texture.name,
+                        GpuTexture.USAGE_TEXTURE_BINDING or GpuTexture.USAGE_COPY_DST,
+                        TextureFormat.RGBA8,
+                        nativeImage.width,
+                        nativeImage.height,
+                        1,
+                        1
+                    )
+                    gpuTexture.setAddressMode(texture.sampler.wrapS.blaze3d, texture.sampler.wrapT.blaze3d)
+                    gpuTexture.setTextureFilter(
+                        texture.sampler.minFilter.blaze3d,
+                        texture.sampler.magFilter.blaze3d,
+                        texture.sampler.minFilter.useMipmap
+                    )
+                    device.createCommandEncoder().writeToTexture(gpuTexture, nativeImage)
+                    val textureView = device.createTextureView(gpuTexture)
+                    RenderTexture(gpuTexture, textureView)
                 }
             }
-        } ?: return null
-        return RenderTexture(
-            texture = gpuTexture,
-            sampler = texture.texture.sampler,
-            coordinate = texture.textureCoordinate,
-        )
+        }
     }
 
     private fun loadMaterial(

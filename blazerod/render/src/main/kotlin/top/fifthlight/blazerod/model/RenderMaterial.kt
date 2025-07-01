@@ -316,7 +316,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
             val (renderPass, _) = super.setup(instanced, renderPassCreator)
             with(renderPass) {
                 setUniform("UnlitData", unlitData.slice)
-                bindSampler("SamplerBaseColor", baseColorTexture.texture.view)
+                bindSampler("SamplerBaseColor", baseColorTexture.view)
                 val lightMapTexture = MinecraftClient.getInstance().gameRenderer.lightmapTextureManager.glTextureView
                 bindSampler("SamplerLightMap", lightMapTexture)
             }

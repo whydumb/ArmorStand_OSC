@@ -1,7 +1,9 @@
 package top.fifthlight.blazerod.mixin.gl;
 
+import com.mojang.blaze3d.textures.AddressMode;
 import org.lwjgl.opengl.GL11C;
 import org.lwjgl.opengl.GL30C;
+import top.fifthlight.blazerod.extension.AddressModeExt;
 import top.fifthlight.blazerod.extension.TextureFormatExt;
 import com.mojang.blaze3d.opengl.GlConst;
 import com.mojang.blaze3d.textures.TextureFormat;
@@ -54,6 +56,13 @@ public class GlConstMixin {
             cir.setReturnValue(GL30C.GL_FLOAT);
         } else if (textureFormat == TextureFormatExt.R32I) {
             cir.setReturnValue(GL30C.GL_INT);
+        }
+    }
+
+    @Inject(method = "toGl(Lcom/mojang/blaze3d/textures/AddressMode;)I", at = @At("HEAD"), cancellable = true)
+    private static void onToGl(AddressMode addressMode, CallbackInfoReturnable<Integer> cir) {
+        if (addressMode == AddressModeExt.MIRRORED_REPEAT) {
+            cir.setReturnValue(GL30C.GL_MIRRORED_REPEAT);
         }
     }
 }
