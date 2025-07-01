@@ -73,12 +73,6 @@ expand_template(
     out = "_generated/fabric.mod.json",
 )
 
-java_library(
-    name = "access_widener",
-    resources = ["src/main/resources/armorstand.accesswidener"],
-    resource_strip_prefix = "mod/src/main/resources/",
-)
-
 kt_jvm_library(
     name = "mod_main_unmapped",
     srcs = glob(
@@ -112,7 +106,7 @@ remap_jar(
 )
 
 kt_jvm_library(
-    name = "mod_client_unmapped",
+    name = "mod_client_unmapped_unmerged",
     srcs = glob(
         include = [
             "src/client/kotlin/**/*.kt",
@@ -142,16 +136,17 @@ kt_jvm_library(
 )
 
 merge_jar(
-    name = "mod_client_unmapped_with_access_widener",
-    deps = [
-        ":mod_client_unmapped",
-        ":access_widener",
-    ],
+    name = "mod_client_unmapped",
+    deps = [":mod_client_unmapped_unmerged"],
+    resources = {
+        "src/main/resources/armorstand.accesswidener": "mod/src/main/resources/",
+        "//blazerod/model/model-gltf/src/test/resources:default_models": "blazerod/model/model-gltf/src/test/resources/",
+    }
 )
 
 remap_jar(
     name = "mod_client",
-    inputs = [":mod_client_unmapped_with_access_widener"],
+    inputs = [":mod_client_unmapped"],
     classpath = ["//game:remapped_client_named"],
     mapping = "//game:merged_mapping",
     mixin = True,
@@ -164,8 +159,7 @@ merge_jar(
     deps = [
         ":mod_main_unmapped",
         ":mod_client_unmapped",
-        ":access_widener",
-    ],
+    ]
 )
 
 merge_jar(

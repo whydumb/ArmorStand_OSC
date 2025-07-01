@@ -34,6 +34,7 @@ object ModelManager {
     private val LOGGER = LogUtils.getLogger()
     val modelDir: Path
         get() = ModelInstanceManager.modelDir
+    private const val DEFAULT_MODEL_NAME = "armorstand.vrm"
     private const val DATABASE_NAME = ".cache"
     private val databaseFile = modelDir.resolve("$DATABASE_NAME.mv.db").toAbsolutePath()
     private const val DATABASE_VERSION = 2
@@ -612,7 +613,21 @@ object ModelManager {
     }
 
     suspend fun initialize() = withContext(Dispatchers.IO) {
+        val extractDefaultModel = modelDir.notExists()
         modelDir.createDirectories()
+        if (extractDefaultModel) {
+            try {
+                LOGGER.info("Extracting default model: {}", DEFAULT_MODEL_NAME)
+                javaClass.classLoader.getResourceAsStream(DEFAULT_MODEL_NAME).use { input ->
+                    modelDir.resolve(DEFAULT_MODEL_NAME).outputStream().use { output ->
+                        input.transferTo(output)
+                    }
+                }
+                LOGGER.info("Extracted default model")
+            } catch (ex: Exception) {
+                LOGGER.warn("Failed to extract default model", ex)
+            }
+        }
 
         Class.forName("org.h2.Driver")
         val databaseRelativePath = databaseFile.relativeTo(Paths.get(".").toAbsolutePath())

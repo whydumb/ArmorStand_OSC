@@ -8,10 +8,25 @@ def _merge_jar_impl(ctx):
 
     args = ctx.actions.args()
     args.add(output_jar)
+    resource_files = []
+    for resource in ctx.attr.resources.keys():
+        strip = ctx.attr.resources[resource]
+        files = resource.files.to_list()
+        resource_files = resource_files + files
+        args.add("--strip")
+        args.add(strip)
+        if len(files) == 0:
+            fail("Resource label without resource: " + str(resource.label))
+        for file in files:
+            args.add("--resource")
+            args.add(file)
     args.add_all(merged_deps.full_compile_jars.to_list())
 
     ctx.actions.run(
-        inputs = merged_deps.full_compile_jars,
+        inputs = depset(
+            direct = resource_files,
+            transitive = [merged_deps.full_compile_jars],
+        ),
         outputs = [output_jar],
         executable = ctx.executable._merge_jar_executable,
         arguments = [args],
@@ -33,7 +48,13 @@ merge_jar = rule(
         "deps": attr.label_list(
             mandatory = True,
             providers = [JavaInfo],
-            doc = "Input JARs to merge"
+            doc = "Input JARs to be merged",
+        ),
+        "resources": attr.label_keyed_string_dict(
+            mandatory = False,
+            allow_files = True,
+            default = {},
+            doc = "Resource to be merged, with perfix to strip",
         ),
         "_merge_jar_executable": attr.label(
             default = Label("@//rule/merge_jar"),

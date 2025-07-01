@@ -1,4 +1,10 @@
-_test_models = ["AliciaSolid.vrm", "InterpolationTest.glb"]
+_test_models = ["AliciaSolid.vrm", "InterpolationTest.glb", "armorstand.vrm"]
+
+alias(
+    name = "default_models",
+    visibility = ["//mod:__subpackages__"],
+    actual = "armorstand.vrm",
+)
 
 filegroup(
     name = "test_models_data",

@@ -27,6 +27,22 @@ class GlbLoadTest {
     }
 
     @Test
+    fun testArmorStand() {
+        val uri = this.javaClass.classLoader.getResource("armorstand.vrm")!!.toURI()
+        if (uri.scheme == "jar") {
+            runCatching {
+                FileSystems.newFileSystem(uri, mapOf("create" to "true"))
+            }
+        }
+        val file = uri.toPath()
+        measureTime {
+            GltfBinaryLoader.load(file)
+        }.let { duration ->
+            println("armorstand load time: $duration")
+        }
+    }
+
+    @Test
     fun testVrmThumbnail() {
         val uri = this.javaClass.classLoader.getResource("AliciaSolid.vrm")!!.toURI()
         if (uri.scheme == "jar") {
