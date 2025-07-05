@@ -9,8 +9,9 @@ import top.fifthlight.armorstand.debug.ObjectCountTrackerFrame
 import top.fifthlight.armorstand.debug.ResourceCountTrackerFrame
 import top.fifthlight.blazerod.debug.ObjectPoolTracker
 import top.fifthlight.blazerod.debug.ResourceCountTracker
+import top.fifthlight.blazerod.event.RenderEvents
 import top.fifthlight.blazerod.model.RenderMaterial
-import top.fifthlight.blazerod.util.FramedObjectPool
+import top.fifthlight.blazerod.model.uniform.UniformBuffer
 import top.fifthlight.blazerod.util.cleanupPools
 import javax.swing.SwingUtilities
 
@@ -41,12 +42,13 @@ object BlazeRod: ClientModInitializer {
             }
         }
 
-        WorldRenderEvents.START.register { context ->
-            FramedObjectPool.frame()
+        RenderEvents.FLIP_FRAME.register {
+            UniformBuffer.clear()
         }
 
         ClientLifecycleEvents.CLIENT_STOPPING.register { client ->
             cleanupPools()
+            UniformBuffer.close()
         }
     }
 }

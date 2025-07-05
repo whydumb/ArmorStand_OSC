@@ -1,6 +1,7 @@
 package top.fifthlight.blazerod.model
 
 import com.mojang.blaze3d.buffers.GpuBuffer
+import com.mojang.blaze3d.buffers.GpuBufferSlice
 import com.mojang.blaze3d.systems.RenderPass
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.textures.GpuTextureView
@@ -89,19 +90,17 @@ class RenderPrimitive(
         val device = RenderSystem.getDevice()
         val commandEncoder = device.createCommandEncoder()
         var renderPass: RenderPass? = null
-        var materialUniform: UniformBuffer<*, *>? = null
-        var instanceDataUniformBuffer: InstanceDataUniformBuffer? = null
+        var instanceDataUniformBuffer: GpuBufferSlice? = null
         var localMatricsBuffer: GpuBuffer? = null
-        var skinModelIndices: SkinModelIndicesUniformBuffer? = null
+        var skinModelIndices: GpuBufferSlice? = null
         var skinJointBuffer: GpuBuffer? = null
-        var morphDataUniformBuffer: MorphDataUniformBuffer? = null
-        var morphModelIndices: MorphModelIndicesUniformBuffer? = null
+        var morphDataUniformBuffer: GpuBufferSlice? = null
+        var morphModelIndices: GpuBufferSlice? = null
         var morphWeightsBuffer: GpuBuffer? = null
         var morphTargetIndicesBuffer: GpuBuffer? = null
 
         try {
-            instanceDataUniformBuffer = InstanceDataUniformBuffer.Companion.acquire()
-            instanceDataUniformBuffer.write {
+            instanceDataUniformBuffer = InstanceDataUniformBuffer.write {
                 primitiveSize = instance.scene.primitiveNodes.size
                 this.primitiveIndex = primitiveIndex
                 this.modelViewMatrices[0] = viewModelMatrix
@@ -123,11 +122,10 @@ class RenderPrimitive(
                 }
             }
             skinBuffer?.let { skinBuffer ->
-                skinModelIndices = SkinModelIndicesUniformBuffer.Companion.acquire()
                 val slot = skinBuffer.slot
                 when (slot) {
                     is SlottedGpuBuffer.Slotted -> {
-                        skinModelIndices.write {
+                        skinModelIndices = SkinModelIndicesUniformBuffer.write {
                             skinJoints = skinBuffer.skin.jointSize
                             skinModelOffsets.set(0, slot.index)
                         }
@@ -135,7 +133,7 @@ class RenderPrimitive(
                     }
 
                     is SlottedGpuBuffer.Unslotted -> {
-                        skinModelIndices.write {
+                        skinModelIndices = SkinModelIndicesUniformBuffer.write {
                             skinJoints = skinBuffer.skin.jointSize
                             skinModelOffsets.set(0, 0)
                         }
@@ -145,8 +143,7 @@ class RenderPrimitive(
             }
             targetBuffer?.let { targetBuffer ->
                 targets?.let { targets ->
-                    morphDataUniformBuffer = MorphDataUniformBuffer.Companion.acquire()
-                    morphDataUniformBuffer.write {
+                    morphDataUniformBuffer = MorphDataUniformBuffer.write {
                         totalVertices = vertexBuffer.verticesCount
                         posTargets = targets.position.targetsCount
                         colorTargets = targets.color.targetsCount
@@ -156,8 +153,7 @@ class RenderPrimitive(
                     }
                 }
                 targetBuffer.uploadIndices()
-                morphModelIndices = MorphModelIndicesUniformBuffer.Companion.acquire()
-                morphModelIndices.write {
+                morphModelIndices = MorphModelIndicesUniformBuffer.write {
                     when (val slot = targetBuffer.weightsSlot) {
                         is SlottedGpuBuffer.Slotted -> {
                             morphWeightIndices.set(0, slot.index)
@@ -183,7 +179,7 @@ class RenderPrimitive(
                 }
             }
 
-            val setupResult = material.setup {
+            renderPass = material.setup {
                 commandEncoder.createRenderPass(
                     { "BlazeRod render pass (non-instanced)" },
                     mainColorTextureView,
@@ -192,8 +188,6 @@ class RenderPrimitive(
                     OptionalDouble.empty()
                 )
             }
-            renderPass = setupResult.first
-            materialUniform = setupResult.second
 
             with(renderPass) {
                 if (RenderPassImpl.IS_DEVELOPMENT) {
@@ -201,19 +195,19 @@ class RenderPrimitive(
                         "Primitive's skin data ${skinBuffer != null} and material skinned ${material.skinned} not matching"
                     }
                 }
-                setUniform("InstanceData", instanceDataUniformBuffer.slice)
+                setUniform("InstanceData", instanceDataUniformBuffer)
                 setUniform("LocalMatrices", localMatricsBuffer)
                 skinJointBuffer?.let { skinJointBuffer ->
                     setUniform("Joints", skinJointBuffer)
                 }
                 skinModelIndices?.let { skinModelIndices ->
-                    setUniform("SkinModelIndices", skinModelIndices.slice)
+                    setUniform("SkinModelIndices", skinModelIndices)
                 }
                 morphModelIndices?.let { morphModelIndices ->
-                    setUniform("MorphModelIndices", morphModelIndices.slice)
+                    setUniform("MorphModelIndices", morphModelIndices)
                 }
                 morphDataUniformBuffer?.let { morphDataUniformBuffer ->
-                    setUniform("MorphData", morphDataUniformBuffer.slice)
+                    setUniform("MorphData", morphDataUniformBuffer)
                 }
                 morphWeightsBuffer?.let { morphWeightsBuffer ->
                     setUniform("MorphWeights", morphWeightsBuffer)
@@ -234,11 +228,6 @@ class RenderPrimitive(
             }
         } finally {
             renderPass?.close()
-            materialUniform?.close()
-            instanceDataUniformBuffer?.close()
-            skinModelIndices?.close()
-            morphDataUniformBuffer?.close()
-            morphModelIndices?.close()
         }
     }
 
@@ -253,13 +242,12 @@ class RenderPrimitive(
         val device = RenderSystem.getDevice()
         val commandEncoder = device.createCommandEncoder()
         var renderPass: RenderPass? = null
-        var materialUniform: UniformBuffer<*, *>? = null
-        var instanceDataUniformBuffer: InstanceDataUniformBuffer? = null
+        var instanceDataUniformBuffer: GpuBufferSlice? = null
         var localMatricsBuffer: GpuBuffer? = null
-        var skinModelIndices: SkinModelIndicesUniformBuffer? = null
+        var skinModelIndices: GpuBufferSlice? = null
         var skinJointBuffer: GpuBuffer? = null
-        var morphDataUniformBuffer: MorphDataUniformBuffer? = null
-        var morphModelIndices: MorphModelIndicesUniformBuffer? = null
+        var morphDataUniformBuffer: GpuBufferSlice? = null
+        var morphModelIndices: GpuBufferSlice? = null
         var morphWeightsBuffer: GpuBuffer? = null
         var morphTargetIndicesBuffer: GpuBuffer? = null
 
@@ -268,8 +256,7 @@ class RenderPrimitive(
         fun SlottedGpuBuffer.Slot.asSlotted() = this as SlottedGpuBuffer.Slotted
 
         try {
-            instanceDataUniformBuffer = InstanceDataUniformBuffer.Companion.acquire()
-            instanceDataUniformBuffer.write {
+            instanceDataUniformBuffer = InstanceDataUniformBuffer.write {
                 primitiveSize = firstInstance.scene.primitiveNodes.size
                 this.primitiveIndex = node.primitiveIndex
                 for ((index, task) in tasks.withIndex()) {
@@ -286,8 +273,7 @@ class RenderPrimitive(
                 localMatricsBuffer = firstInstance.modelData.modelMatricesBuffer.slot.asSlotted().buffer.getBuffer()
             }
             node.skinIndex?.let { skinIndex ->
-                skinModelIndices = SkinModelIndicesUniformBuffer.Companion.acquire()
-                skinModelIndices.write {
+                skinModelIndices = SkinModelIndicesUniformBuffer.write {
                     for ((index, task) in tasks.withIndex()) {
                         val skinBuffer = task.instance.modelData.skinBuffers[skinIndex]
                         val slot = skinBuffer.slot
@@ -299,8 +285,7 @@ class RenderPrimitive(
             }
             node.morphedPrimitiveIndex?.let { weightsIndex ->
                 targets?.let { targets ->
-                    morphDataUniformBuffer = MorphDataUniformBuffer.Companion.acquire()
-                    morphDataUniformBuffer.write {
+                    morphDataUniformBuffer = MorphDataUniformBuffer.write {
                         totalVertices = vertexBuffer.verticesCount
                         posTargets = targets.position.targetsCount
                         colorTargets = targets.color.targetsCount
@@ -309,8 +294,7 @@ class RenderPrimitive(
                             targets.position.targetsCount + targets.color.targetsCount + targets.texCoord.targetsCount
                     }
                 }
-                morphModelIndices = MorphModelIndicesUniformBuffer.Companion.acquire()
-                morphModelIndices.write {
+                morphModelIndices = MorphModelIndicesUniformBuffer.write {
                     for ((index, task) in tasks.withIndex()) {
                         val targetBuffer = task.instance.modelData.targetBuffers[weightsIndex]
                         targetBuffer.uploadIndices()
@@ -324,7 +308,7 @@ class RenderPrimitive(
                 }
             }
 
-            val setupResult = material.setup(true) {
+            renderPass = material.setup(true) {
                 commandEncoder.createRenderPass(
                     { "BlazeRod render pass (instanced)" },
                     mainColorTextureView,
@@ -333,8 +317,6 @@ class RenderPrimitive(
                     OptionalDouble.empty()
                 )
             }
-            renderPass = setupResult.first
-            materialUniform = setupResult.second
 
             with(renderPass) {
                 if (RenderPassImpl.IS_DEVELOPMENT) {
@@ -342,19 +324,19 @@ class RenderPrimitive(
                         "Primitive's skin data and material skinned property not matching"
                     }
                 }
-                setUniform("InstanceData", instanceDataUniformBuffer.slice)
+                setUniform("InstanceData", instanceDataUniformBuffer)
                 setUniform("LocalMatrices", localMatricsBuffer)
                 skinJointBuffer?.let { skinJointBuffer ->
                     setUniform("Joints", skinJointBuffer)
                 }
                 skinModelIndices?.let { skinModelIndices ->
-                    setUniform("SkinModelIndices", skinModelIndices.slice)
+                    setUniform("SkinModelIndices", skinModelIndices)
                 }
                 morphModelIndices?.let { morphModelIndices ->
-                    setUniform("MorphModelIndices", morphModelIndices.slice)
+                    setUniform("MorphModelIndices", morphModelIndices)
                 }
                 morphDataUniformBuffer?.let { morphDataUniformBuffer ->
-                    setUniform("MorphData", morphDataUniformBuffer.slice)
+                    setUniform("MorphData", morphDataUniformBuffer)
                 }
                 morphWeightsBuffer?.let { morphWeightsBuffer ->
                     setUniform("MorphWeights", morphWeightsBuffer)
@@ -375,11 +357,6 @@ class RenderPrimitive(
             }
         } finally {
             renderPass?.close()
-            materialUniform?.close()
-            instanceDataUniformBuffer?.close()
-            skinModelIndices?.close()
-            morphDataUniformBuffer?.close()
-            morphModelIndices?.close()
         }
     }
 

@@ -11,6 +11,7 @@
     "RenderPipelineBuilderMixin",
     "RenderPipelineMixin",
     "RenderPipelineSnippetMixin",
+    "RenderSystemMixin",
     "TextureFormatMixin",
     "gl.BufferManagerMixin",
     "gl.BufferManagerMixin$ARBBufferManagerMixin",

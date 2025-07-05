@@ -1,14 +1,10 @@
 package top.fifthlight.blazerod.model.uniform
 
-import net.minecraft.util.Identifier
 import top.fifthlight.blazerod.std140.Std140Layout
-import top.fifthlight.blazerod.util.FramedObjectPool
-import top.fifthlight.blazerod.util.Pool
 
-class MorphDataUniformBuffer: UniformBuffer<MorphDataUniformBuffer, MorphDataUniformBuffer.MorphDataLayout>(MorphDataLayout) {
-    override val pool: Pool<MorphDataUniformBuffer>
-        get() = POOL
-
+object MorphDataUniformBuffer: UniformBuffer<MorphDataUniformBuffer, MorphDataUniformBuffer.MorphDataLayout>(
+    name = "MorphDataUniformBuffer",
+) {
     override val layout: MorphDataLayout
         get() = MorphDataLayout
 
@@ -18,15 +14,5 @@ class MorphDataUniformBuffer: UniformBuffer<MorphDataUniformBuffer, MorphDataUni
         var colorTargets by int()
         var texCoordTargets by int()
         var totalTargets by int()
-    }
-
-    companion object {
-        private val POOL = FramedObjectPool<MorphDataUniformBuffer>(
-            identifier = Identifier.of("blazerod", "morph_data_uniform_buffer"),
-            create = ::MorphDataUniformBuffer,
-            onAcquired = { released = false }
-        )
-
-        fun acquire() = POOL.acquire()
     }
 }

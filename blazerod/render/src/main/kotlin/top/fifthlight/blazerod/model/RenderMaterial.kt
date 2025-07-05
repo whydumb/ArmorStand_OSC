@@ -2,6 +2,7 @@
 
 package top.fifthlight.blazerod.model
 
+import com.mojang.blaze3d.buffers.GpuBufferSlice
 import com.mojang.blaze3d.pipeline.BlendFunction
 import com.mojang.blaze3d.pipeline.RenderPipeline
 import com.mojang.blaze3d.systems.RenderPass
@@ -209,13 +210,11 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
     override val typeId: Identifier
         get() = descriptor.typeId
 
-    // FIXME: don't use pair, which allocate objects every frame
-    open fun setup(instanced: Boolean = false, renderPassCreator: () -> RenderPass): Pair<RenderPass, UniformBuffer<*, *>?> {
-        val renderPass = renderPassCreator()
-        renderPass.setPipeline(getPipeline(instanced))
-        RenderSystem.bindDefaultUniforms(renderPass)
-        return Pair(renderPass, null)
-    }
+    open fun setup(instanced: Boolean = false, renderPassCreator: () -> RenderPass): RenderPass =
+        renderPassCreator().also { renderPass ->
+            renderPass.setPipeline(getPipeline(instanced))
+            RenderSystem.bindDefaultUniforms(renderPass)
+        }
 
     abstract override fun onClosed()
 
@@ -252,7 +251,10 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         override val morphed: Boolean
             get() = false
 
-        override fun setup(instanced: Boolean, renderPassCreator: () -> RenderPass): Pair<RenderPass, UniformBuffer<*, *>?> = TODO()
+        override fun setup(
+            instanced: Boolean,
+            renderPassCreator: () -> RenderPass,
+        ): RenderPass = TODO()
 
         override fun onClosed() {
             baseColorTexture.decreaseReferenceCount()
@@ -308,19 +310,18 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
                 VertexType.POSITION_TEXTURE_COLOR
             }
 
-        override fun setup(instanced: Boolean, renderPassCreator: () -> RenderPass): Pair<RenderPass, UniformBuffer<*, *>?> {
-            val unlitData = UnlitDataUniformBuffer.Companion.acquire()
-            unlitData.write {
+        override fun setup(instanced: Boolean, renderPassCreator: () -> RenderPass): RenderPass {
+            val unlitData = UnlitDataUniformBuffer.write {
                 baseColor = this@Unlit.baseColor
             }
-            val (renderPass, _) = super.setup(instanced, renderPassCreator)
+            val renderPass = super.setup(instanced, renderPassCreator)
             with(renderPass) {
-                setUniform("UnlitData", unlitData.slice)
+                setUniform("UnlitData", unlitData)
                 bindSampler("SamplerBaseColor", baseColorTexture.view)
                 val lightMapTexture = MinecraftClient.getInstance().gameRenderer.lightmapTextureManager.glTextureView
                 bindSampler("SamplerLightMap", lightMapTexture)
             }
-            return Pair(renderPass, unlitData)
+            return renderPass
         }
 
         override fun onClosed() {
