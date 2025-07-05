@@ -274,7 +274,7 @@ kt_jvm_test(
     args = ["execute", "--select-class", "top.fifthlight.armorstand.test.StandaloneTest"],
     associates = [
         ":mod_main_unmapped",
-        ":mod_client_unmapped",
+        ":mod_client_unmapped_unmerged",
     ],
     deps = [
         "//blazerod:blazerod_dep",
