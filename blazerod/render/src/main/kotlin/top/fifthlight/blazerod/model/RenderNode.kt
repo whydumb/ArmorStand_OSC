@@ -2,19 +2,15 @@ package top.fifthlight.blazerod.model
 
 import net.minecraft.client.gl.RenderPassImpl
 import net.minecraft.client.render.RenderLayer
-import net.minecraft.client.render.RenderLayers
 import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.util.Colors
 import net.minecraft.util.Identifier
-import org.joml.Matrix4f
-import org.joml.Matrix4fStack
-import org.joml.Matrix4fc
-import org.joml.Vector3f
+import org.joml.*
 import top.fifthlight.blazerod.util.AbstractRefCount
 import top.fifthlight.blazerod.util.SlottedGpuBuffer
+import top.fifthlight.blazerod.util.drawBox
 import top.fifthlight.blazerod.util.iteratorOf
-import java.awt.Color
 
 sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
     companion object {
@@ -25,11 +21,13 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         get() = TYPE_ID
 
     var parent: RenderNode? = null
-    abstract val containsCamera: Boolean
+
+    open val containsCamera: Boolean
+        get() = false
+    open val doesPreUpdate: Boolean
+        get() = false
 
     open fun updateCamera(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) = Unit
-
-    abstract val doesPreUpdate: Boolean
 
     open fun debugRender(
         instance: ModelInstance,
@@ -89,12 +87,6 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         override fun onClosed() {
             primitive.decreaseReferenceCount()
         }
-
-        override val containsCamera
-            get() = false
-
-        override val doesPreUpdate
-            get() = false
 
         override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
             if (!updateTransform) {
@@ -161,9 +153,6 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
 
         override fun updateCamera(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
             val transformsDirty = instance.modelData.transformsDirty[transformIndex]
-            if (transformsDirty) {
-                instance.modelData.transformsDirty[transformIndex] = false
-            }
             val updateTransform = updateTransform || transformsDirty
             val transform = instance.modelData.transforms[transformIndex]
             transform?.matrix?.let { matrix ->
@@ -201,9 +190,6 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
             }
 
             val transformsDirty = instance.modelData.transformsDirty[transformIndex]
-            if (transformsDirty) {
-                instance.modelData.transformsDirty[transformIndex] = false
-            }
             val updateTransform = updateTransform || transformsDirty
             val transform = instance.modelData.transforms[transformIndex]
             transform?.matrix?.let { matrix ->
@@ -244,19 +230,13 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         val skinIndex: Int,
         val jointIndex: Int,
     ) : RenderNode() {
-        override val containsCamera: Boolean
-            get() = false
-
-        override val doesPreUpdate: Boolean
-            get() = false
-
         private val cacheMatrix = Matrix4f()
 
         private val parentJoint: Joint? by lazy {
             var current = parent
             while (current != null) {
                 when (current) {
-                    is Transform -> {
+                    is Transform, is InfluenceTransform -> {
                         current = current.parent
                         continue
                     }
@@ -313,7 +293,6 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         val limitRadian: Float,
         val ikLinks: List<IkLinkItem>,
     ) : RenderNode() {
-
         init {
             require(ikLinks.isNotEmpty()) { "IK bone without links" }
         }
@@ -333,33 +312,11 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         override val doesPreUpdate: Boolean
             get() = true
 
-        override val containsCamera: Boolean
-            get() = false
-
         override fun debugRender(instance: ModelInstance, matrixStack: MatrixStack, consumers: VertexConsumerProvider) {
             val buffer = consumers.getBuffer(RenderLayer.getDebugFilledBox())
             val matrix = matrixStack.peek().positionMatrix
-
-            val boxSize = 0.15f
-            buffer.vertex(matrix, -boxSize, -boxSize, -boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, boxSize, -boxSize, -boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, boxSize, boxSize, -boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, -boxSize, boxSize, -boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, -boxSize, -boxSize, boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, boxSize, -boxSize, boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, boxSize, boxSize, boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, -boxSize, boxSize, boxSize).color(Colors.CYAN)
-
-            buffer.vertex(matrix, -boxSize, -boxSize, -boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, -boxSize, -boxSize, boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, boxSize, -boxSize, -boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, boxSize, -boxSize, boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, boxSize, boxSize, -boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, boxSize, boxSize, boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, -boxSize, boxSize, -boxSize).color(Colors.CYAN)
-            buffer.vertex(matrix, -boxSize, boxSize, boxSize).color(Colors.CYAN)
+            buffer.drawBox(matrix, 0.15f, Colors.CYAN)
         }
-
 
         private val targetPos = Vector3f()
         override fun preUpdate(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
@@ -375,9 +332,121 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
         override fun onClosed() = Unit
     }
 
+    class InfluenceSource : RenderNode() {
+        override fun onClosed() = Unit
+
+        override fun iterator() = iteratorOf<RenderNode>()
+
+        override fun debugRender(instance: ModelInstance, matrixStack: MatrixStack, consumers: VertexConsumerProvider) {
+            matrixStack.push()
+            val matrix = matrixStack.peek().positionMatrix
+            val buffer = consumers.getBuffer(RenderLayer.getDebugFilledBox())
+            buffer.drawBox(matrix, 0.1f, Colors.RED)
+            matrixStack.pop()
+        }
+    }
+
+    class InfluenceTransform(
+        val child: RenderNode,
+        val sourceNodeIds: List<NodeId>,
+        val influence: Float,
+        val relative: Boolean,
+        val influenceRotation: Boolean = false,
+        val influenceTranslation: Boolean = false,
+    ) : RenderNode() {
+        init {
+            child.increaseReferenceCount()
+        }
+
+        override fun onClosed() {
+            child.decreaseReferenceCount()
+        }
+
+        override val doesPreUpdate: Boolean
+            get() = true
+
+        override val containsCamera: Boolean
+            get() = child.containsCamera
+
+        private val currentRotation = Quaternionf()
+        private val currentTranslation = Vector3f()
+        private val defaultRotation = Quaternionf()
+        private val defaultTranslation = Vector3f()
+        private val targetRotation = Quaternionf()
+        private val targetTranslation = Vector3f()
+        private fun applyTransform(instance: ModelInstance, matrix4f: Matrix4f) {
+            targetTranslation.set(0f)
+            targetRotation.identity()
+            for (sourceIndex in sourceNodeIds) {
+                val transformIndex = instance.scene.nodeIdToTransformMap.getInt(sourceIndex)
+                val sourceCurrent = instance.modelData.transforms[transformIndex]
+                val sourceDefault = instance.modelData.defaultTransforms[transformIndex]
+                if (influenceTranslation) {
+                    sourceCurrent?.getTranslation(currentTranslation) ?: currentTranslation.set(0f)
+                    if (relative) {
+                        sourceDefault?.let { sourceDefault ->
+                            sourceDefault.getTranslation(defaultTranslation)
+                            currentTranslation.sub(defaultTranslation)
+                        }
+                    }
+                    targetTranslation.mulAdd(influence, currentTranslation)
+                }
+                if (influenceRotation) {
+                    sourceCurrent?.getRotation(currentRotation) ?: currentRotation.identity()
+                    if (relative) {
+                        sourceDefault?.let { sourceDefault ->
+                            sourceDefault.getRotation(defaultRotation)
+                            currentRotation.mul(defaultRotation.invert())
+                        }
+                    }
+                    targetRotation.mul(currentRotation, targetRotation)
+                }
+            }
+            matrix4f.rotate(targetRotation)
+            matrix4f.translate(targetTranslation)
+        }
+
+        override fun updateCamera(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
+            if (!child.containsCamera) {
+                return
+            }
+
+            matrixStack.pushMatrix()
+            applyTransform(instance, matrixStack)
+            child.updateCamera(instance, matrixStack, true)
+            matrixStack.popMatrix()
+        }
+
+        override fun preUpdate(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
+            matrixStack.pushMatrix()
+            applyTransform(instance, matrixStack)
+            child.preUpdate(instance, matrixStack, true)
+            matrixStack.popMatrix()
+        }
+
+        override fun update(instance: ModelInstance, matrixStack: Matrix4fStack, updateTransform: Boolean) {
+            matrixStack.pushMatrix()
+            applyTransform(instance, matrixStack)
+            child.update(instance, matrixStack, true)
+            matrixStack.popMatrix()
+        }
+
+        override fun debugRender(instance: ModelInstance, matrixStack: MatrixStack, consumers: VertexConsumerProvider) {
+            matrixStack.push()
+            val matrix = matrixStack.peek().positionMatrix
+            applyTransform(instance, matrix)
+            val buffer = consumers.getBuffer(RenderLayer.getDebugFilledBox())
+            buffer.drawBox(matrix, 0.1f, Colors.BLUE)
+            child.debugRender(instance, matrixStack, consumers)
+            matrixStack.pop()
+        }
+
+        override fun iterator() = iteratorOf(child)
+    }
+
     class Camera(
         val cameraTransformIndex: Int,
-    ): RenderNode() {
+    ) : RenderNode() {
         override val doesPreUpdate: Boolean
             get() = false
 

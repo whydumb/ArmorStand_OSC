@@ -10,6 +10,7 @@ import top.fifthlight.blazerod.model.BufferView
 import top.fifthlight.blazerod.model.Expression
 import top.fifthlight.blazerod.model.HumanoidTag
 import top.fifthlight.blazerod.model.IkTarget
+import top.fifthlight.blazerod.model.Influence
 import top.fifthlight.blazerod.model.Material
 import top.fifthlight.blazerod.model.Mesh
 import top.fifthlight.blazerod.model.MeshId
@@ -858,6 +859,7 @@ object PmxLoader : ModelFileLoader {
                 }
             }
 
+            val totalInfluences = mutableListOf<Influence>()
             fun addBone(index: Int, parentPosition: Vector3fc? = null): Node {
                 val bone = bones[index]
                 val nodeId = boneNodeIds[index]
@@ -874,6 +876,23 @@ object PmxLoader : ModelFileLoader {
                             transform = NodeTransform.Decomposed(),
                         )
                     )
+                }
+                val influences = buildList {
+                    if (bone.flags.inheritRotation || bone.flags.inheritTranslation) {
+                        val influence = Influence(
+                            sources = buildList {
+                                val parentIndex = bone.inheritParentIndex!!
+                                add(boneNodeIds[parentIndex])
+                                ikBoneNodeIds[parentIndex]?.let { add(it) }
+                            },
+                            influence = bone.inheritParentInfluence!!,
+                            relative = true,
+                            influenceRotation = bone.flags.inheritRotation,
+                            influenceTranslation = bone.flags.inheritTranslation,
+                        )
+                        add(influence)
+                        totalInfluences.add(influence)
+                    }
                 }
                 return Node(
                     name = bone.nameLocal,
@@ -902,7 +921,8 @@ object PmxLoader : ModelFileLoader {
                                 )
                             }
                         )
-                    }
+                    },
+                    influences = influences,
                 )
             }
             rootBones.forEach { index ->
@@ -1042,6 +1062,7 @@ object PmxLoader : ModelFileLoader {
                         }
                     },
                     defaultScene = scene,
+                    influences = totalInfluences,
                 ),
                 animations = listOf(),
             )

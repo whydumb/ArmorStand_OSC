@@ -2,14 +2,12 @@ package top.fifthlight.blazerod.model
 
 import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.systems.RenderSystem
-import com.mojang.blaze3d.textures.AddressMode
 import com.mojang.blaze3d.textures.GpuTexture
 import com.mojang.blaze3d.textures.TextureFormat
 import com.mojang.blaze3d.vertex.VertexFormat
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap
-import top.fifthlight.blazerod.extension.AddressModeExt
 import top.fifthlight.blazerod.util.blaze3d
 import top.fifthlight.blazerod.extension.CommandEncoderExt
 import top.fifthlight.blazerod.extension.NativeImageExt
@@ -60,6 +58,15 @@ class ModelLoader {
         this.skinsList = skinsList
         this.skinsMap = skinsMap
         jointSkins = jointSkinMap
+    }
+
+    private lateinit var influenceSourceNodeIds: Set<NodeId>
+    private fun loadInfluences(influences: List<Influence>) {
+        val ids = mutableSetOf<NodeId>()
+        for (influence in influences) {
+            ids.addAll(influence.sources)
+        }
+        this.influenceSourceNodeIds = ids
     }
 
     private val nodes = mutableListOf<RenderNode>()
@@ -458,10 +465,6 @@ class ModelLoader {
         )
     }
 
-    private fun appendRenderNode(renderNode: RenderNode) {
-        nodes.add(renderNode)
-    }
-
     private fun loadNode(node: Node): RenderNode? {
         val skinItem = skinsMap[node.skin]
         val jointSkin = jointSkins[node.id]
@@ -473,7 +476,7 @@ class ModelLoader {
                     jointIndex = jointIndex,
                 )
                 add(jointNode)
-                appendRenderNode(jointNode)
+                nodes.add(jointNode)
             }
             node.mesh?.let { mesh ->
                 for (primitive in mesh.primitives) {
@@ -490,7 +493,7 @@ class ModelLoader {
                         morphedPrimitiveNodeIndices.add(renderNodeIndex)
                     }
                     add(primitiveNode)
-                    appendRenderNode(primitiveNode)
+                    nodes.add(primitiveNode)
                 }
             }
             node.camera?.let {
@@ -501,7 +504,7 @@ class ModelLoader {
                         camera = it,
                     )
                 )
-                add(RenderNode.Camera(cameraTransformIndex))
+                add(RenderNode.Camera(cameraTransformIndex).also { node -> nodes.add(node) })
             }
             node.ikTarget?.takeIf { it.ikLinks.isNotEmpty() }?.let { ikTarget ->
                 add(
@@ -509,8 +512,11 @@ class ModelLoader {
                         loopCount = ikTarget.loopCount,
                         limitRadian = ikTarget.limitRadian,
                         ikLinks = ikTarget.ikLinks.map { RenderNode.Ik.IkLinkItem(it) },
-                    )
+                    ).also { node -> nodes.add(node) }
                 )
+            }
+            if (node.id in influenceSourceNodeIds) {
+                add(RenderNode.InfluenceSource().also { node -> nodes.add(node) })
             }
             node.children.forEach { loadNode(it)?.let { child -> add(child) } }
         }
@@ -523,8 +529,22 @@ class ModelLoader {
         } else {
             val groupNode = RenderNode.Group(children)
             children.forEach { it.parent = groupNode }
-            appendRenderNode(groupNode)
+            nodes.add(groupNode)
             groupNode
+        }
+
+        for (influence in node.influences) {
+            currentNode = RenderNode.InfluenceTransform(
+                child = currentNode,
+                sourceNodeIds = influence.sources,
+                influence = influence.influence,
+                relative = influence.relative,
+                influenceRotation = influence.influenceRotation,
+                influenceTranslation = influence.influenceTranslation,
+            ).also {
+                currentNode.parent = it
+                nodes.add(it)
+            }
         }
 
         val transformIndex = transformNodeIndices.size
@@ -542,7 +562,7 @@ class ModelLoader {
             child = currentNode,
         ).also {
             currentNode.parent = it
-            appendRenderNode(it)
+            nodes.add(it)
         }
 
         return currentNode
@@ -556,7 +576,7 @@ class ModelLoader {
         )
         val rootTransformId = nodes.size
         transformNodeIndices.add(rootTransformId)
-        appendRenderNode(rootNode)
+        nodes.add(rootNode)
         val expressionTargetMap = mutableMapOf<Int, Int>()
         return RenderScene(
             rootNode = rootNode,
@@ -632,6 +652,7 @@ class ModelLoader {
 
     fun loadModel(model: Model): RenderScene {
         loadSkins(model.skins)
+        loadInfluences(model.influences)
         return loadScene(model.defaultScene ?: model.scenes.first(), model.expressions)
     }
 }

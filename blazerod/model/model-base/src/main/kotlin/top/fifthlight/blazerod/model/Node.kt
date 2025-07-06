@@ -10,12 +10,20 @@ sealed class NodeTransform {
     abstract val matrix: Matrix4fc
     abstract fun clone(): NodeTransform
 
+    abstract fun getTranslation(dest: Vector3f): Vector3f
+    abstract fun getRotation(dest: Quaternionf): Quaternionf
+    abstract fun getScale(dest: Vector3f): Vector3f
+
     data class Matrix(
         override val matrix: Matrix4f = Matrix4f()
     ) : NodeTransform() {
         override fun clone() = Matrix(
             matrix = Matrix4f(matrix),
         )
+
+        override fun getTranslation(dest: Vector3f): Vector3f = matrix.getTranslation(dest)
+        override fun getRotation(dest: Quaternionf): Quaternionf = matrix.getNormalizedRotation(dest)
+        override fun getScale(dest: Vector3f): Vector3f = matrix.getScale(dest)
     }
 
     data class Decomposed(
@@ -26,6 +34,10 @@ sealed class NodeTransform {
         private val cacheMatrix = Matrix4f()
         override val matrix: Matrix4f
             get() = cacheMatrix.translationRotateScale(translation, rotation, scale)
+
+        override fun getTranslation(dest: Vector3f): Vector3f = dest.set(translation)
+        override fun getRotation(dest: Quaternionf): Quaternionf = dest.set(rotation)
+        override fun getScale(dest: Vector3f): Vector3f = dest.set(scale)
 
         fun set(other: Decomposed) {
             translation.set(other.translation)
@@ -55,4 +67,5 @@ data class Node(
     val skin: Skin? = null,
     val camera: Camera? = null,
     val ikTarget: IkTarget? = null,
+    val influences: List<Influence> = listOf(),
 )
