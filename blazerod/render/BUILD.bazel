@@ -4,7 +4,7 @@ load("//rule:apply_access_widener.bzl", "apply_access_widener")
 load("//rule:extract_access_widener.bzl", "extract_access_widener")
 load("//rule:merge_jar.bzl", "merge_jar")
 load("//rule:decompile_jar.bzl", "decompile_jar")
-load("//:properties.bzl", "blazerod_version", "blazerod_description", "game_version")
+load("//:properties.bzl", "blazerod_version", "game_version")
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
@@ -51,7 +51,6 @@ expand_template(
     template = "src/main/resources/fabric.mod.json",
     substitutions = {
         "${version}": blazerod_version,
-        "${description}": blazerod_description,
     },
     out = "_generated/fabric.mod.json",
 )

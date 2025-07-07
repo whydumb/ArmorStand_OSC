@@ -1,7 +1,7 @@
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
 load("@rules_java//java:defs.bzl", "java_library")
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
-load("//:properties.bzl", "blazerod_version", "blazerod_description")
+load("//:properties.bzl", "blazerod_version")
 load("//rule:merge_jar.bzl", "merge_jar")
 load("//rule:merge_jij.bzl", "merge_jij")
 
@@ -22,7 +22,6 @@ expand_template(
     template = "src/main/resources/fabric.mod.json",
     substitutions = {
         "${version}": blazerod_version,
-        "${description}": blazerod_description,
     },
     out = "fabric.mod.json",
 )
