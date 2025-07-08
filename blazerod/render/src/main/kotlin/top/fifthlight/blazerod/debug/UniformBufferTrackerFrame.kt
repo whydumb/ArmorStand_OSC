@@ -8,8 +8,8 @@ import java.awt.event.WindowEvent
 import javax.swing.*
 import javax.swing.table.DefaultTableModel
 
-class ObjectCountTrackerFrame : JFrame("Object Count Tracker") {
-    private val tableModel = object : DefaultTableModel(arrayOf("Object ID", "Allocated", "Pooled", "Failed"), 0) {
+class UniformBufferTrackerFrame : JFrame("Uniform Buffer Tracker") {
+    private val tableModel = object : DefaultTableModel(arrayOf("Name", "Capacity"), 0) {
         override fun isCellEditable(row: Int, column: Int) = false
     }
     private val table = JTable(tableModel)
@@ -49,7 +49,7 @@ class ObjectCountTrackerFrame : JFrame("Object Count Tracker") {
     }
 
     private fun updateData() {
-        ObjectPoolTracker.instance?.let { tracker ->
+        UniformBufferTracker.instance?.let { tracker ->
             add(scrollPane, BorderLayout.CENTER)
             tableModel.rowCount = 0
             tracker.dumpData()
@@ -59,9 +59,7 @@ class ObjectCountTrackerFrame : JFrame("Object Count Tracker") {
                     tableModel.addRow(
                         arrayOf(
                             key.toString(),
-                            value.allocatedItem.toString(),
-                            value.pooledItem.toString(),
-                            value.failedItem.toString(),
+                            value.toString(),
                         )
                     )
                 }

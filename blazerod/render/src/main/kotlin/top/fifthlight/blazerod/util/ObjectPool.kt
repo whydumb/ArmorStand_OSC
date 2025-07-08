@@ -46,12 +46,12 @@ open class ObjectPool<T : Any>(
         require(!closed) { "Pool is closed" }
         return if (pool.isEmpty()) {
             create().also {
-                ObjectPoolTracker.instance?.compute(identifier) {
+                ObjectPoolTracker.instance?.set(identifier) {
                     copy(allocatedItem = allocatedItem + 1)
                 }
             }
         } else {
-            ObjectPoolTracker.instance?.compute(identifier) {
+            ObjectPoolTracker.instance?.set(identifier) {
                 copy(
                     allocatedItem = allocatedItem + 1,
                     pooledItem = pooledItem - 1,
@@ -62,7 +62,7 @@ open class ObjectPool<T : Any>(
             try {
                 onAcquired?.invoke(obj)
             } catch (ex: Throwable) {
-                ObjectPoolTracker.instance?.compute(identifier) {
+                ObjectPoolTracker.instance?.set(identifier) {
                     copy(
                         allocatedItem = allocatedItem - 1,
                         failedItem = failedItem + 1,
@@ -78,7 +78,7 @@ open class ObjectPool<T : Any>(
         try {
             onReleased?.invoke(obj)
         } catch (ex: Throwable) {
-            ObjectPoolTracker.instance?.compute(identifier) {
+            ObjectPoolTracker.instance?.set(identifier) {
                 copy(
                     allocatedItem = allocatedItem - 1,
                     failedItem = failedItem + 1,
@@ -86,7 +86,7 @@ open class ObjectPool<T : Any>(
             }
             throw ex
         }
-        ObjectPoolTracker.instance?.compute(identifier) {
+        ObjectPoolTracker.instance?.set(identifier) {
             copy(
                 allocatedItem = allocatedItem - 1,
                 pooledItem = pooledItem + 1,
@@ -99,7 +99,7 @@ open class ObjectPool<T : Any>(
         if (closed) {
             return
         }
-        ObjectPoolTracker.instance?.compute(identifier) { ObjectPoolTracker.Item() }
+        ObjectPoolTracker.instance?.set(identifier) { ObjectPoolTracker.Item() }
         pool.forEach { onClosed?.invoke(it) }
         pool.clear()
     }

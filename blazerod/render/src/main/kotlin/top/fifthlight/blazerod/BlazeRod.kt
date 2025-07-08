@@ -3,12 +3,13 @@ package top.fifthlight.blazerod
 import com.mojang.logging.LogUtils
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents
 import net.minecraft.client.gl.RenderPassImpl
-import top.fifthlight.armorstand.debug.ObjectCountTrackerFrame
+import top.fifthlight.blazerod.debug.ObjectCountTrackerFrame
 import top.fifthlight.armorstand.debug.ResourceCountTrackerFrame
 import top.fifthlight.blazerod.debug.ObjectPoolTracker
 import top.fifthlight.blazerod.debug.ResourceCountTracker
+import top.fifthlight.blazerod.debug.UniformBufferTracker
+import top.fifthlight.blazerod.debug.UniformBufferTrackerFrame
 import top.fifthlight.blazerod.event.RenderEvents
 import top.fifthlight.blazerod.model.RenderMaterial
 import top.fifthlight.blazerod.model.uniform.UniformBuffer
@@ -30,11 +31,13 @@ object BlazeRod: ClientModInitializer {
             if (System.getProperty("blazerod.debug.gui") == "true") {
                 ResourceCountTracker.initialize()
                 ObjectPoolTracker.initialize()
+                UniformBufferTracker.initialize()
                 System.setProperty("java.awt.headless", "false")
                 SwingUtilities.invokeLater {
                     try {
                         ResourceCountTrackerFrame().isVisible = true
                         ObjectCountTrackerFrame().isVisible = true
+                        UniformBufferTrackerFrame().isVisible = true
                     } catch (ex: Exception) {
                         LOGGER.info("Failed to show debug windows", ex)
                     }

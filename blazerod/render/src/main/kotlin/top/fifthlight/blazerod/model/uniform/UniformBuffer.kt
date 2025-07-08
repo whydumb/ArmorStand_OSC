@@ -1,14 +1,14 @@
 package top.fifthlight.blazerod.model.uniform
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice
-import net.minecraft.client.gl.DynamicUniformStorage
 import top.fifthlight.blazerod.std140.Std140Layout
+import top.fifthlight.blazerod.util.UniformBufferStorage
 
 abstract class UniformBuffer<T : UniformBuffer<T, L>, L : Std140Layout<L>>(
     val name: String,
 ) : AutoCloseable {
     protected var released = false
-    private val storage = DynamicUniformStorage<DynamicUniformStorage.Uploadable>(name, layout.totalSize, 8)
+    private val storage = UniformBufferStorage(name, layout.totalSize, 8)
 
     abstract val layout: L
 

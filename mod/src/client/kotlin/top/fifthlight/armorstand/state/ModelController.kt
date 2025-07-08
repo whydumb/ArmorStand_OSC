@@ -5,13 +5,13 @@ import net.minecraft.util.math.MathHelper
 import org.joml.Matrix4f
 import org.joml.Matrix4fc
 import top.fifthlight.armorstand.ui.model.AnimationViewModel
+import top.fifthlight.armorstand.util.toRadian
 import top.fifthlight.blazerod.animation.AnimationItem
 import top.fifthlight.blazerod.animation.Timeline
 import top.fifthlight.blazerod.model.ModelInstance
 import top.fifthlight.blazerod.model.RenderExpression
 import top.fifthlight.blazerod.model.RenderNode
 import top.fifthlight.blazerod.model.RenderScene
-import top.fifthlight.blazerod.util.toRadian
 import top.fifthlight.blazerod.model.Expression
 import top.fifthlight.blazerod.model.HumanoidTag
 import top.fifthlight.blazerod.model.RenderExpressionGroup

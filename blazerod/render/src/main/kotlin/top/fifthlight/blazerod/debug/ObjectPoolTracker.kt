@@ -13,7 +13,7 @@ class ObjectPoolTracker {
         val failedItem: Int = 0,
     )
 
-    inline fun compute(identifier: Identifier, crossinline func: Item.() -> Item) {
+    inline fun set(identifier: Identifier, crossinline func: Item.() -> Item) {
         itemCount.compute(identifier) { key, value -> func(value ?: Item()) }
     }
 

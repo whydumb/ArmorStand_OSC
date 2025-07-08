@@ -1,4 +1,9 @@
 package top.fifthlight.blazerod.util
 
-// 180 / PI
-fun Float.toRadian() = this * 0.017453292f
+internal infix fun Int.ceilDiv(other: Int) = if (this % other == 0) {
+    this / other
+} else {
+    this / other + 1
+}
+
+internal infix fun Int.roundUpToMultiple(divisor: Int) = (this ceilDiv divisor) * divisor
