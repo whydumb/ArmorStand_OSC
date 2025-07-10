@@ -1,25 +1,28 @@
-package top.fifthlight.armorstand.test.std140
+package top.fifthlight.blazerod.test.layout
 
 import org.joml.*
-import top.fifthlight.blazerod.std140.Std140Layout
+import top.fifthlight.blazerod.layout.GpuDataLayout
+import top.fifthlight.blazerod.layout.LayoutStrategy
 import java.nio.ByteBuffer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class Std140Test {
-    private object SimpleLayout : Std140Layout<SimpleLayout>() {
-        var intField by int()       // offset: 0, size: 4, align: 4
-        var floatField by float()   // offset: 4, size: 4, align: 4
-        // total size: 8
-    }
-
-    private fun ByteBuffer.assertInts(offset: Int, stride: Int = 4, vararg expected: Int) = expected.forEachIndexed { index, float ->
+    private fun ByteBuffer.assertInts(offset: Int, stride: Int = 4, vararg expected: Int) = expected.forEachIndexed { index, intVal ->
         assertEquals(expected[index], getInt(offset + index * stride))
     }
 
-    private fun ByteBuffer.assertFloats(offset: Int, stride: Int = 4, vararg expected: Float) = expected.forEachIndexed { index, float ->
-        assertEquals(expected[index], getFloat(offset + index * stride))
+    private fun ByteBuffer.assertFloats(offset: Int, stride: Int = 4, vararg expected: Float) = expected.forEachIndexed { index, floatVal ->
+        assertEquals(expected[index], getFloat(offset + index * stride), "Offset ${offset + index * stride}")
+    }
+
+    private object SimpleLayout : GpuDataLayout<SimpleLayout>() {
+        override val strategy: LayoutStrategy
+            get() = LayoutStrategy.Std140LayoutStrategy
+        var intField by int()       // offset: 0, size: 4, align: 4
+        var floatField by float()   // offset: 4, size: 4, align: 4
+        // total size: 8
     }
 
     @Test
@@ -34,7 +37,9 @@ class Std140Test {
         assertEquals(2.5f, buffer.getFloat(4))
     }
 
-    private object VectorLayout : Std140Layout<VectorLayout>() {
+    private object VectorLayout : GpuDataLayout<VectorLayout>() {
+        override val strategy: LayoutStrategy
+            get() = LayoutStrategy.Std140LayoutStrategy
         var vec2Field by vec2()     // offset: 0, size: 8, align: 8
         var vec3Field by vec3()     // offset: 16, size: 12, align: 16
         var vec4Field by vec4()     // offset: 32, size: 16, align: 16
@@ -56,16 +61,18 @@ class Std140Test {
         buffer.assertFloats(32, 4, 6.0f, 7.0f, 8.0f, 9.0f)
     }
 
-    private object MatrixLayout : Std140Layout<MatrixLayout>() {
-        var mat2Field by mat2()     // offset: 0, size: 16, align: 16
-        var mat3Field by mat3()     // offset: 16, size: 48, align: 16
-        var mat4Field by mat4()     // offset: 64, size: 64, align: 16
-        // total size: 128
+    private object MatrixLayout : GpuDataLayout<MatrixLayout>() {
+        override val strategy: LayoutStrategy
+            get() = LayoutStrategy.Std140LayoutStrategy
+        var mat2Field by mat2()     // offset: 0, size: 32, align: 16
+        var mat3Field by mat3()     // offset: 32, size: 48, align: 16
+        var mat4Field by mat4()     // offset: 80, size: 64, align: 16
+        // total size: 144
     }
 
     @Test
     fun testMatrixLayout() {
-        assertEquals(128, MatrixLayout.totalSize)
+        assertEquals(144, MatrixLayout.totalSize)
         val buffer = ByteBuffer.allocate(MatrixLayout.totalSize)
         MatrixLayout.withBuffer(buffer) {
             mat2Field = Matrix2f(
@@ -86,29 +93,31 @@ class Std140Test {
         }
 
         buffer.assertFloats(0, 4, 1.0f, 3.0f)
-        buffer.assertFloats(8, 4, 2.0f, 4.0f)
+        buffer.assertFloats(16, 4, 2.0f, 4.0f)
 
-        buffer.assertFloats(16, 4, 5.0f, 8.0f, 11.0f)
-        buffer.assertFloats(32, 4, 6.0f, 9.0f, 12.0f)
-        buffer.assertFloats(48, 4, 7.0f, 10.0f, 13.0f)
+        buffer.assertFloats(32, 4, 5.0f, 8.0f, 11.0f)
+        buffer.assertFloats(48, 4, 6.0f, 9.0f, 12.0f)
+        buffer.assertFloats(64, 4, 7.0f, 10.0f, 13.0f)
 
-        buffer.assertFloats(64, 4, 14.0f, 18.0f, 22.0f, 26.0f)
-        buffer.assertFloats(80, 4, 15.0f, 19.0f, 23.0f, 27.0f)
-        buffer.assertFloats(96, 4, 16.0f, 20.0f, 24.0f, 28.0f)
-        buffer.assertFloats(112, 4, 17.0f, 21.0f, 25.0f, 29.0f)
+        buffer.assertFloats(80, 4, 14.0f, 18.0f, 22.0f, 26.0f)
+        buffer.assertFloats(96, 4, 15.0f, 19.0f, 23.0f, 27.0f)
+        buffer.assertFloats(112, 4, 16.0f, 20.0f, 24.0f, 28.0f)
+        buffer.assertFloats(128, 4, 17.0f, 21.0f, 25.0f, 29.0f)
     }
 
-    private object MixedLayout : Std140Layout<MixedLayout>() {
+    private object MixedLayout : GpuDataLayout<MixedLayout>() {
+        override val strategy: LayoutStrategy
+            get() = LayoutStrategy.Std140LayoutStrategy
         var intField by int()       // offset: 0, size: 4, align: 4
         var vec3Field by vec3()     // offset: 16, size: 12, align: 16
         var floatField by float()   // offset: 28, size: 4, align: 4
-        var mat2Field by mat2()     // offset: 32, size: 16, align: 16
-        // total size: 48
+        var mat2Field by mat2()     // offset: 32, size: 32, align: 16
+        // total size: 64
     }
 
     @Test
     fun testMixedLayout() {
-        assertEquals(48, MixedLayout.totalSize)
+        assertEquals(64, MixedLayout.totalSize)
         val buffer = ByteBuffer.allocate(MixedLayout.totalSize)
         MixedLayout.withBuffer(buffer) {
             intField = 1
@@ -124,10 +133,12 @@ class Std140Test {
         buffer.assertFloats(16, 4, 2.0f, 3.0f, 4.0f)
         assertEquals(5.0f, buffer.getFloat(28))
         buffer.assertFloats(32, 4, 6.0f, 8.0f)
-        buffer.assertFloats(40, 4, 7.0f, 9.0f)
+        buffer.assertFloats(48, 4, 7.0f, 9.0f)
     }
 
-    private object ArrayLayout : Std140Layout<ArrayLayout>() {
+    private object ArrayLayout : GpuDataLayout<ArrayLayout>() {
+        override val strategy: LayoutStrategy
+            get() = LayoutStrategy.Std140LayoutStrategy
         var intArray by intArray(4)         // offset: 0, size: 64, align: 16
         var floatArray by floatArray(4)     // offset: 64, size: 64, align: 16
         var vec2Array by vec2Array(4)       // offset: 128, size: 64, align: 16

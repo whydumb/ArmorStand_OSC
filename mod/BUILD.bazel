@@ -263,31 +263,3 @@ java_binary(
         "-Xmx4G",
     ],
 )
-
-kt_jvm_test(
-	name = "standalone_tests",
-    srcs = [
-        "src/test/kotlin/top/fifthlight/armorstand/test/StandaloneTest.kt",
-        "src/test/kotlin/top/fifthlight/armorstand/test/std140/Std140Test.kt",
-    ],
-    main_class = "org.junit.platform.console.ConsoleLauncher",
-    args = ["execute", "--select-class", "top.fifthlight.armorstand.test.StandaloneTest"],
-    associates = [
-        ":mod_main_unmapped",
-        ":mod_client_unmapped_unmerged",
-    ],
-    deps = [
-        "//blazerod:blazerod_dep",
-        "//game:remapped_client_named",
-        ":remapped_deps",
-        "@minecraft//:%s_client_libraries" % game_version,
-        "@maven//:org_jetbrains_kotlin_kotlin_test_junit5",
-        "@maven//:org_junit_jupiter_junit_jupiter_api",
-        "@maven//:org_junit_platform_junit_platform_suite_api",
-    ],
-    runtime_deps = [
-        "@maven//:org_junit_jupiter_junit_jupiter_engine",
-        "@maven//:org_junit_platform_junit_platform_suite_engine",
-        "@maven//:org_junit_platform_junit_platform_console",
-    ],
-)

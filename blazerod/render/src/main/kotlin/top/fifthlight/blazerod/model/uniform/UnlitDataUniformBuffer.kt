@@ -1,6 +1,7 @@
 package top.fifthlight.blazerod.model.uniform
 
-import top.fifthlight.blazerod.std140.Std140Layout
+import top.fifthlight.blazerod.layout.GpuDataLayout
+import top.fifthlight.blazerod.layout.LayoutStrategy
 
 object UnlitDataUniformBuffer: UniformBuffer<UnlitDataUniformBuffer, UnlitDataUniformBuffer.UnlitDataLayout>(
     name = "UnlitDataUniformBuffer",
@@ -8,7 +9,9 @@ object UnlitDataUniformBuffer: UniformBuffer<UnlitDataUniformBuffer, UnlitDataUn
     override val layout: UnlitDataLayout
         get() = UnlitDataLayout
 
-    object UnlitDataLayout: Std140Layout<UnlitDataLayout>() {
+    object UnlitDataLayout: GpuDataLayout<UnlitDataLayout>() {
+        override val strategy: LayoutStrategy
+            get() = LayoutStrategy.Std140LayoutStrategy
         var baseColor by rgba()
     }
 }

@@ -1,4 +1,4 @@
-package top.fifthlight.blazerod.std140
+package top.fifthlight.blazerod.layout
 
 import it.unimi.dsi.fastutil.floats.AbstractFloatList
 import it.unimi.dsi.fastutil.floats.FloatList
@@ -10,21 +10,22 @@ import java.nio.ByteBuffer
 import java.util.Objects.checkIndex
 import kotlin.reflect.KProperty
 
-abstract class Std140Layout<L : Std140Layout<L>> {
+abstract class GpuDataLayout<L : GpuDataLayout<L>> {
     private var offset = 0
     private var buffer: ByteBuffer? = null
+    abstract val strategy: LayoutStrategy
 
     val totalSize: Int
         get() = offset
 
-    sealed class Field<T>(layout: Std140Layout<*>, align: Int, size: Int) {
+    sealed class Field<T>(layout: GpuDataLayout<*>, align: Int, size: Int) {
         val offset: Int
 
-        operator fun setValue(thisRef: Std140Layout<*>, property: KProperty<*>, value: T) {
+        operator fun setValue(thisRef: GpuDataLayout<*>, property: KProperty<*>, value: T) {
             setValue(checkNotNull(thisRef.buffer) { "No buffer bound to layout" }, value)
         }
 
-        operator fun getValue(thisRef: Std140Layout<*>, property: KProperty<*>): T =
+        operator fun getValue(thisRef: GpuDataLayout<*>, property: KProperty<*>): T =
             getValue(checkNotNull(thisRef.buffer) { "No buffer bound to layout" })
 
         abstract fun setValue(buffer: ByteBuffer, value: T)
@@ -39,10 +40,10 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             layout.offset += padding + size
         }
 
-        class IntField(layout: Std140Layout<*>) : Field<Int>(
+        class IntField(layout: GpuDataLayout<*>) : Field<Int>(
             layout = layout,
-            align = 4,
-            size = 4,
+            align = layout.strategy.scalarAlign,
+            size = layout.strategy.scalarSize,
         ) {
             override fun setValue(buffer: ByteBuffer, value: Int) {
                 buffer.putInt(offset, value)
@@ -51,10 +52,10 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             override fun getValue(buffer: ByteBuffer) = buffer.getInt(offset)
         }
 
-        class FloatField(layout: Std140Layout<*>) : Field<Float>(
+        class FloatField(layout: GpuDataLayout<*>) : Field<Float>(
             layout = layout,
-            align = 4,
-            size = 4,
+            align = layout.strategy.scalarAlign,
+            size = layout.strategy.scalarSize,
         ) {
             override fun setValue(buffer: ByteBuffer, value: Float) {
                 buffer.putFloat(offset, value)
@@ -63,10 +64,10 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             override fun getValue(buffer: ByteBuffer) = buffer.getFloat(offset)
         }
 
-        class Vec2Field(layout: Std140Layout<*>) : Field<Vector2fc>(
+        class Vec2Field(layout: GpuDataLayout<*>) : Field<Vector2fc>(
             layout = layout,
-            align = 8,
-            size = 8,
+            align = layout.strategy.vec2Align,
+            size = layout.strategy.vec2Size,
         ) {
             override fun setValue(buffer: ByteBuffer, value: Vector2fc) {
                 value.get(offset, buffer)
@@ -79,10 +80,10 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             }
         }
 
-        class Vec3Field(layout: Std140Layout<*>) : Field<Vector3fc>(
+        class Vec3Field(layout: GpuDataLayout<*>) : Field<Vector3fc>(
             layout = layout,
-            align = 16,
-            size = 12,
+            align = layout.strategy.vec3Align,
+            size = layout.strategy.vec3Size,
         ) {
             override fun setValue(buffer: ByteBuffer, value: Vector3fc) {
                 value.get(offset, buffer)
@@ -95,10 +96,10 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             }
         }
 
-        class Vec4Field(layout: Std140Layout<*>) : Field<Vector4fc>(
+        class Vec4Field(layout: GpuDataLayout<*>) : Field<Vector4fc>(
             layout = layout,
-            align = 16,
-            size = 16,
+            align = layout.strategy.vec4Align,
+            size = layout.strategy.vec4Size,
         ) {
             override fun setValue(buffer: ByteBuffer, value: Vector4fc) {
                 value.get(offset, buffer)
@@ -111,10 +112,10 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             }
         }
 
-        class RgbaColorField(layout: Std140Layout<*>) : Field<RgbaColor>(
+        class RgbaColorField(layout: GpuDataLayout<*>) : Field<RgbaColor>(
             layout = layout,
-            align = 16,
-            size = 16,
+            align = layout.strategy.vec4Align,
+            size = layout.strategy.vec4Size,
         ) {
             override fun setValue(buffer: ByteBuffer, value: RgbaColor) {
                 buffer.putFloat(offset + 0, value.r)
@@ -131,10 +132,10 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             )
         }
 
-        class IVec2Field(layout: Std140Layout<*>) : Field<Vector2ic>(
+        class IVec2Field(layout: GpuDataLayout<*>) : Field<Vector2ic>(
             layout = layout,
-            align = 8,
-            size = 8,
+            align = layout.strategy.vec2Align,
+            size = layout.strategy.vec2Size,
         ) {
             override fun setValue(buffer: ByteBuffer, value: Vector2ic) {
                 value.get(offset, buffer)
@@ -147,10 +148,10 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             }
         }
 
-        class IVec3Field(layout: Std140Layout<*>) : Field<Vector3ic>(
+        class IVec3Field(layout: GpuDataLayout<*>) : Field<Vector3ic>(
             layout = layout,
-            align = 16,
-            size = 12,
+            align = layout.strategy.vec3Align,
+            size = layout.strategy.vec3Size,
         ) {
             override fun setValue(buffer: ByteBuffer, value: Vector3ic) {
                 value.get(offset, buffer)
@@ -163,10 +164,10 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             }
         }
 
-        class IVec4Field(layout: Std140Layout<*>) : Field<Vector4ic>(
+        class IVec4Field(layout: GpuDataLayout<*>) : Field<Vector4ic>(
             layout = layout,
-            align = 16,
-            size = 16,
+            align = layout.strategy.vec4Align,
+            size = layout.strategy.vec4Size,
         ) {
             override fun setValue(buffer: ByteBuffer, value: Vector4ic) {
                 value.get(offset, buffer)
@@ -179,58 +180,84 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             }
         }
 
-        class Mat2Field(layout: Std140Layout<*>) : Field<Matrix2fc>(
+        class Mat2Field(layout: GpuDataLayout<*>) : Field<Matrix2fc>(
             layout = layout,
-            align = 8,
-            size = 16,
+            align = layout.strategy.mat2Align,
+            size = layout.strategy.mat2Size,
         ) {
+            private val padding = layout.strategy.mat2Padding
+
             override fun setValue(buffer: ByteBuffer, value: Matrix2fc) {
-                value.get(offset, buffer)
+                if (padding) {
+                    buffer.putFloat(offset + 0, value.m00())
+                    buffer.putFloat(offset + 4, value.m01())
+                    buffer.putFloat(offset + 16, value.m10())
+                    buffer.putFloat(offset + 20, value.m11())
+                } else {
+                    value.get(offset, buffer)
+                }
             }
 
             private val matrix = Matrix2f()
 
             override fun getValue(buffer: ByteBuffer) = matrix.apply {
-                set(offset, buffer)
+                if (padding) {
+                    m00(buffer.getFloat(offset + 0))
+                    m01(buffer.getFloat(offset + 4))
+                    m10(buffer.getFloat(offset + 16))
+                    m11(buffer.getFloat(offset + 20))
+                } else {
+                    set(offset, buffer)
+                }
             }
         }
 
-        class Mat3Field(layout: Std140Layout<*>) : Field<Matrix3fc>(
+        class Mat3Field(layout: GpuDataLayout<*>) : Field<Matrix3fc>(
             layout = layout,
-            align = 16,
-            size = 48,
+            align = layout.strategy.mat3Align,
+            size = layout.strategy.mat3Size,
         ) {
+            private val padding = layout.strategy.mat3Padding
+
             override fun setValue(buffer: ByteBuffer, value: Matrix3fc) {
-                buffer.putFloat(offset + 0, value.m00())
-                buffer.putFloat(offset + 4, value.m01())
-                buffer.putFloat(offset + 8, value.m02())
-                buffer.putFloat(offset + 16, value.m10())
-                buffer.putFloat(offset + 20, value.m11())
-                buffer.putFloat(offset + 24, value.m12())
-                buffer.putFloat(offset + 32, value.m20())
-                buffer.putFloat(offset + 36, value.m21())
-                buffer.putFloat(offset + 40, value.m22())
+                if (padding) {
+                    buffer.putFloat(offset + 0, value.m00())
+                    buffer.putFloat(offset + 4, value.m01())
+                    buffer.putFloat(offset + 8, value.m02())
+                    buffer.putFloat(offset + 16, value.m10())
+                    buffer.putFloat(offset + 20, value.m11())
+                    buffer.putFloat(offset + 24, value.m12())
+                    buffer.putFloat(offset + 32, value.m20())
+                    buffer.putFloat(offset + 36, value.m21())
+                    buffer.putFloat(offset + 40, value.m22())
+                } else {
+                    value.get(offset, buffer)
+                }
             }
 
             private val matrix = Matrix3f()
 
             override fun getValue(buffer: ByteBuffer) = matrix.apply {
-                m00(buffer.getFloat(offset + 0))
-                m01(buffer.getFloat(offset + 4))
-                m02(buffer.getFloat(offset + 8))
-                m10(buffer.getFloat(offset + 16))
-                m11(buffer.getFloat(offset + 20))
-                m12(buffer.getFloat(offset + 24))
-                m20(buffer.getFloat(offset + 32))
-                m21(buffer.getFloat(offset + 36))
-                m22(buffer.getFloat(offset + 40))
+                if (padding) {
+                    m00(buffer.getFloat(offset + 0))
+                    m01(buffer.getFloat(offset + 4))
+                    m02(buffer.getFloat(offset + 8))
+                    m10(buffer.getFloat(offset + 16))
+                    m11(buffer.getFloat(offset + 20))
+                    m12(buffer.getFloat(offset + 24))
+                    m20(buffer.getFloat(offset + 32))
+                    m21(buffer.getFloat(offset + 36))
+                    m22(buffer.getFloat(offset + 40))
+                } else {
+                    set(offset, buffer)
+                }
             }
         }
 
-        class Mat4Field(layout: Std140Layout<*>) : Field<Matrix4fc>(
+        class Mat4Field(layout: GpuDataLayout<*>) : Field<Matrix4fc>(
             layout = layout,
-            align = 16,
-            size = 64,
+            align = layout.strategy.mat4Align,
+            size = layout.strategy.mat4Size,
         ) {
             override fun setValue(buffer: ByteBuffer, value: Matrix4fc) {
                 value.get(offset, buffer)
@@ -243,16 +270,39 @@ abstract class Std140Layout<L : Std140Layout<L>> {
             }
         }
 
-        class IntArray(layout: Std140Layout<*>, private val length: Int) : Field<IntList>(
+        abstract class ArrayField<T>(
+            layout: GpuDataLayout<*>,
+            length: Int,
+            baseAlign: Int,
+            baseSize: Int,
+        ) : Field<T>(
             layout = layout,
-            align = 16,
-            size = 16 * length,
+            align = layout.strategy.arrayAlignmentOf(
+                baseAlign = baseAlign,
+                baseSize = baseSize,
+            ),
+            size = layout.strategy.arrayStrideOf(
+                baseAlign = baseAlign,
+                baseSize = baseSize,
+            ) * length,
+        ) {
+            protected val stride = layout.strategy.arrayStrideOf(
+                baseAlign = baseAlign,
+                baseSize = baseSize,
+            )
+        }
+
+        class IntArray(layout: GpuDataLayout<*>, private val length: Int) : ArrayField<IntList>(
+            layout = layout,
+            baseAlign = layout.strategy.scalarAlign,
+            baseSize = layout.strategy.scalarSize,
+            length = length,
         ) {
             override fun setValue(buffer: ByteBuffer, value: IntList) {
                 require(value.size == length) { "List size mismatch: expected $length, but got ${value.size}" }
                 repeat(length) { index ->
                     val item = value.getInt(index)
-                    buffer.putInt(offset + index * 16, item)
+                    buffer.putInt(offset + index * stride, item)
                 }
             }
 
@@ -267,27 +317,28 @@ abstract class Std140Layout<L : Std140Layout<L>> {
 
                 override fun getInt(index: Int): Int {
                     checkIndex(index, length)
-                    return requireNotNull(buffer).getInt(offset + index * 16)
+                    return requireNotNull(buffer).getInt(offset + index * stride)
                 }
 
                 override fun set(index: Int, k: Int): Int = getInt(index).also {
-                    requireNotNull(buffer).putInt(offset + index * 16, k)
+                    requireNotNull(buffer).putInt(offset + index * stride, k)
                 }
             }
 
             override fun getValue(buffer: ByteBuffer) = list.also { it.buffer = buffer }
         }
 
-        class FloatArray(layout: Std140Layout<*>, private val length: Int) : Field<FloatList>(
+        class FloatArray(layout: GpuDataLayout<*>, private val length: Int) : ArrayField<FloatList>(
             layout = layout,
-            align = 16,
-            size = 16 * length,
+            baseAlign = layout.strategy.scalarAlign,
+            baseSize = layout.strategy.scalarSize,
+            length = length,
         ) {
             override fun setValue(buffer: ByteBuffer, value: FloatList) {
                 require(value.size == length) { "List size mismatch: expected $length, but got ${value.size}" }
                 repeat(length) { index ->
                     val item = value.getFloat(index)
-                    buffer.putFloat(offset + index * 16, item)
+                    buffer.putFloat(offset + index * stride, item)
                 }
             }
 
@@ -302,11 +353,11 @@ abstract class Std140Layout<L : Std140Layout<L>> {
 
                 override fun getFloat(index: Int): Float {
                     checkIndex(index, length)
-                    return requireNotNull(buffer).getFloat(offset + index * 16)
+                    return requireNotNull(buffer).getFloat(offset + index * stride)
                 }
 
                 override fun set(index: Int, k: Float): Float = getFloat(index).also {
-                    requireNotNull(buffer).putFloat(offset + index * 16, k)
+                    requireNotNull(buffer).putFloat(offset + index * stride, k)
                 }
             }
 
@@ -314,12 +365,13 @@ abstract class Std140Layout<L : Std140Layout<L>> {
         }
 
         class Vec2Array(
-            layout: Std140Layout<*>,
+            layout: GpuDataLayout<*>,
             private val length: Int,
-        ) : Field<MutableList<Vector2fc>>(
+        ) : ArrayField<MutableList<Vector2fc>>(
             layout = layout,
-            align = 16,
-            size = length * 16,
+            baseAlign = layout.strategy.vec2Align,
+            baseSize = layout.strategy.vec2Size,
+            length = length,
         ) {
             private val vector = Vector2f()
             private val list = object : AbstractMutableList<Vector2fc>() {
@@ -333,29 +385,30 @@ abstract class Std140Layout<L : Std140Layout<L>> {
 
                 override fun get(index: Int): Vector2fc {
                     checkIndex(index, length)
-                    return vector.apply { set(offset + index * 16, buffer) }
+                    return vector.apply { set(offset + index * stride, buffer) }
                 }
 
                 override fun set(index: Int, element: Vector2fc) = get(index).also {
-                    element.get(offset + index * 16, requireNotNull(buffer))
+                    element.get(offset + index * stride, requireNotNull(buffer))
                 }
             }
 
             override fun setValue(buffer: ByteBuffer, value: MutableList<Vector2fc>) {
                 require(value.size == length) { "List size mismatch" }
-                value.forEachIndexed { i, vec -> vec.get(offset + i * 16, buffer) }
+                value.forEachIndexed { i, vec -> vec.get(offset + i * stride, buffer) }
             }
 
             override fun getValue(buffer: ByteBuffer) = list.also { it.buffer = buffer }
         }
 
         class Vec3Array(
-            layout: Std140Layout<*>,
+            layout: GpuDataLayout<*>,
             private val length: Int,
-        ) : Field<MutableList<Vector3fc>>(
+        ) : ArrayField<MutableList<Vector3fc>>(
             layout = layout,
-            align = 16,
-            size = length * 16,
+            baseAlign = layout.strategy.vec3Align,
+            baseSize = layout.strategy.vec3Size,
+            length = length,
         ) {
             private val vector = Vector3f()
             private val list = object : AbstractMutableList<Vector3fc>() {
@@ -369,29 +422,30 @@ abstract class Std140Layout<L : Std140Layout<L>> {
 
                 override fun get(index: Int): Vector3fc {
                     checkIndex(index, length)
-                    return vector.apply { set(offset + index * 16, buffer) }
+                    return vector.apply { set(offset + index * stride, buffer) }
                 }
 
                 override fun set(index: Int, element: Vector3fc) = get(index).also {
-                    element.get(offset + index * 16, requireNotNull(buffer))
+                    element.get(offset + index * stride, requireNotNull(buffer))
                 }
             }
 
             override fun setValue(buffer: ByteBuffer, value: MutableList<Vector3fc>) {
                 require(value.size == length) { "List size mismatch" }
-                value.forEachIndexed { i, vec -> vec.get(offset + i * 16, buffer) }
+                value.forEachIndexed { i, vec -> vec.get(offset + i * stride, buffer) }
             }
 
             override fun getValue(buffer: ByteBuffer) = list.also { it.buffer = buffer }
         }
 
         class Vec4Array(
-            layout: Std140Layout<*>,
+            layout: GpuDataLayout<*>,
             private val length: Int,
-        ) : Field<MutableList<Vector4fc>>(
+        ) : ArrayField<MutableList<Vector4fc>>(
             layout = layout,
-            align = 16,
-            size = length * 16,
+            baseAlign = layout.strategy.vec4Align,
+            baseSize = layout.strategy.vec4Size,
+            length = length,
         ) {
             private val vector = Vector4f()
             private val list = object : AbstractMutableList<Vector4fc>() {
@@ -405,29 +459,30 @@ abstract class Std140Layout<L : Std140Layout<L>> {
 
                 override fun get(index: Int): Vector4fc {
                     checkIndex(index, length)
-                    return vector.apply { set(offset + index * 16, buffer) }
+                    return vector.apply { set(offset + index * stride, buffer) }
                 }
 
                 override fun set(index: Int, element: Vector4fc) = get(index).also {
-                    element.get(offset + index * 16, requireNotNull(buffer))
+                    element.get(offset + index * stride, requireNotNull(buffer))
                 }
             }
 
             override fun setValue(buffer: ByteBuffer, value: MutableList<Vector4fc>) {
                 require(value.size == length) { "List size mismatch" }
-                value.forEachIndexed { i, vec -> vec.get(offset + i * 16, buffer) }
+                value.forEachIndexed { i, vec -> vec.get(offset + i * stride, buffer) }
             }
 
             override fun getValue(buffer: ByteBuffer) = list.also { it.buffer = buffer }
         }
 
         class IVec2Array(
-            layout: Std140Layout<*>,
+            layout: GpuDataLayout<*>,
             private val length: Int,
-        ) : Field<MutableList<Vector2ic>>(
+        ) : ArrayField<MutableList<Vector2ic>>(
             layout = layout,
-            align = 16,
-            size = length * 16,
+            baseAlign = layout.strategy.vec2Align,
+            baseSize = layout.strategy.vec2Size,
+            length = length,
         ) {
             private val vector = Vector2i()
             private val list = object : AbstractMutableList<Vector2ic>() {
@@ -441,29 +496,30 @@ abstract class Std140Layout<L : Std140Layout<L>> {
 
                 override fun get(index: Int): Vector2ic {
                     checkIndex(index, length)
-                    return vector.apply { set(offset + index * 16, buffer) }
+                    return vector.apply { set(offset + index * stride, buffer) }
                 }
 
                 override fun set(index: Int, element: Vector2ic) = get(index).also {
-                    element.get(offset + index * 16, requireNotNull(buffer))
+                    element.get(offset + index * stride, requireNotNull(buffer))
                 }
             }
 
             override fun setValue(buffer: ByteBuffer, value: MutableList<Vector2ic>) {
                 require(value.size == length) { "List size mismatch" }
-                value.forEachIndexed { i, vec -> vec.get(offset + i * 16, buffer) }
+                value.forEachIndexed { i, vec -> vec.get(offset + i * stride, buffer) }
             }
 
             override fun getValue(buffer: ByteBuffer) = list.also { it.buffer = buffer }
         }
 
         class IVec3Array(
-            layout: Std140Layout<*>,
+            layout: GpuDataLayout<*>,
             private val length: Int,
-        ) : Field<MutableList<Vector3ic>>(
+        ) : ArrayField<MutableList<Vector3ic>>(
             layout = layout,
-            align = 16,
-            size = length * 16,
+            baseAlign = layout.strategy.vec3Align,
+            baseSize = layout.strategy.vec3Size,
+            length = length,
         ) {
             private val vector = Vector3i()
             private val list = object : AbstractMutableList<Vector3ic>() {
@@ -477,29 +533,30 @@ abstract class Std140Layout<L : Std140Layout<L>> {
 
                 override fun get(index: Int): Vector3ic {
                     checkIndex(index, length)
-                    return vector.apply { set(offset + index * 16, buffer) }
+                    return vector.apply { set(offset + index * stride, buffer) }
                 }
 
                 override fun set(index: Int, element: Vector3ic) = get(index).also {
-                    element.get(offset + index * 16, requireNotNull(buffer))
+                    element.get(offset + index * stride, requireNotNull(buffer))
                 }
             }
 
             override fun setValue(buffer: ByteBuffer, value: MutableList<Vector3ic>) {
                 require(value.size == length) { "List size mismatch" }
-                value.forEachIndexed { i, vec -> vec.get(offset + i * 16, buffer) }
+                value.forEachIndexed { i, vec -> vec.get(offset + i * stride, buffer) }
             }
 
             override fun getValue(buffer: ByteBuffer) = list.also { it.buffer = buffer }
         }
 
         class IVec4Array(
-            layout: Std140Layout<*>,
+            layout: GpuDataLayout<*>,
             private val length: Int,
-        ) : Field<MutableList<Vector4ic>>(
+        ) : ArrayField<MutableList<Vector4ic>>(
             layout = layout,
-            align = 16,
-            size = length * 16,
+            baseAlign = layout.strategy.vec4Align,
+            baseSize = layout.strategy.vec4Size,
+            length = length,
         ) {
             private val vector = Vector4i()
             private val list = object : AbstractMutableList<Vector4ic>() {
@@ -513,29 +570,30 @@ abstract class Std140Layout<L : Std140Layout<L>> {
 
                 override fun get(index: Int): Vector4ic {
                     checkIndex(index, length)
-                    return vector.apply { set(offset + index * 16, buffer) }
+                    return vector.apply { set(offset + index * stride, buffer) }
                 }
 
                 override fun set(index: Int, element: Vector4ic) = get(index).also {
-                    element.get(offset + index * 16, requireNotNull(buffer))
+                    element.get(offset + index * stride, requireNotNull(buffer))
                 }
             }
 
             override fun setValue(buffer: ByteBuffer, value: MutableList<Vector4ic>) {
                 require(value.size == length) { "List size mismatch" }
-                value.forEachIndexed { i, vec -> vec.get(offset + i * 16, buffer) }
+                value.forEachIndexed { i, vec -> vec.get(offset + i * stride, buffer) }
             }
 
             override fun getValue(buffer: ByteBuffer) = list.also { it.buffer = buffer }
         }
 
         class Mat4Array(
-            layout: Std140Layout<*>,
+            layout: GpuDataLayout<*>,
             private val length: Int,
-        ) : Field<MutableList<Matrix4fc>>(
+        ) : ArrayField<MutableList<Matrix4fc>>(
             layout = layout,
-            align = 16,
-            size = length * 64,
+            baseAlign = layout.strategy.mat4Align,
+            baseSize = layout.strategy.mat4Size,
+            length = length,
         ) {
             private val matrix = Matrix4f()
             private val list = object : AbstractMutableList<Matrix4fc>() {
@@ -549,17 +607,17 @@ abstract class Std140Layout<L : Std140Layout<L>> {
 
                 override fun get(index: Int): Matrix4fc {
                     checkIndex(index, length)
-                    return matrix.apply { set(offset + index * 64, buffer) }
+                    return matrix.apply { set(offset + index * stride, buffer) }
                 }
 
                 override fun set(index: Int, element: Matrix4fc) = get(index).also {
-                    element.get(offset + index * 64, requireNotNull(buffer))
+                    element.get(offset + index * stride, requireNotNull(buffer))
                 }
             }
 
             override fun setValue(buffer: ByteBuffer, value: MutableList<Matrix4fc>) {
                 require(value.size == length) { "List size mismatch" }
-                value.forEachIndexed { i, vec -> vec.get(offset + i * 64, buffer) }
+                value.forEachIndexed { i, vec -> vec.get(offset + i * stride, buffer) }
             }
 
             override fun getValue(buffer: ByteBuffer) = list.also { it.buffer = buffer }

@@ -1,10 +1,10 @@
 package top.fifthlight.blazerod.model.uniform
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice
-import top.fifthlight.blazerod.std140.Std140Layout
+import top.fifthlight.blazerod.layout.GpuDataLayout
 import top.fifthlight.blazerod.util.UniformBufferStorage
 
-abstract class UniformBuffer<T : UniformBuffer<T, L>, L : Std140Layout<L>>(
+abstract class UniformBuffer<T : UniformBuffer<T, L>, L : GpuDataLayout<L>>(
     val name: String,
 ) : AutoCloseable {
     protected var released = false

@@ -1,6 +1,7 @@
 package top.fifthlight.blazerod.model.uniform
 
-import top.fifthlight.blazerod.std140.Std140Layout
+import top.fifthlight.blazerod.layout.GpuDataLayout
+import top.fifthlight.blazerod.layout.LayoutStrategy
 
 object MorphDataUniformBuffer: UniformBuffer<MorphDataUniformBuffer, MorphDataUniformBuffer.MorphDataLayout>(
     name = "MorphDataUniformBuffer",
@@ -8,7 +9,9 @@ object MorphDataUniformBuffer: UniformBuffer<MorphDataUniformBuffer, MorphDataUn
     override val layout: MorphDataLayout
         get() = MorphDataLayout
 
-    object MorphDataLayout: Std140Layout<MorphDataLayout>() {
+    object MorphDataLayout: GpuDataLayout<MorphDataLayout>() {
+        override val strategy: LayoutStrategy
+            get() = LayoutStrategy.Std140LayoutStrategy
         var totalVertices by int()
         var posTargets by int()
         var colorTargets by int()
