@@ -8,7 +8,11 @@ import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.util.Identifier
 import org.joml.Matrix4fStack
 import org.joml.Matrix4fc
+import top.fifthlight.blazerod.model.data.ModelMatricesBuffer
+import top.fifthlight.blazerod.model.data.MorphTargetBuffer
+import top.fifthlight.blazerod.model.data.RenderSkinBuffer
 import top.fifthlight.blazerod.util.AbstractRefCount
+import top.fifthlight.blazerod.util.CowBufferList
 
 class RenderScene(
     val rootNode: RenderNode,
@@ -24,7 +28,7 @@ class RenderScene(
     val expressions: List<RenderExpression>,
     val expressionGroups: List<RenderExpressionGroup>,
     val cameras: List<RenderCamera>,
-): AbstractRefCount() {
+) : AbstractRefCount() {
     companion object {
         private val TYPE_ID = Identifier.of("blazerod", "scene")
     }
@@ -55,19 +59,39 @@ class RenderScene(
         rootNode.update(modelInstance, matrixStack, false)
     }
 
-    fun render(instance: ModelInstance, modelViewMatrix: Matrix4fc, light: Int) {
+    fun render(
+        modelViewMatrix: Matrix4fc,
+        light: Int,
+        modelMatricesBuffer: ModelMatricesBuffer,
+        skinBuffer: List<RenderSkinBuffer>?,
+        morphTargetBuffer: List<MorphTargetBuffer>?,
+    ) {
         for (node in primitiveNodes) {
-            node.render(instance, modelViewMatrix, light)
+            node.render(
+                scene = this,
+                modelViewMatrix = modelViewMatrix,
+                light = light,
+                modelMatricesBuffer = modelMatricesBuffer,
+                skinBuffer = skinBuffer,
+                morphTargetBuffer = morphTargetBuffer,
+            )
         }
     }
 
-    fun renderInstanced(tasks: List<RenderTask.Instance>) {
+    fun renderInstanced(tasks: List<RenderTask>) {
         when (tasks.size) {
             0 -> return
             1 -> {
                 val task = tasks.first()
-                render(task.instance, task.modelViewMatrix, task.light)
+                render(
+                    modelViewMatrix = task.modelViewMatrix,
+                    light = task.light,
+                    modelMatricesBuffer = task.modelMatricesBuffer.content,
+                    skinBuffer = CowBufferList(task.skinBuffer),
+                    morphTargetBuffer = CowBufferList(task.morphTargetBuffer),
+                )
             }
+
             else -> for (node in primitiveNodes) {
                 node.renderInstanced(tasks)
             }

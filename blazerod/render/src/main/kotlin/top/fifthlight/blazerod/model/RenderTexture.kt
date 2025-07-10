@@ -8,6 +8,7 @@ import net.minecraft.client.texture.NativeImage
 import net.minecraft.util.Identifier
 import top.fifthlight.blazerod.util.AbstractRefCount
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class RenderTexture(
     val texture: GpuTexture,
@@ -25,7 +26,7 @@ class RenderTexture(
     companion object {
         private val TYPE_ID = Identifier.of("blazerod", "gpu_texture")
         val WHITE_RGBA_TEXTURE by lazy {
-            val buffer = ByteBuffer.allocateDirect(16).asIntBuffer().apply {
+            val buffer = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder()).asIntBuffer().apply {
                 repeat(4) { put(0xFFFFFFFFu.toInt()) }
                 flip()
             }

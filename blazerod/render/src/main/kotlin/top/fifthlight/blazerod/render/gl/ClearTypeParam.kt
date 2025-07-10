@@ -23,7 +23,7 @@ enum class ClearTypeParam(
         internalFormat = GL32C.GL_R8UI,
         format = GL32C.GL_RED_INTEGER,
         type = GL32C.GL_UNSIGNED_BYTE,
-        data = ByteBuffer.allocateDirect(1).apply {
+        data = ByteBuffer.allocateDirect(1).order(ByteOrder.nativeOrder()).apply {
             put(0xFF.toByte())
             flip()
         },
@@ -33,8 +33,7 @@ enum class ClearTypeParam(
         internalFormat = GL32C.GL_R32F,
         format = GL32C.GL_RED,
         type = GL32C.GL_FLOAT,
-        data = ByteBuffer.allocateDirect(4).apply {
-            order(ByteOrder.nativeOrder())
+        data = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder()).apply {
             putFloat(0, 1f)
         },
         align = 4,

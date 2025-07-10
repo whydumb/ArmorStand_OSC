@@ -49,3 +49,5 @@ inline fun <T, reified R> List<T>.mapToArrayIndexed(func: (Int, T) -> R): Array<
     val iterator = iterator()
     return Array(size) { func(it, iterator.next()) }
 }
+
+inline fun <T, reified R> Array<T>.mapToArray(func: (T) -> R) = Array(size) { func(this[it]) }

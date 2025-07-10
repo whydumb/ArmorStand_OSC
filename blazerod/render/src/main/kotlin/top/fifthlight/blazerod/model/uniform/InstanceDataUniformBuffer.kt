@@ -17,6 +17,5 @@ object InstanceDataUniformBuffer : UniformBuffer<InstanceDataUniformBuffer, Inst
         var primitiveIndex by int()
         var modelViewMatrices by mat4Array(BlazeRod.INSTANCE_SIZE)
         var lightMapUvs by ivec2Array(BlazeRod.INSTANCE_SIZE)
-        val localMatricesIndices by intArray(BlazeRod.INSTANCE_SIZE)
     }
 }

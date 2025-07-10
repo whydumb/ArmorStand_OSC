@@ -5,6 +5,7 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice
 import com.mojang.blaze3d.buffers.GpuFence
 import com.mojang.blaze3d.systems.RenderSystem
 import net.minecraft.util.Identifier
+import java.nio.ByteBuffer
 import java.util.TreeSet
 import kotlin.AutoCloseable
 import kotlin.Boolean
@@ -166,11 +167,13 @@ sealed class GpuShaderDataPool : AutoCloseable {
         private val waitingFrameData = ArrayDeque<FrameData>()
 
         private var currentFrame: Int = 0
-        private fun getFrameData(frameNumber: Int) = allFrameData.getOrNull(allFrameData.lastIndex - (frameNumber - currentFrame))
+        private fun getFrameData(frameNumber: Int) =
+            allFrameData.getOrNull(allFrameData.lastIndex - (frameNumber - currentFrame))
 
         override fun allocate(size: Int): GpuBufferSlice {
             require(size > 0) { "Size must be positive" }
-            val frameData = getFrameData(currentFrame) ?: error("No frame data of frame $currentFrame, this should not happen!")
+            val frameData =
+                getFrameData(currentFrame) ?: error("No frame data of frame $currentFrame, this should not happen!")
 
             val foundBuffer = BufferItem.acquire(size).use {
                 availableBuffers.ceiling(it)
@@ -238,4 +241,30 @@ sealed class GpuShaderDataPool : AutoCloseable {
             availableBuffers.clear()
         }
     }
+}
+
+fun GpuShaderDataPool.write(size: Int, block: ByteBuffer.() -> Unit) = allocate(size).also {
+    val commandEncoder = RenderSystem.getDevice().createCommandEncoder()
+    commandEncoder.mapBuffer(it, false, true).use { mapped ->
+        block(mapped.data())
+    }
+}
+
+fun GpuShaderDataPool.upload(byteBuffer: ByteBuffer) = write(byteBuffer.capacity()){
+    val copied = byteBuffer.duplicate()
+    copied.clear()
+    put(copied)
+}
+
+fun GpuShaderDataPool.upload(byteBuffers: List<ByteBuffer>) = write(byteBuffers.sumOf { it.capacity() }) {
+    byteBuffers.forEach {
+        val copied = it.duplicate()
+        copied.clear()
+        put(copied)
+    }
+}
+
+// Assume each ByteBuffer has same size
+fun <T> GpuShaderDataPool.upload(list: List<T>, transform: (T) -> ByteBuffer) {
+    TODO()
 }

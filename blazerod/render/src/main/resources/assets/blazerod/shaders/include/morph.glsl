@@ -74,22 +74,15 @@ int fetchModelTargetIndex(int modelIndex, int index, int offset) {
 #define MORPH_INSTANCE_ID 0
 #endif // INSTANCED
 
-layout(std140) uniform MorphModelIndices {
-    int morphWeightIndices[INSTANCE_SIZE];
-    int morphIndexIndices[INSTANCE_SIZE];
-};
-
 vec3 applyPositionMorph(vec3 basePos) {
     vec3 delta = vec3(0.0);
-    int indexIndex = morphIndexIndices[MORPH_INSTANCE_ID];
-    int weightIndex = morphWeightIndices[MORPH_INSTANCE_ID];
-    int targetSize = fetchModelTargetSize(indexIndex, 0);
+    int targetSize = fetchModelTargetSize(MORPH_INSTANCE_ID, 0);
     for(int i = 0; i < MAX_ENABLED_MORPH_TARGETS; i++) {
         if (i >= targetSize) {
             break;
         }
-        int targetIndex = fetchModelTargetIndex(indexIndex, i, 0);
-        float weight = fetchPositionWeight(weightIndex, targetIndex);
+        int targetIndex = fetchModelTargetIndex(MORPH_INSTANCE_ID, i, 0);
+        float weight = fetchPositionWeight(MORPH_INSTANCE_ID, targetIndex);
         delta += texelFetch(MorphPositionData, gl_VertexID + targetIndex * TotalVertices).xyz * weight;
     }
     return basePos + delta;
@@ -97,15 +90,13 @@ vec3 applyPositionMorph(vec3 basePos) {
 
 vec4 applyColorMorph(vec4 baseColor) {
     vec4 delta = vec4(0.0);
-    int indexIndex = morphIndexIndices[MORPH_INSTANCE_ID];
-    int weightIndex = morphWeightIndices[MORPH_INSTANCE_ID];
-    int targetSize = fetchModelTargetSize(indexIndex, 1);
+    int targetSize = fetchModelTargetSize(MORPH_INSTANCE_ID, 1);
     for(int i = 0; i < MAX_ENABLED_MORPH_TARGETS; i++) {
         if (i >= targetSize) {
             break;
         }
-        int targetIndex = fetchModelTargetIndex(indexIndex, i, 1);
-        float weight = fetchColorWeight(weightIndex, targetIndex);
+        int targetIndex = fetchModelTargetIndex(MORPH_INSTANCE_ID, i, 1);
+        float weight = fetchColorWeight(MORPH_INSTANCE_ID, targetIndex);
         delta += texelFetch(MorphColorData, gl_VertexID + targetIndex * TotalVertices) * weight;
     }
     return baseColor + delta;
@@ -113,15 +104,13 @@ vec4 applyColorMorph(vec4 baseColor) {
 
 vec2 applyTexCoordMorph(vec2 baseUV) {
     vec2 delta = vec2(0.0);
-    int indexIndex = morphIndexIndices[MORPH_INSTANCE_ID];
-    int weightIndex = morphWeightIndices[MORPH_INSTANCE_ID];
-    int targetSize = fetchModelTargetSize(indexIndex, 2);
+    int targetSize = fetchModelTargetSize(MORPH_INSTANCE_ID, 2);
     for(int i = 0; i < MAX_ENABLED_MORPH_TARGETS; i++) {
         if (i >= targetSize) {
             break;
         }
-        int targetIndex = fetchModelTargetIndex(indexIndex, i, 2);
-        float weight = fetchTexCoordWeight(weightIndex, targetIndex);
+        int targetIndex = fetchModelTargetIndex(MORPH_INSTANCE_ID, i, 2);
+        float weight = fetchTexCoordWeight(MORPH_INSTANCE_ID, targetIndex);
         delta += texelFetch(MorphTexCoordData, gl_VertexID + targetIndex * TotalVertices).xy * weight;
     }
     return baseUV + delta;

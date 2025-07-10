@@ -51,7 +51,7 @@ public class BallBlockMod implements ClientModInitializer {
         var loader = new ModelLoader();
         BALL_SCENE = loader.loadModel(model);
         BALL_SCENE.increaseReferenceCount();
-        BALL_INSTANCE = new ModelInstance(BALL_SCENE, ModelBufferManager.INSTANCE.getEntry(BALL_SCENE));
+        BALL_INSTANCE = new ModelInstance(BALL_SCENE);
         BALL_INSTANCE.increaseReferenceCount();
         var rootTransformNodeIndex = BALL_SCENE.getRootTransformNodeIndex();
         var rootTransformNode = (RenderNode.Transform) BALL_SCENE.getNodes().get(rootTransformNodeIndex);

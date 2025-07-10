@@ -1,14 +1,15 @@
 package top.fifthlight.blazerod.model
 
-import net.minecraft.client.gl.RenderPassImpl
 import net.minecraft.client.render.RenderLayer
 import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.util.Colors
 import net.minecraft.util.Identifier
 import org.joml.*
+import top.fifthlight.blazerod.model.data.ModelMatricesBuffer
+import top.fifthlight.blazerod.model.data.MorphTargetBuffer
+import top.fifthlight.blazerod.model.data.RenderSkinBuffer
 import top.fifthlight.blazerod.util.AbstractRefCount
-import top.fifthlight.blazerod.util.SlottedGpuBuffer
 import top.fifthlight.blazerod.util.drawBox
 import top.fifthlight.blazerod.util.iteratorOf
 
@@ -93,46 +94,36 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
                 return
             }
             if (skinIndex == null) {
-                instance.modelData.modelMatricesBuffer.setMatrix(primitiveIndex, matrixStack)
+                instance.modelData.modelMatricesBuffer.edit {
+                    setMatrix(primitiveIndex, matrixStack)
+                }
             }
         }
 
-        fun render(instance: ModelInstance, modelViewMatrix: Matrix4fc, light: Int) {
-            val skinBuffer = skinIndex?.let { instance.modelData.skinBuffers[it] }
-            val targetBuffer = morphedPrimitiveIndex?.let { instance.modelData.targetBuffers[it] }
-            primitive.render(instance, primitiveIndex, modelViewMatrix, light, skinBuffer, targetBuffer)
+        fun render(
+            scene: RenderScene,
+            modelViewMatrix: Matrix4fc,
+            light: Int,
+            modelMatricesBuffer: ModelMatricesBuffer,
+            skinBuffer: List<RenderSkinBuffer>?,
+            morphTargetBuffer: List<MorphTargetBuffer>?,
+        ) {
+            primitive.render(
+                scene = scene,
+                primitiveIndex = primitiveIndex,
+                viewModelMatrix = modelViewMatrix,
+                light = light,
+                modelMatricesBuffer = modelMatricesBuffer,
+                skinBuffer = skinIndex?.let {
+                    (skinBuffer ?: error("Has skin but no skin buffer"))[it]
+                },
+                targetBuffer = morphedPrimitiveIndex?.let {
+                    (morphTargetBuffer ?: error("Has morph targets but no morph target buffer"))[it]
+                }
+            )
         }
 
-        fun renderInstanced(tasks: List<RenderTask.Instance>) {
-            if (RenderPassImpl.IS_DEVELOPMENT) {
-                val firstInstance = tasks.first().instance
-                skinIndex?.let {
-                    val firstBufferSlot = firstInstance.modelData.skinBuffers[it].slot
-                    require(firstBufferSlot is SlottedGpuBuffer.Slotted)
-                    val buffer = firstBufferSlot.buffer
-                    for (task in tasks) {
-                        val bufferSlot = task.instance.modelData.skinBuffers[it].slot
-                        require(bufferSlot is SlottedGpuBuffer.Slotted)
-                        require(bufferSlot.buffer == buffer)
-                    }
-                }
-                morphedPrimitiveIndex?.let {
-                    val firstWeightsBufferSlot = firstInstance.modelData.targetBuffers[it].weightsSlot
-                    val firstIndicesBufferSlot = firstInstance.modelData.targetBuffers[it].indicesSlot
-                    require(firstWeightsBufferSlot is SlottedGpuBuffer.Slotted)
-                    require(firstIndicesBufferSlot is SlottedGpuBuffer.Slotted)
-                    val weightsBuffer = firstWeightsBufferSlot.buffer
-                    val indicesBuffer = firstIndicesBufferSlot.buffer
-                    for (task in tasks) {
-                        val weightsBufferSlot = task.instance.modelData.targetBuffers[it].weightsSlot
-                        val indicesBufferSlot = task.instance.modelData.targetBuffers[it].indicesSlot
-                        require(weightsBufferSlot is SlottedGpuBuffer.Slotted)
-                        require(indicesBufferSlot is SlottedGpuBuffer.Slotted)
-                        require(weightsBufferSlot.buffer == weightsBuffer)
-                        require(indicesBufferSlot.buffer == indicesBuffer)
-                    }
-                }
-            }
+        fun renderInstanced(tasks: List<RenderTask>) {
             primitive.renderInstanced(tasks, this)
         }
 
@@ -276,11 +267,13 @@ sealed class RenderNode : AbstractRefCount(), Iterable<RenderNode> {
 
             val matrix = cacheMatrix
             matrix.set(matrixStack)
+            val skin = instance.scene.skins[skinIndex]
             val skinBuffer = instance.modelData.skinBuffers[skinIndex]
-
-            val inverseMatrix = skinBuffer.skin.inverseBindMatrices?.get(jointIndex)
-            inverseMatrix?.let { matrix.mul(it) }
-            skinBuffer.setMatrix(jointIndex, matrix)
+            val inverseMatrix = skin.inverseBindMatrices?.get(jointIndex)
+            skinBuffer.edit {
+                inverseMatrix?.let { matrix.mul(it) }
+                setMatrix(jointIndex, matrix)
+            }
         }
 
         override fun iterator() = iteratorOf<RenderNode>()

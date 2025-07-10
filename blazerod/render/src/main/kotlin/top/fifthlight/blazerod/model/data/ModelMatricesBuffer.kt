@@ -1,34 +1,46 @@
 package top.fifthlight.blazerod.model.data
 
+import net.minecraft.util.Identifier
 import org.joml.Matrix4f
 import org.joml.Matrix4fc
 import top.fifthlight.blazerod.model.RenderScene
-import top.fifthlight.blazerod.util.SlottedGpuBuffer
+import top.fifthlight.blazerod.util.AbstractRefCount
+import top.fifthlight.blazerod.util.CowBuffer
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
-class ModelMatricesBuffer(
-    scene: RenderScene,
-    val slot: SlottedGpuBuffer.Slot,
-) : AutoCloseable {
+class ModelMatricesBuffer private constructor(val primitiveNodesSize: Int) : CowBuffer.Content<ModelMatricesBuffer>,
+    AbstractRefCount() {
+    constructor(scene: RenderScene) : this(scene.primitiveNodes.size)
+
     companion object {
         private val IDENTITY = Matrix4f()
         const val MAT4X4_SIZE = 4 * 4 * 4
+        private val TYPE_ID = Identifier.of("blazerod", "model_matrices_buffer")
     }
 
-    init {
-        require(slot.size == scene.primitiveNodes.size * MAT4X4_SIZE) { "Slot size mismatch: want ${scene.primitiveNodes.size * MAT4X4_SIZE}, but got ${slot.size}" }
-    }
+    override val typeId: Identifier
+        get() = TYPE_ID
 
-    private val primitiveNodesSize = scene.primitiveNodes.size
+    val buffer: ByteBuffer = ByteBuffer.allocateDirect(primitiveNodesSize * MAT4X4_SIZE).order(ByteOrder.nativeOrder())
 
-    fun clear() = slot.edit {
+    fun clear() {
         repeat(primitiveNodesSize) {
-            IDENTITY.get(it * MAT4X4_SIZE, this)
+            buffer.position(it * MAT4X4_SIZE)
+            IDENTITY.get(it * MAT4X4_SIZE, buffer)
         }
+        buffer.clear()
     }
 
-    override fun close() = slot.close()
-
-    fun setMatrix(index: Int, matrix4f: Matrix4fc) = slot.edit {
-        matrix4f.get(index * MAT4X4_SIZE, this)
+    fun setMatrix(index: Int, matrix4f: Matrix4fc) {
+        buffer.position(index * MAT4X4_SIZE)
+        matrix4f.get(index * MAT4X4_SIZE, buffer)
     }
+
+    override fun copy(): ModelMatricesBuffer = ModelMatricesBuffer(primitiveNodesSize).also {
+        it.buffer.put(buffer)
+        it.buffer.clear()
+    }
+
+    override fun onClosed() = Unit
 }

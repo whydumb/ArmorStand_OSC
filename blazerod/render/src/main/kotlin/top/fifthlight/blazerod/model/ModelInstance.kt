@@ -11,16 +11,16 @@ import org.joml.Vector3f
 import top.fifthlight.blazerod.BlazeRod
 import top.fifthlight.blazerod.model.data.ModelMatricesBuffer
 import top.fifthlight.blazerod.model.data.RenderSkinBuffer
-import top.fifthlight.blazerod.model.data.RenderTargetBuffer
+import top.fifthlight.blazerod.model.data.MorphTargetBuffer
 import top.fifthlight.blazerod.util.AbstractRefCount
+import top.fifthlight.blazerod.util.CowBuffer
+import top.fifthlight.blazerod.util.CowBufferList
+import top.fifthlight.blazerod.util.copy
 import top.fifthlight.blazerod.util.mapToArray
 import top.fifthlight.blazerod.util.mapToArrayIndexed
 import java.util.function.Consumer
 
-class ModelInstance(
-    val scene: RenderScene,
-    bufferEntry: ModelBufferManager.BufferEntry,
-) : AbstractRefCount() {
+class ModelInstance(val scene: RenderScene) : AbstractRefCount() {
     companion object {
         private val TYPE_ID = Identifier.of("blazerod", "model_instance")
     }
@@ -28,23 +28,13 @@ class ModelInstance(
     override val typeId: Identifier
         get() = TYPE_ID
 
-    val modelData = ModelData(
-        scene = scene,
-        bufferEntry = bufferEntry,
-    )
+    val modelData = ModelData(scene)
 
     init {
         scene.increaseReferenceCount()
     }
 
-    class ModelData(
-        scene: RenderScene,
-        private val bufferEntry: ModelBufferManager.BufferEntry,
-    ) : AutoCloseable {
-        init {
-            bufferEntry.increaseReferenceCount()
-        }
-
+    class ModelData(scene: RenderScene) : AutoCloseable {
         val defaultTransforms = scene.transformNodeIndices.mapToArray { nodeIndex ->
             val node = scene.nodes[nodeIndex] as RenderNode.Transform
             node.defaultTransform?.clone()
@@ -56,27 +46,25 @@ class ModelInstance(
 
         val transformsDirty = Array(scene.transformNodeIndices.size) { true }
 
-        val modelMatricesBuffer = ModelMatricesBuffer(scene, bufferEntry.modelMatricesBuffers.allocateSlot()).also {
-            it.clear()
+        val modelMatricesBuffer = run {
+            val buffer = ModelMatricesBuffer(scene)
+            buffer.clear()
+            CowBuffer.acquire(buffer).also { it.increaseReferenceCount() }
         }
 
-        val skinBuffers = scene.skins.mapToArrayIndexed { index, skin ->
-            RenderSkinBuffer(skin, bufferEntry.skinBuffers[index].allocateSlot()).also {
-                it.clear()
-            }
+        val skinBuffers = scene.skins.mapIndexed { index, skin ->
+            val skinBuffer = RenderSkinBuffer(skin)
+            skinBuffer.clear()
+            CowBuffer.acquire(skinBuffer).also { it.increaseReferenceCount() }
         }
 
-        val targetBuffers = scene.morphedPrimitiveNodeIndices.mapToArrayIndexed { index, nodeIndex ->
+        val targetBuffers = scene.morphedPrimitiveNodeIndices.mapIndexed { index, nodeIndex ->
             val node = scene.nodes[nodeIndex] as RenderNode.Primitive
             val primitive = node.primitive
             val targets = primitive.targets!!
-            val targetBuffers = RenderTargetBuffer(
-                targets = targets,
-                weightsSlot = bufferEntry.morphWeightBuffers[index].allocateSlot(),
-                indicesSlot = bufferEntry.morphIndicesBuffers[index].allocateSlot(),
-            )
+            val targetBuffers = MorphTargetBuffer(targets)
             for (targetGroup in primitive.targetGroups) {
-                fun processGroup(index: Int?, channel: RenderTargetBuffer.WeightChannel, weight: Float) =
+                fun processGroup(index: Int?, channel: MorphTargetBuffer.WeightChannel, weight: Float) =
                     index?.let {
                         channel[index] = weight
                     }
@@ -84,18 +72,15 @@ class ModelInstance(
                 processGroup(targetGroup.color, targetBuffers.colorChannel, targetGroup.weight)
                 processGroup(targetGroup.texCoord, targetBuffers.texCoordChannel, targetGroup.weight)
             }
-            targetBuffers
+            CowBuffer.acquire(targetBuffers).also { it.increaseReferenceCount() }
         }
 
-        val cameraTransforms = scene.cameras.mapToArray { CameraTransform(it.camera) }
+        val cameraTransforms = scene.cameras.map { CameraTransform(it.camera) }
 
         override fun close() {
-            // release slots
-            modelMatricesBuffer.close()
-            skinBuffers.forEach { it.close() }
-            targetBuffers.forEach { it.close() }
-            // release underlying slot buffer
-            bufferEntry.decreaseReferenceCount()
+            modelMatricesBuffer.decreaseReferenceCount()
+            skinBuffers.forEach { it.decreaseReferenceCount() }
+            targetBuffers.forEach { it.decreaseReferenceCount() }
         }
     }
 
@@ -190,9 +175,11 @@ class ModelInstance(
         val weightsIndex =
             requireNotNull(node.morphedPrimitiveIndex) { "Node $nodeIndex don't have target? Check model loader" }
         val weights = modelData.targetBuffers[weightsIndex]
-        group.position?.let { weights.positionChannel[it] = weight }
-        group.color?.let { weights.colorChannel[it] = weight }
-        group.texCoord?.let { weights.texCoordChannel[it] = weight }
+        weights.edit {
+            group.position?.let { positionChannel[it] = weight }
+            group.color?.let { colorChannel[it] = weight }
+            group.texCoord?.let { texCoordChannel[it] = weight }
+        }
     }
 
     private val updateMatrixStack = Matrix4fStack(BlazeRod.MAX_TRANSFORM_DEPTH)
@@ -210,13 +197,29 @@ class ModelInstance(
     }
 
     fun render(modelViewMatrix: Matrix4fc, light: Int) {
-        scene.render(this, modelViewMatrix, light)
+        // Upload indices don't change the actual data
+        modelData.targetBuffers.forEach { it.content.uploadIndices() }
+        scene.render(
+            modelViewMatrix = modelViewMatrix,
+            light = light,
+            modelMatricesBuffer = modelData.modelMatricesBuffer.content,
+            skinBuffer = CowBufferList(modelData.skinBuffers),
+            morphTargetBuffer = CowBufferList(modelData.targetBuffers),
+        )
     }
 
-    fun schedule(modelViewMatrix: Matrix4fc, light: Int) = RenderTask.Instance.acquire(
+    fun schedule(modelViewMatrix: Matrix4fc, light: Int): RenderTask = RenderTask.acquire(
         instance = this,
         modelViewMatrix = modelViewMatrix,
         light = light,
+        modelMatricesBuffer = modelData.modelMatricesBuffer.copy(),
+        skinBuffer = modelData.skinBuffers.copy(),
+        morphTargetBuffer = modelData.targetBuffers.copy().also { buffer ->
+            // Upload indices don't change the actual data
+            buffer.forEach {
+                it.content.uploadIndices()
+            }
+        },
     )
 
     override fun onClosed() {

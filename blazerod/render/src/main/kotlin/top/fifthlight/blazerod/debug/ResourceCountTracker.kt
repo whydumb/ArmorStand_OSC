@@ -13,7 +13,8 @@ class ResourceCountTracker {
 
     fun decrease(identifier: Identifier) {
         refCounts.compute(identifier) { key, value ->
-            check(value != null) { "Decrease zero count: $key" }
+            // Crash at here!
+            check(value != null && value > 0) { "Decrease null or zero count: $key" }
             value - 1
         }
     }

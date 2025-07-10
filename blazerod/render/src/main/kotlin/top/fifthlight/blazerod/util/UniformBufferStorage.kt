@@ -29,7 +29,7 @@ class UniformBufferStorage(
         buffer = SlicedMappableRingBuffer(
             nameSupplier = { "$name (capacity $capacity)" },
             usage = GpuBuffer.USAGE_MAP_WRITE or GpuBuffer.USAGE_UNIFORM,
-            size = realBlockSize * capacity + alignment,
+            size = realBlockSize * capacity,
             alignment = alignment,
         )
         UniformBufferTracker.instance?.set(name, capacity)
@@ -55,7 +55,7 @@ class UniformBufferStorage(
         buffer = SlicedMappableRingBuffer(
             nameSupplier = { "$name (capacity $capacity)" },
             usage = GpuBuffer.USAGE_MAP_WRITE or GpuBuffer.USAGE_UNIFORM,
-            size = realBlockSize * capacity + alignment,
+            size = realBlockSize * capacity,
             alignment = alignment,
         )
     }

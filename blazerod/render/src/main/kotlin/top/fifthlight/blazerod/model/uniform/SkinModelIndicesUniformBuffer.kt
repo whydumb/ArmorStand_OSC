@@ -1,6 +1,5 @@
 package top.fifthlight.blazerod.model.uniform
 
-import top.fifthlight.blazerod.BlazeRod
 import top.fifthlight.blazerod.layout.GpuDataLayout
 import top.fifthlight.blazerod.layout.LayoutStrategy
 
@@ -14,6 +13,5 @@ object SkinModelIndicesUniformBuffer : UniformBuffer<SkinModelIndicesUniformBuff
         override val strategy: LayoutStrategy
             get() = LayoutStrategy.Std140LayoutStrategy
         var skinJoints by int()
-        var skinModelOffsets by intArray(BlazeRod.INSTANCE_SIZE)
     }
 }

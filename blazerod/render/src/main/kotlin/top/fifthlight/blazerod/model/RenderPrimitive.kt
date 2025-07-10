@@ -11,20 +11,20 @@ import net.minecraft.client.render.LightmapTextureManager
 import net.minecraft.util.Identifier
 import org.joml.Matrix4fc
 import org.joml.Vector2i
-import top.fifthlight.blazerod.extension.setVertexBuffer
 import top.fifthlight.blazerod.extension.draw
+import top.fifthlight.blazerod.extension.setVertexBuffer
+import top.fifthlight.blazerod.extension.shaderDataPool
+import top.fifthlight.blazerod.model.data.ModelMatricesBuffer
+import top.fifthlight.blazerod.model.data.MorphTargetBuffer
 import top.fifthlight.blazerod.model.data.RenderSkinBuffer
-import top.fifthlight.blazerod.model.data.RenderTargetBuffer
 import top.fifthlight.blazerod.model.uniform.InstanceDataUniformBuffer
 import top.fifthlight.blazerod.model.uniform.MorphDataUniformBuffer
-import top.fifthlight.blazerod.model.uniform.MorphModelIndicesUniformBuffer
 import top.fifthlight.blazerod.model.uniform.SkinModelIndicesUniformBuffer
-import top.fifthlight.blazerod.model.uniform.UniformBuffer
 import top.fifthlight.blazerod.render.IndexBuffer
 import top.fifthlight.blazerod.render.VertexBuffer
 import top.fifthlight.blazerod.render.setIndexBuffer
 import top.fifthlight.blazerod.util.AbstractRefCount
-import top.fifthlight.blazerod.util.SlottedGpuBuffer
+import top.fifthlight.blazerod.util.upload
 import java.util.*
 
 class RenderPrimitive(
@@ -78,30 +78,30 @@ class RenderPrimitive(
     private val lightVector = Vector2i()
 
     fun render(
-        instance: ModelInstance,
+        scene: RenderScene,
         primitiveIndex: Int,
         viewModelMatrix: Matrix4fc,
         light: Int,
+        modelMatricesBuffer: ModelMatricesBuffer,
         skinBuffer: RenderSkinBuffer?,
-        targetBuffer: RenderTargetBuffer?,
+        targetBuffer: MorphTargetBuffer?,
     ) {
         val mainColorTextureView: GpuTextureView = MinecraftClient.getInstance().framebuffer.colorAttachmentView!!
         val mainDepthTextureView: GpuTextureView? = MinecraftClient.getInstance().framebuffer.depthAttachmentView
         val device = RenderSystem.getDevice()
         val commandEncoder = device.createCommandEncoder()
         var renderPass: RenderPass? = null
-        var instanceDataUniformBuffer: GpuBufferSlice? = null
-        var localMatricsBuffer: GpuBuffer? = null
-        var skinModelIndices: GpuBufferSlice? = null
-        var skinJointBuffer: GpuBuffer? = null
-        var morphDataUniformBuffer: GpuBufferSlice? = null
-        var morphModelIndices: GpuBufferSlice? = null
-        var morphWeightsBuffer: GpuBuffer? = null
-        var morphTargetIndicesBuffer: GpuBuffer? = null
+        val instanceDataUniformBufferSlice: GpuBufferSlice
+        val modelMatricesBufferSlice: GpuBufferSlice
+        var skinModelIndicesBufferSlice: GpuBufferSlice? = null
+        var skinJointBufferSlice: GpuBufferSlice? = null
+        var morphDataUniformBufferSlice: GpuBufferSlice? = null
+        var morphWeightsBufferSlice: GpuBufferSlice? = null
+        var morphTargetIndicesBufferSlice: GpuBufferSlice? = null
 
         try {
-            instanceDataUniformBuffer = InstanceDataUniformBuffer.write {
-                primitiveSize = instance.scene.primitiveNodes.size
+            instanceDataUniformBufferSlice = InstanceDataUniformBuffer.write {
+                primitiveSize = scene.primitiveNodes.size
                 this.primitiveIndex = primitiveIndex
                 this.modelViewMatrices[0] = viewModelMatrix
                 lightVector.set(
@@ -109,41 +109,17 @@ class RenderPrimitive(
                     (light shr 16) and (LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE or 0xFF0F)
                 )
                 this.lightMapUvs[0] = lightVector
-                when (val slot = instance.modelData.modelMatricesBuffer.slot) {
-                    is SlottedGpuBuffer.Slotted -> {
-                        localMatricesIndices.set(0, slot.index)
-                        localMatricsBuffer = slot.buffer.getBuffer()
-                    }
-
-                    is SlottedGpuBuffer.Unslotted -> {
-                        localMatricesIndices.set(0, 0)
-                        localMatricsBuffer = slot.getBuffer()
-                    }
-                }
             }
+            modelMatricesBufferSlice = device.shaderDataPool.upload(modelMatricesBuffer.buffer)
             skinBuffer?.let { skinBuffer ->
-                val slot = skinBuffer.slot
-                when (slot) {
-                    is SlottedGpuBuffer.Slotted -> {
-                        skinModelIndices = SkinModelIndicesUniformBuffer.write {
-                            skinJoints = skinBuffer.skin.jointSize
-                            skinModelOffsets.set(0, slot.index)
-                        }
-                        skinJointBuffer = slot.buffer.getBuffer()
-                    }
-
-                    is SlottedGpuBuffer.Unslotted -> {
-                        skinModelIndices = SkinModelIndicesUniformBuffer.write {
-                            skinJoints = skinBuffer.skin.jointSize
-                            skinModelOffsets.set(0, 0)
-                        }
-                        skinJointBuffer = slot.getBuffer()
-                    }
+                skinModelIndicesBufferSlice = SkinModelIndicesUniformBuffer.write {
+                    skinJoints = skinBuffer.jointSize
                 }
+                skinJointBufferSlice = device.shaderDataPool.upload(skinBuffer.buffer)
             }
             targetBuffer?.let { targetBuffer ->
                 targets?.let { targets ->
-                    morphDataUniformBuffer = MorphDataUniformBuffer.write {
+                    morphDataUniformBufferSlice = MorphDataUniformBuffer.write {
                         totalVertices = vertexBuffer.verticesCount
                         posTargets = targets.position.targetsCount
                         colorTargets = targets.color.targetsCount
@@ -152,31 +128,8 @@ class RenderPrimitive(
                             targets.position.targetsCount + targets.color.targetsCount + targets.texCoord.targetsCount
                     }
                 }
-                targetBuffer.uploadIndices()
-                morphModelIndices = MorphModelIndicesUniformBuffer.write {
-                    when (val slot = targetBuffer.weightsSlot) {
-                        is SlottedGpuBuffer.Slotted -> {
-                            morphWeightIndices.set(0, slot.index)
-                            morphWeightsBuffer = slot.buffer.getBuffer()
-                        }
-
-                        is SlottedGpuBuffer.Unslotted -> {
-                            morphWeightIndices.set(0, 0)
-                            morphWeightsBuffer = slot.getBuffer()
-                        }
-                    }
-                    when (val slot = targetBuffer.indicesSlot) {
-                        is SlottedGpuBuffer.Slotted -> {
-                            morphIndexIndices.set(0, slot.index)
-                            morphTargetIndicesBuffer = slot.buffer.getBuffer()
-                        }
-
-                        is SlottedGpuBuffer.Unslotted -> {
-                            morphIndexIndices.set(0, 0)
-                            morphTargetIndicesBuffer = slot.getBuffer()
-                        }
-                    }
-                }
+                morphWeightsBufferSlice = device.shaderDataPool.upload(targetBuffer.weightsBuffer)
+                morphTargetIndicesBufferSlice = device.shaderDataPool.upload(targetBuffer.indicesBuffer)
             }
 
             renderPass = material.setup {
@@ -195,24 +148,21 @@ class RenderPrimitive(
                         "Primitive's skin data ${skinBuffer != null} and material skinned ${material.skinned} not matching"
                     }
                 }
-                setUniform("InstanceData", instanceDataUniformBuffer)
-                setUniform("LocalMatrices", localMatricsBuffer)
-                skinJointBuffer?.let { skinJointBuffer ->
+                setUniform("InstanceData", instanceDataUniformBufferSlice)
+                setUniform("LocalMatrices", modelMatricesBufferSlice)
+                skinJointBufferSlice?.let { skinJointBuffer ->
                     setUniform("Joints", skinJointBuffer)
                 }
-                skinModelIndices?.let { skinModelIndices ->
+                skinModelIndicesBufferSlice?.let { skinModelIndices ->
                     setUniform("SkinModelIndices", skinModelIndices)
                 }
-                morphModelIndices?.let { morphModelIndices ->
-                    setUniform("MorphModelIndices", morphModelIndices)
-                }
-                morphDataUniformBuffer?.let { morphDataUniformBuffer ->
+                morphDataUniformBufferSlice?.let { morphDataUniformBuffer ->
                     setUniform("MorphData", morphDataUniformBuffer)
                 }
-                morphWeightsBuffer?.let { morphWeightsBuffer ->
+                morphWeightsBufferSlice?.let { morphWeightsBuffer ->
                     setUniform("MorphWeights", morphWeightsBuffer)
                 }
-                morphTargetIndicesBuffer?.let { morphTargetIndicesBuffer ->
+                morphTargetIndicesBufferSlice?.let { morphTargetIndicesBuffer ->
                     setUniform("MorphTargetIndices", morphTargetIndicesBuffer)
                 }
                 setVertexBuffer(vertexBuffer)
@@ -232,7 +182,7 @@ class RenderPrimitive(
     }
 
     fun renderInstanced(
-        tasks: List<RenderTask.Instance>,
+        tasks: List<RenderTask>,
         node: RenderNode.Primitive,
     ) {
         require(material.supportInstancing) { "Primitives which cannot be instanced were scheduled" }
@@ -242,22 +192,20 @@ class RenderPrimitive(
         val device = RenderSystem.getDevice()
         val commandEncoder = device.createCommandEncoder()
         var renderPass: RenderPass? = null
-        var instanceDataUniformBuffer: GpuBufferSlice? = null
-        var localMatricsBuffer: GpuBuffer? = null
-        var skinModelIndices: GpuBufferSlice? = null
-        var skinJointBuffer: GpuBuffer? = null
-        var morphDataUniformBuffer: GpuBufferSlice? = null
-        var morphModelIndices: GpuBufferSlice? = null
-        var morphWeightsBuffer: GpuBuffer? = null
-        var morphTargetIndicesBuffer: GpuBuffer? = null
+        val instanceDataUniformBufferSlice: GpuBufferSlice
+        val modelMatricesBufferSlice: GpuBufferSlice
+        var skinModelIndicesBufferSlice: GpuBufferSlice? = null
+        var skinJointBufferSlice: GpuBufferSlice? = null
+        var morphDataUniformBufferSlice: GpuBufferSlice? = null
+        var morphWeightsBufferSlice: GpuBufferSlice? = null
+        var morphTargetIndicesBufferSlice: GpuBufferSlice? = null
 
-        val firstInstance = tasks.first().instance
-
-        fun SlottedGpuBuffer.Slot.asSlotted() = this as SlottedGpuBuffer.Slotted
-
+        val firstTask = tasks.first()
+        val firstInstance = firstTask.instance
+        val scene = firstInstance.scene
         try {
-            instanceDataUniformBuffer = InstanceDataUniformBuffer.write {
-                primitiveSize = firstInstance.scene.primitiveNodes.size
+            instanceDataUniformBufferSlice = InstanceDataUniformBuffer.write {
+                primitiveSize = scene.primitiveNodes.size
                 this.primitiveIndex = node.primitiveIndex
                 for ((index, task) in tasks.withIndex()) {
                     val light = task.light
@@ -267,45 +215,28 @@ class RenderPrimitive(
                     )
                     this.lightMapUvs[index] = lightVector
                     this.modelViewMatrices[index] = task.modelViewMatrix
-                    val slot = task.instance.modelData.modelMatricesBuffer.slot.asSlotted()
-                    localMatricesIndices.set(index, slot.index)
                 }
-                localMatricsBuffer = firstInstance.modelData.modelMatricesBuffer.slot.asSlotted().buffer.getBuffer()
             }
+            modelMatricesBufferSlice = device.shaderDataPool.upload(tasks.map { it.modelMatricesBuffer.content.buffer })
             node.skinIndex?.let { skinIndex ->
-                skinModelIndices = SkinModelIndicesUniformBuffer.write {
-                    for ((index, task) in tasks.withIndex()) {
-                        val skinBuffer = task.instance.modelData.skinBuffers[skinIndex]
-                        val slot = skinBuffer.slot
-                        skinJoints = skinBuffer.skin.jointSize
-                        skinModelOffsets.set(index, slot.asSlotted().index)
-                    }
+                val firstSkinBuffer = firstTask.skinBuffer[skinIndex].content
+                skinModelIndicesBufferSlice = SkinModelIndicesUniformBuffer.write {
+                    skinJoints = firstSkinBuffer.jointSize
                 }
-                skinJointBuffer = firstInstance.modelData.skinBuffers[skinIndex].slot.asSlotted().buffer.getBuffer()
+                skinJointBufferSlice = device.shaderDataPool.upload(tasks.map { it.skinBuffer[skinIndex].content.buffer })
             }
-            node.morphedPrimitiveIndex?.let { weightsIndex ->
-                targets?.let { targets ->
-                    morphDataUniformBuffer = MorphDataUniformBuffer.write {
-                        totalVertices = vertexBuffer.verticesCount
-                        posTargets = targets.position.targetsCount
-                        colorTargets = targets.color.targetsCount
-                        texCoordTargets = targets.texCoord.targetsCount
-                        totalTargets =
-                            targets.position.targetsCount + targets.color.targetsCount + targets.texCoord.targetsCount
-                    }
+            node.morphedPrimitiveIndex?.let { morphedPrimitiveIndex ->
+                val targets = targets ?: error("Morphed primitive index was set but targets were not")
+                morphDataUniformBufferSlice = MorphDataUniformBuffer.write {
+                    totalVertices = vertexBuffer.verticesCount
+                    posTargets = targets.position.targetsCount
+                    colorTargets = targets.color.targetsCount
+                    texCoordTargets = targets.texCoord.targetsCount
+                    totalTargets =
+                        targets.position.targetsCount + targets.color.targetsCount + targets.texCoord.targetsCount
                 }
-                morphModelIndices = MorphModelIndicesUniformBuffer.write {
-                    for ((index, task) in tasks.withIndex()) {
-                        val targetBuffer = task.instance.modelData.targetBuffers[weightsIndex]
-                        targetBuffer.uploadIndices()
-                        val weightsSlot = targetBuffer.weightsSlot.asSlotted()
-                        val indicesSlot = targetBuffer.indicesSlot.asSlotted()
-                        morphWeightIndices.set(index, weightsSlot.index)
-                        morphWeightsBuffer = weightsSlot.buffer.getBuffer()
-                        morphIndexIndices.set(index, indicesSlot.index)
-                        morphTargetIndicesBuffer = indicesSlot.buffer.getBuffer()
-                    }
-                }
+                morphWeightsBufferSlice = device.shaderDataPool.upload(tasks.map { it.morphTargetBuffer[morphedPrimitiveIndex].content.weightsBuffer })
+                morphTargetIndicesBufferSlice = device.shaderDataPool.upload(tasks.map { it.morphTargetBuffer[morphedPrimitiveIndex].content.indicesBuffer })
             }
 
             renderPass = material.setup(true) {
@@ -324,24 +255,21 @@ class RenderPrimitive(
                         "Primitive's skin data and material skinned property not matching"
                     }
                 }
-                setUniform("InstanceData", instanceDataUniformBuffer)
-                setUniform("LocalMatrices", localMatricsBuffer)
-                skinJointBuffer?.let { skinJointBuffer ->
+                setUniform("InstanceData", instanceDataUniformBufferSlice)
+                setUniform("LocalMatrices", modelMatricesBufferSlice)
+                skinJointBufferSlice?.let { skinJointBuffer ->
                     setUniform("Joints", skinJointBuffer)
                 }
-                skinModelIndices?.let { skinModelIndices ->
+                skinModelIndicesBufferSlice?.let { skinModelIndices ->
                     setUniform("SkinModelIndices", skinModelIndices)
                 }
-                morphModelIndices?.let { morphModelIndices ->
-                    setUniform("MorphModelIndices", morphModelIndices)
-                }
-                morphDataUniformBuffer?.let { morphDataUniformBuffer ->
+                morphDataUniformBufferSlice?.let { morphDataUniformBuffer ->
                     setUniform("MorphData", morphDataUniformBuffer)
                 }
-                morphWeightsBuffer?.let { morphWeightsBuffer ->
+                morphWeightsBufferSlice?.let { morphWeightsBuffer ->
                     setUniform("MorphWeights", morphWeightsBuffer)
                 }
-                morphTargetIndicesBuffer?.let { morphTargetIndicesBuffer ->
+                morphTargetIndicesBufferSlice?.let { morphTargetIndicesBuffer ->
                     setUniform("MorphTargetIndices", morphTargetIndicesBuffer)
                 }
                 setVertexBuffer(vertexBuffer)

@@ -19,13 +19,12 @@ uniform samplerBuffer Joints;
 
 layout(std140) uniform SkinModelIndices {
     int skinJoints;
-    int skinModelIndices[INSTANCE_SIZE];
 };
 
-#define GET_SKINNED_VERTEX_POSITION(model_view_proj_mat, position) (                                    \
-    (model_view_proj_mat)                                                                               \
-        * getSkinMatrix(Joints, Weight, Joint + ivec4(skinJoints * skinModelIndices[gl_InstanceID]))    \
-        * vec4(position, 1.0)                                                                           \
+#define GET_SKINNED_VERTEX_POSITION(model_view_proj_mat, position) (                  \
+    (model_view_proj_mat)                                                             \
+        * getSkinMatrix(Joints, Weight, Joint + ivec4(skinJoints * SKIN_INSTANCE_ID)) \
+        * vec4(position, 1.0)                                                         \
 )
 
 #else // SKINNED

@@ -259,8 +259,7 @@ class ModelLoader {
         check(accessor.type == Accessor.AccessorType.SCALAR)
         if (accessor.componentType == Accessor.ComponentType.UNSIGNED_BYTE) {
             // We need some workaround, because there is just no index type of BYTE
-            val byteBuffer = ByteBuffer.allocateDirect(2 * accessor.count)
-            byteBuffer.order(ByteOrder.nativeOrder())
+            val byteBuffer = ByteBuffer.allocateDirect(2 * accessor.count).order(ByteOrder.nativeOrder())
             accessor.read { input ->
                 val index = input.get().toUByte()
                 byteBuffer.putShort(index.toShort())
@@ -313,7 +312,7 @@ class ModelLoader {
             buffer.flip()
             val targetBuffer = if (!buffer.hasRemaining()) {
                 // No targets, but we can't create an empty buffer, so let's create a dummy one
-                ByteBuffer.allocateDirect(textureFormat.pixelSize())
+                ByteBuffer.allocateDirect(textureFormat.pixelSize()).order(ByteOrder.nativeOrder())
             } else {
                 buffer
             }

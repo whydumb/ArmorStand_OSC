@@ -7,14 +7,9 @@ import net.minecraft.client.MinecraftClient
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.blazerod.animation.AnimationItem
 import top.fifthlight.blazerod.animation.AnimationLoader
-import top.fifthlight.blazerod.model.Metadata
-import top.fifthlight.blazerod.model.ModelBufferManager
-import top.fifthlight.blazerod.model.ModelInstance
-import top.fifthlight.blazerod.model.ModelLoader
-import top.fifthlight.blazerod.model.RenderScene
+import top.fifthlight.blazerod.model.*
 import top.fifthlight.blazerod.util.RefCount
 import top.fifthlight.blazerod.util.TimeUtil
-import top.fifthlight.blazerod.model.ModelFileLoaders
 import java.nio.file.Path
 import java.util.*
 import kotlin.time.measureTimedValue
@@ -139,7 +134,7 @@ object ModelInstanceManager {
                     animations = cache.animations,
                     metadata = cache.metadata,
                     lastAccessTime = lastAccessTime,
-                    instance = ModelInstance(scene, ModelBufferManager.getEntry(scene)),
+                    instance = ModelInstance(scene),
                     controller = when (val animation = cache.animations.firstOrNull()) {
                         null -> ModelController.LiveUpdated(scene)
                         else -> ModelController.Predefined(animation)

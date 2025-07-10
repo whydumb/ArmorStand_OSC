@@ -3,106 +3,104 @@ package top.fifthlight.blazerod.model
 import net.minecraft.util.Identifier
 import org.joml.Matrix4f
 import org.joml.Matrix4fc
-import top.fifthlight.blazerod.BlazeRod
+import top.fifthlight.blazerod.model.data.ModelMatricesBuffer
+import top.fifthlight.blazerod.model.data.MorphTargetBuffer
+import top.fifthlight.blazerod.model.data.RenderSkinBuffer
+import top.fifthlight.blazerod.util.CowBuffer
 import top.fifthlight.blazerod.util.ObjectPool
-import kotlin.collections.iterator
 
-sealed class RenderTask<T: RenderTask<T, K>, K: Any> {
-    abstract val type: Type<T, K>
-    abstract val key: K
+class RenderTask private constructor(
+    private var _instance: ModelInstance? = null,
+    private var _light: Int = -1,
+    private var _modelViewMatrix: Matrix4f = Matrix4f(),
+    private var _modelMatricesBuffer: CowBuffer<ModelMatricesBuffer>? = null,
+    private var _skinBuffer: List<CowBuffer<RenderSkinBuffer>>? = null,
+    private var _morphTargetBuffer: List<CowBuffer<MorphTargetBuffer>>? = null,
+    private var released: Boolean = true,
+) {
+    val instance: ModelInstance
+        get() = checkNotNull(_instance) { "Bad RenderTask" }
+    val light: Int
+        get() = _light.also { if (it < 0) { throw IllegalStateException("Bad RenderTask") } }
+    val modelViewMatrix: Matrix4f
+        get() = _modelViewMatrix
+    val modelMatricesBuffer: CowBuffer<ModelMatricesBuffer>
+        get() = checkNotNull(_modelMatricesBuffer) { "Bad RenderTask" }
+    val skinBuffer: List<CowBuffer<RenderSkinBuffer>>
+        get() = checkNotNull(_skinBuffer) { "Bad RenderTask" }
+    val morphTargetBuffer: List<CowBuffer<MorphTargetBuffer>>
+        get() = checkNotNull(_morphTargetBuffer) { "Bad RenderTask" }
 
-    sealed class Type<T: RenderTask<T, K>, K: Any> {
-        abstract fun createMap(): MutableMap<K, MutableList<T>>
-        abstract fun createList(): MutableList<T>
-
-        @Suppress("UNCHECKED_CAST")
-        @JvmName("executeFallback")
-        fun execute(key: Any, tasks: List<Any>) = execute(key as K, tasks as List<T>)
-
-        abstract fun execute(key: K, tasks: List<T>)
-
-        data object Instance: Type<RenderTask.Instance, RenderScene>() {
-            override fun createMap() = mutableMapOf<RenderScene, MutableList<RenderTask.Instance>>()
-            override fun createList() = mutableListOf<RenderTask.Instance>()
-
-            override fun execute(key: RenderScene, tasks: List<RenderTask.Instance>) {
-                tasks.chunked(BlazeRod.INSTANCE_SIZE) { chunk ->
-                    key.renderInstanced(chunk)
-                }
-            }
-        }
+    private fun clear() {
+        _instance?.decreaseReferenceCount()
+        _modelMatricesBuffer?.decreaseReferenceCount()
+        _skinBuffer?.forEach { it.decreaseReferenceCount() }
+        _morphTargetBuffer?.forEach { it.decreaseReferenceCount() }
+        _instance = null
+        _light = -1
+        _modelViewMatrix.identity()
+        _modelMatricesBuffer = null
+        _skinBuffer = null
+        _morphTargetBuffer = null
     }
 
-    abstract fun release()
-
-    class Instance private constructor(): RenderTask<Instance, RenderScene>() {
-        override val type: Type<Instance, RenderScene>
-            get() = Type.Instance
-        override val key: RenderScene
-            get() = instance.scene
-
-        private var _instance: ModelInstance? = null
-        var instance: ModelInstance
-            get() = _instance!!
-            set(value) { _instance = value }
-        val modelViewMatrix: Matrix4f = Matrix4f()
-        var light: Int = -1
-
-        override fun release() {
-            instance.decreaseReferenceCount()
-            POOL.release(this)
+    fun release() {
+        if (released) {
+            return
         }
+        POOL.release(this)
+        released = true
+    }
 
-        companion object {
-            private val POOL = ObjectPool<Instance>(
-                identifier = Identifier.of("blazerod", "mesh"),
-                create = ::Instance,
-                onReleased = {
-                    _instance = null
-                    light = -1
-                },
-                onClosed = {
-                    _instance = null
-                },
-            )
+    companion object {
+        private val POOL = ObjectPool<RenderTask>(
+            identifier = Identifier.of("blazerod", "render_task"),
+            create = ::RenderTask,
+            onReleased = {
+                clear()
+            },
+            onClosed = {
+                clear()
+            },
+        )
 
-            fun acquire(
-                instance: ModelInstance,
-                modelViewMatrix: Matrix4fc,
-                light: Int,
-            ) = POOL.acquire().apply {
-                instance.increaseReferenceCount()
-                this.instance = instance
-                this.modelViewMatrix.set(modelViewMatrix)
-                this.light = light
-            }
+        fun acquire(
+            instance: ModelInstance,
+            modelViewMatrix: Matrix4fc,
+            light: Int,
+            modelMatricesBuffer: CowBuffer<ModelMatricesBuffer>,
+            skinBuffer: List<CowBuffer<RenderSkinBuffer>>?,
+            morphTargetBuffer: List<CowBuffer<MorphTargetBuffer>>?,
+        ) = POOL.acquire().apply {
+            instance.increaseReferenceCount()
+            modelMatricesBuffer.increaseReferenceCount()
+            skinBuffer?.forEach { it.increaseReferenceCount() }
+            morphTargetBuffer?.forEach { it.increaseReferenceCount() }
+            this._instance = instance
+            this._light = light
+            this._modelViewMatrix.set(modelViewMatrix)
+            this._modelMatricesBuffer = modelMatricesBuffer
+            this._skinBuffer = skinBuffer
+            this._morphTargetBuffer = morphTargetBuffer
+            released = false
         }
     }
 }
 
 class TaskMap {
-    private val taskTypeMap = mutableMapOf<RenderTask.Type<*, *>, MutableMap<Any, MutableList<RenderTask<*, *>>>>()
+    private val tasks = mutableMapOf<RenderScene, MutableList<RenderTask>>()
 
-    fun addTask(task: RenderTask<*, *>) {
-        val taskMap = taskTypeMap.getOrPut(task.type) {
-            @Suppress("UNCHECKED_CAST")
-            task.type.createMap() as MutableMap<Any, MutableList<RenderTask<*, *>>>
-        }
-        val taskList = taskMap.getOrPut(task.key) {
-            task.type.createList() as MutableList<RenderTask<*, *>>
-        }
-        taskList.add(task)
+    fun addTask(task: RenderTask) {
+        tasks.getOrPut(task.instance.scene) { mutableListOf() }.add(task)
     }
 
     fun executeTasks() {
-        for ((type, taskMap) in taskTypeMap) {
-            for ((key, tasks) in taskMap) {
-                type.execute(key, tasks)
-                for (task in tasks) {
-                    task.release()
-                }
+        for ((scene, tasks) in tasks) {
+            scene.renderInstanced(tasks)
+            for (task in tasks) {
+                task.release()
             }
         }
-        taskTypeMap.clear()
+        tasks.clear()
     }
 }

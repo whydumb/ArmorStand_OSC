@@ -17,16 +17,16 @@ interface RefCount {
 }
 
 abstract class AbstractRefCount : RefCount {
-    override var closed: Boolean = false
-        protected set
+    final override var closed: Boolean = false
+        private set
+    
+    private val initializedAtomic = atomic(false)
+    private var initialized by initializedAtomic
+        
     private val referenceCountAtomic = atomic(0)
     final override var referenceCount by referenceCountAtomic
 
     abstract val typeId: Identifier
-
-    init {
-        ResourceCountTracker.instance?.increase(typeId)
-    }
 
     protected fun requireNotClosed() = require(!closed) { "Object $this is already closed." }
 
@@ -35,10 +35,14 @@ abstract class AbstractRefCount : RefCount {
         if (referenceCountAtomic.getAndIncrement() < 0) {
             throw InvalidReferenceCountException(this, referenceCount)
         }
+        if (initializedAtomic.compareAndSet(expect = false, update = true)) {
+            ResourceCountTracker.instance?.increase(typeId)
+        }
     }
 
     override fun decreaseReferenceCount() {
         requireNotClosed()
+        check(initialized) { "Object $this is not initialized." }
         val refCount = referenceCountAtomic.decrementAndGet()
         when {
             refCount < 0 -> throw InvalidReferenceCountException(this, referenceCount)
@@ -48,6 +52,19 @@ abstract class AbstractRefCount : RefCount {
                 onClosed()
             }
         }
+    }
+
+    /**
+     * Reset the state.
+     *
+     * It is designed to be used for objects being pooled. When the object is returned to the pool,
+     * you can call this method to reset closed state, so it can be reused.
+     */
+    protected fun resetState() {
+        require(closed) { "Object $this is not closed when resetting reference count." }
+        require(referenceCount == 0) { "Object $this has reference count $referenceCount when resetting reference count." }
+        initialized = false
+        closed = false
     }
 
     protected abstract fun onClosed()

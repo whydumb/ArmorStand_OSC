@@ -24,7 +24,7 @@ fun <T : AutoCloseable> ObjectPool(
     create: () -> T,
     onAcquired: (T.() -> Unit)? = null,
     onReleased: (T.() -> Unit)? = null,
-) = ObjectPool<T>(
+) = ObjectPool(
     identifier = identifier,
     create = create,
     onAcquired = onAcquired,
@@ -39,7 +39,7 @@ open class ObjectPool<T : Any>(
     protected val onReleased: (T.() -> Unit)? = null,
     protected val onClosed: (T.() -> Unit)?,
 ) : Pool<T> {
-    protected val closed: Boolean = false
+    protected var closed: Boolean = false
     protected val pool = ArrayDeque<T>()
 
     override fun acquire(): T {
@@ -102,6 +102,7 @@ open class ObjectPool<T : Any>(
         ObjectPoolTracker.instance?.set(identifier) { ObjectPoolTracker.Item() }
         pool.forEach { onClosed?.invoke(it) }
         pool.clear()
+        closed = true
     }
 }
 

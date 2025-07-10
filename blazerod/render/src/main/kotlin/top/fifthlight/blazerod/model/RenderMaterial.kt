@@ -111,7 +111,6 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
                 withShaderDefine("MORPHED")
                 withShaderDefine("MAX_ENABLED_MORPH_TARGETS", BlazeRod.MAX_ENABLED_MORPH_TARGETS)
                 withUniform("MorphData", UniformType.UNIFORM_BUFFER)
-                withUniform("MorphModelIndices", UniformType.UNIFORM_BUFFER)
                 withUniform("MorphPositionData", UniformType.TEXEL_BUFFER, TextureFormatExt.RGB32F)
                 withUniform("MorphColorData", UniformType.TEXEL_BUFFER, TextureFormatExt.RGBA32F)
                 withUniform("MorphTexCoordData", UniformType.TEXEL_BUFFER, TextureFormatExt.RG32F)

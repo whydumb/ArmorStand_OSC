@@ -17,7 +17,6 @@ layout (std140) uniform InstanceData {
     int PrimitiveIndex;
     mat4 ModelViewMatrices[INSTANCE_SIZE];
     ivec2 LightMapUvs[INSTANCE_SIZE];
-    int LocalMatricesIndices[INSTANCE_SIZE];
 };
 
 struct instance_t {
@@ -26,9 +25,8 @@ struct instance_t {
 };
 
 instance_t get_instance() {
-    int model_matrix_index = LocalMatricesIndices[INSTANCE_ID];
     instance_t instance;
-    int matricesOffset = model_matrix_index * PrimitiveSize + PrimitiveIndex;
+    int matricesOffset = INSTANCE_ID * PrimitiveSize + PrimitiveIndex;
     mat4 local_matrix = mat4(
         texelFetch(LocalMatrices, matricesOffset * 4 + 0),
         texelFetch(LocalMatrices, matricesOffset * 4 + 1),
