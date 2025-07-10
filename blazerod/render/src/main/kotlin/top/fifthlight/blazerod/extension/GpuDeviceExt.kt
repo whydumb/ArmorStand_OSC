@@ -23,3 +23,6 @@ fun GpuDevice.createVertexBuffer(
     verticesCount: Int
 ): VertexBuffer =
     (this as GpuDeviceExt).`blazerod$createVertexBuffer`(mode, elements, verticesCount)
+
+val GpuDevice.shaderDataPool
+    get() = (this as GpuDeviceExt).`blazerod$getShaderDataPool`()

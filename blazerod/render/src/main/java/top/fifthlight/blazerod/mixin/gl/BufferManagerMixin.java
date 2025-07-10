@@ -13,7 +13,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.fifthlight.blazerod.extension.CommandEncoderExt;
 import top.fifthlight.blazerod.extension.internal.gl.BufferManagerExtInternal;
-import top.fifthlight.blazerod.helper.gl.GlStateManagerHelper;
 import top.fifthlight.blazerod.render.gl.ClearTypeParam;
 
 import java.util.Set;

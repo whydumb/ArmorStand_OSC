@@ -1,16 +1,14 @@
 package top.fifthlight.blazerod
 
+import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.logging.LogUtils
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents
 import net.minecraft.client.gl.RenderPassImpl
-import top.fifthlight.blazerod.debug.ObjectCountTrackerFrame
 import top.fifthlight.armorstand.debug.ResourceCountTrackerFrame
-import top.fifthlight.blazerod.debug.ObjectPoolTracker
-import top.fifthlight.blazerod.debug.ResourceCountTracker
-import top.fifthlight.blazerod.debug.UniformBufferTracker
-import top.fifthlight.blazerod.debug.UniformBufferTrackerFrame
+import top.fifthlight.blazerod.debug.*
 import top.fifthlight.blazerod.event.RenderEvents
+import top.fifthlight.blazerod.extension.shaderDataPool
 import top.fifthlight.blazerod.model.RenderMaterial
 import top.fifthlight.blazerod.model.uniform.UniformBuffer
 import top.fifthlight.blazerod.util.cleanupPools
@@ -47,6 +45,7 @@ object BlazeRod: ClientModInitializer {
 
         RenderEvents.FLIP_FRAME.register {
             UniformBuffer.clear()
+            RenderSystem.getDevice().shaderDataPool.rotate()
         }
 
         ClientLifecycleEvents.CLIENT_STOPPING.register { client ->

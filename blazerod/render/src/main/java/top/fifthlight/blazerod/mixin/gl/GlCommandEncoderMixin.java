@@ -1,6 +1,7 @@
 package top.fifthlight.blazerod.mixin.gl;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -13,12 +14,16 @@ import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.gl.*;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.opengl.ARBTextureBufferRange;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.Redirect;
+import top.fifthlight.blazerod.extension.GpuDeviceExt;
 import top.fifthlight.blazerod.extension.internal.gl.BufferManagerExtInternal;
 import top.fifthlight.blazerod.extension.CommandEncoderExt;
 import top.fifthlight.blazerod.extension.RenderObjectExt;
@@ -37,7 +42,8 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExt {
     @Final
     private GlBackend backend;
 
-    @Shadow public abstract void writeToBuffer(GpuBufferSlice gpuBufferSlice, ByteBuffer byteBuffer);
+    @Shadow
+    public abstract void writeToBuffer(GpuBufferSlice gpuBufferSlice, ByteBuffer byteBuffer);
 
     @WrapOperation(method = "drawObjectWithRenderPass", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderPipeline;getVertexFormatMode()Lcom/mojang/blaze3d/vertex/VertexFormat$DrawMode;"))
     private VertexFormat.DrawMode onDrawObjectWithRenderPassGetVertexMode(RenderPipeline instance, Operation<VertexFormat.DrawMode> original, RenderPassImpl pass) {
@@ -135,6 +141,22 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExt {
             checkRenderPassBuffers(pass, true);
         }
         return false;
+    }
+
+    @ModifyExpressionValue(method = "setupRenderPass", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderPipeline$UniformDescription;type()Lnet/minecraft/client/gl/UniformType;", ordinal = 2))
+    private UniformType onCheckTexelBufferUniformSlice(UniformType original) {
+        if (original != UniformType.TEXEL_BUFFER) {
+            return original;
+        }
+        if (!((GpuDeviceExt) backend).blazerod$getShaderDataPool().getSupportSlicing()) {
+            return original;
+        }
+        return null;
+    }
+
+    @Redirect(method = "setupRenderPass", at = @At(value = "INVOKE", target = "Lorg/lwjgl/opengl/GL31;glTexBuffer(III)V"))
+    private void onSetTexelBufferUniformSlice(int target, int internalformat, int buffer, @Local GpuBufferSlice slice) {
+        ARBTextureBufferRange.glTexBufferRange(target, internalformat, buffer, slice.offset(), slice.length());
     }
 
     @WrapWithCondition(method = "drawObjectsWithRenderPass", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/RenderPassImpl;setVertexBuffer(ILcom/mojang/blaze3d/buffers/GpuBuffer;)V"))
