@@ -8,4 +8,5 @@ data class FabricModJson(
     val id: String,
     val version: String,
     val name: String,
+    val custom: Map<String, Boolean>?,
 )

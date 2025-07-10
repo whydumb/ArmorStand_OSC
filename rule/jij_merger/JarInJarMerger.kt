@@ -47,6 +47,9 @@ fun main(args: Array<String>) {
                                 id = name,
                                 version = version,
                                 name = name,
+                                custom = mapOf(
+                                    "fabric-loom:generated" to true
+                                )
                             )
                         )
                         newOutput.putNextEntry(fabricModJsonEntry)

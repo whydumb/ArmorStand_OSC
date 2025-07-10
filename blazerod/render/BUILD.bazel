@@ -95,6 +95,9 @@ merge_jar(
         ":render_unmapped_without_resouces",
         ":render_resources",
     ],
+    resources = {
+        "//blazerod:icon": "blazerod/src/main/resources/",
+    }
 )
 
 remap_jar(

@@ -6,6 +6,7 @@
   "description": "Render part of BlazeRod. Render your model into Minecraft.",
   "authors": ["fifth_light"],
   "license": "LGPL-3.0-or-later",
+  "icon": "assets/blazerod/icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [

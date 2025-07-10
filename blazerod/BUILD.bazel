@@ -12,7 +12,7 @@ kt_jvm_library(
     resource_strip_prefix = "blazerod",
     visibility = ["//visibility:public"],
     exports = [
-        "//blazerod/model/model-formats",
+        "//blazerod/model/model-formats:model-formats_unmerged",
         "//blazerod/render:render_unmapped",
     ],
 )
@@ -32,11 +32,21 @@ java_library(
     resource_strip_prefix = "blazerod",
 )
 
+alias(
+    visibility = ["//visibility:public"],
+    name = "icon",
+    actual = "src/main/resources/assets/blazerod/icon.png",
+)
+
 merge_jar(
     name = "blazerod_merged",
+    visibility = ["//visibility:public"],
     deps = [
         ":fabric_mod_json_library",
     ],
+    resources = {
+        ":icon": "blazerod/src/main/resources/",
+    }
 )
 
 merge_jij(

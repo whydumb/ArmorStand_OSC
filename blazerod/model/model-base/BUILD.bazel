@@ -1,5 +1,6 @@
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("//rule:merge_jar.bzl", "merge_jar")
 load("//:properties.bzl", "blazerod_version")
 
 expand_template(
@@ -12,13 +13,24 @@ expand_template(
 )
 
 kt_jvm_library(
-    name = "model-base",
+    name = "model-base_unmerged",
+    visibility = ["//visibility:public"],
     srcs = glob(["src/main/kotlin/**/*.kt"]),
     resources = [":fabric_mod_json"],
     resource_strip_prefix = "blazerod/model/model-base",
-    visibility = ["//visibility:public"],
     deps = [
         "@maven//:org_joml_joml",
         "@maven//:it_unimi_dsi_fastutil",
     ],
+)
+
+merge_jar(
+    name = "model-base",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":model-base_unmerged",
+    ],
+    resources = {
+        "//blazerod:icon": "blazerod/src/main/resources/",
+    }
 )

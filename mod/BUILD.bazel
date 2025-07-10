@@ -176,6 +176,7 @@ merge_jij(
     input = ":mod_without_jij",
     deps = {
         "@maven//:com_h2database_h2": "com_h2database_h2:2.3.232",
+        "//blazerod:blazerod_merged": "blazerod_merged:=",
         "//blazerod/model/model-base": "blazerod-model-base:=",
         "//blazerod/model/model-formats": "blazerod-model-formats:=",
         "//blazerod/model/model-gltf": "blazerod-model-formats-gltf:=",

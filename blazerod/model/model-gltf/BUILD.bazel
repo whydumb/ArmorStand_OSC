@@ -1,5 +1,6 @@
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("//rule:merge_jar.bzl", "merge_jar")
 load("//:properties.bzl", "blazerod_version")
 
 expand_template(
@@ -12,16 +13,27 @@ expand_template(
 )
 
 kt_jvm_library(
-    name = "model-gltf",
+    name = "model-gltf_unmerged",
     srcs = glob(["src/main/kotlin/**/*.kt"]),
     resources = [":fabric_mod_json"],
     resource_strip_prefix = "blazerod/model/model-gltf",
     visibility = ["//visibility:public"],
     deps = [
-        "//blazerod/model/model-base",
+        "//blazerod/model/model-base:model-base_unmerged",
         "//:kotlin_serialization",
         "@maven//:org_jetbrains_kotlinx_kotlinx_serialization_json",
     ],
+)
+
+merge_jar(
+    name = "model-gltf",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":model-gltf_unmerged",
+    ],
+    resources = {
+        "//blazerod:icon": "blazerod/src/main/resources/",
+    }
 )
 
 kt_jvm_test(
