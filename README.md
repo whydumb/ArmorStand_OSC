@@ -1,6 +1,6 @@
 # 盔甲架
 
-盔甲架是一款 Minecraft 1.21.6 的玩家模型 mod，支持加载外部模型以替换原版的玩家模型。
+盔甲架是一款 Minecraft 1.21.7 的玩家模型 mod，支持加载外部模型以替换原版的玩家模型。
 
 [![MC 百科](https://img.shields.io/badge/MC_%E7%99%BE%E7%A7%91-blue?style=for-the-badge)](https://www.mcmod.cn/class/20046.html)
 [![Modrinth](https://img.shields.io/modrinth/dt/armor-stand?style=for-the-badge&logo=modrinth)](https://modrinth.com/mod/armor-stand)
@@ -10,8 +10,8 @@
 目前 mod 在早期开发中，支持下列功能：
 
 - 渲染 glTF、VRM、PMX、PMD 格式的模型
-- 导入 VMD 格式的动画文件（暂不支持表情和镜头数据）
-- 支持实例化渲染，提升多个模型渲染时的性能
+- 导入 VMD 格式的动画文件
+- 支持实例化渲染，从而提升多个模型渲染时的性能
 - 支持多人游戏（可以同步显示模型，但是不能也不会支持同步模型文件）
 
 如果发现了任何问题，或者有任何想法，欢迎在 [issue 区](https://github.com/fifth-light/ArmorStand/issues) 和 [discussion 区](https://github.com/fifth-light/ArmorStand/discussions) 提出。
@@ -46,13 +46,13 @@ mod 采取同步模型哈希值的方式，因此你可以重命名模型，甚�
 
 # ArmorStand
 
-ArmorStand is a Minecraft 1.21.6 player model mod that supports loading external models to replace the vanilla player model.
+ArmorStand is a Minecraft 1.21.7 player model mod that supports loading external models to replace the vanilla player model.
 
 Currently, the mod is in early development, and supports the following features:
 
 - Render glTF, VRM, PMX, PMD models
-- Import VMD format animation files (don't support expressions and camera data for now)
-- Support instance rendering to improve performance when rendering multiple models
+- Import VMD format animation files
+- Support instance rendering, improving performance when rendering multiple models
 - Support multiplayer (can synchronize model display, but won't support synchronizing model files)
 
 If you encounter any problems or have any ideas, please feel free to open an issue or discussion in the [issue area](https://github.com/fifth-light/ArmorStand/issues) and [discussion area](https://github.com/fifth-light/ArmorStand/discussions).
@@ -69,9 +69,9 @@ In game, press `K` to open the animation control interface, where you can load a
 
 The mod supports multiplayer model synchronization. Before using it, please ensure that your server also has the mod installed (if the server does not have the mod, other players will not be able to see your model, but your own model can still be displayed).
 
-Considering distributing models causes copyright issues, the mod will not support synchronizing model files. You need to ensure that other players will also place your model in the `models` directory, so that they can see your model.
+Considering distributing models causes copyright issues, the mod can not and will not support synchronizing model files. You need to ensure that other players will also place your model in the `models` directory, so that they can see your model.
 
-The mod uses the model hash value to synchronize models, so you can rename the model, even put it in a subdirectory. As long as the model content does not change, you can see other players' models.
+The mod uses the model's hash value to synchronize models, so you can rename the model, even put it in a subdirectory. As long as the model content does not change, you can see other players' models.
 
 ## Acknowledgments
 
