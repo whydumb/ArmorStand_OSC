@@ -42,7 +42,7 @@ kt_jvm_test(
     resources = ["@//blazerod/model/model-gltf/src/test/resources:test_models_srcs"],
     main_class = "org.junit.platform.console.ConsoleLauncher",
     args = ["execute", "--select-class", "top.fifthlight.blazerod.model.gltf.test.GlbLoadTest"],
-    associates = [":model-gltf"],
+    associates = [":model-gltf_unmerged"],
     deps = [
         "@maven//:org_jetbrains_kotlin_kotlin_test_junit5",
         "@maven//:org_junit_jupiter_junit_jupiter_api",
