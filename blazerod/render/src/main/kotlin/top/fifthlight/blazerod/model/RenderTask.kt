@@ -1,5 +1,6 @@
 package top.fifthlight.blazerod.model
 
+import com.mojang.blaze3d.textures.GpuTextureView
 import net.minecraft.util.Identifier
 import org.joml.Matrix4f
 import org.joml.Matrix4fc
@@ -94,9 +95,12 @@ class TaskMap {
         tasks.getOrPut(task.instance.scene) { mutableListOf() }.add(task)
     }
 
-    fun executeTasks() {
+    fun executeTasks(
+        colorFrameBuffer: GpuTextureView,
+        depthFrameBuffer: GpuTextureView?,
+    ) {
         for ((scene, tasks) in tasks) {
-            scene.renderInstanced(tasks)
+            scene.renderInstanced(tasks, colorFrameBuffer, depthFrameBuffer)
             for (task in tasks) {
                 task.release()
             }

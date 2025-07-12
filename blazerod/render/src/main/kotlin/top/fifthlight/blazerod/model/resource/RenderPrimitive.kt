@@ -89,9 +89,9 @@ class RenderPrimitive(
         modelMatricesBuffer: ModelMatricesBuffer,
         skinBuffer: RenderSkinBuffer?,
         targetBuffer: MorphTargetBuffer?,
+        colorFrameBuffer: GpuTextureView,
+        depthFrameBuffer: GpuTextureView?,
     ) {
-        val mainColorTextureView: GpuTextureView = MinecraftClient.getInstance().framebuffer.colorAttachmentView!!
-        val mainDepthTextureView: GpuTextureView? = MinecraftClient.getInstance().framebuffer.depthAttachmentView
         val device = RenderSystem.getDevice()
         val commandEncoder = device.createCommandEncoder()
         var renderPass: RenderPass? = null
@@ -139,9 +139,9 @@ class RenderPrimitive(
             renderPass = material.setup {
                 commandEncoder.createRenderPass(
                     { "BlazeRod render pass (non-instanced)" },
-                    mainColorTextureView,
+                    colorFrameBuffer,
                     OptionalInt.empty(),
-                    mainDepthTextureView,
+                    depthFrameBuffer,
                     OptionalDouble.empty()
                 )
             }

@@ -1,5 +1,6 @@
 package top.fifthlight.blazerod.model
 
+import com.mojang.blaze3d.textures.GpuTextureView
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap
 import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.util.Identifier
@@ -118,6 +119,8 @@ class RenderScene(
         modelMatricesBuffer: ModelMatricesBuffer,
         skinBuffer: List<RenderSkinBuffer>?,
         morphTargetBuffer: List<MorphTargetBuffer>?,
+        colorFrameBuffer: GpuTextureView,
+        depthFrameBuffer: GpuTextureView?,
     ) {
         if (primitiveComponents.isEmpty()) {
             return
@@ -130,11 +133,17 @@ class RenderScene(
                 modelMatricesBuffer = modelMatricesBuffer,
                 skinBuffer = skinBuffer,
                 morphTargetBuffer = morphTargetBuffer,
+                colorFrameBuffer = colorFrameBuffer,
+                depthFrameBuffer = depthFrameBuffer,
             )
         }
     }
 
-    fun renderInstanced(tasks: List<RenderTask>) {
+    fun renderInstanced(
+        tasks: List<RenderTask>,
+        colorFrameBuffer: GpuTextureView,
+        depthFrameBuffer: GpuTextureView?,
+    ) {
         when (tasks.size) {
             0 -> return
             1 -> {
@@ -145,6 +154,8 @@ class RenderScene(
                     modelMatricesBuffer = task.modelMatricesBuffer.content,
                     skinBuffer = CowBufferList(task.skinBuffer),
                     morphTargetBuffer = CowBufferList(task.morphTargetBuffer),
+                    colorFrameBuffer = colorFrameBuffer,
+                    depthFrameBuffer = depthFrameBuffer,
                 )
             }
 

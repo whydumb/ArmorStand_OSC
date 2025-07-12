@@ -18,7 +18,6 @@ import top.fifthlight.armorstand.extension.internal.PlayerEntityRenderStateExtIn
 
 @Mixin(LivingEntityRenderer.class)
 public abstract class PlayerModelMixin {
-    @SuppressWarnings("MixinExtrasOperationParameters")
     @WrapOperation(method = "render(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/entity/LivingEntityRenderer;getRenderLayer(Lnet/minecraft/client/render/entity/state/LivingEntityRenderState;ZZZ)Lnet/minecraft/client/render/RenderLayer;"))
     @Nullable
     public <T extends LivingEntity, S extends LivingEntityRenderState, M extends EntityModel<? super S>>

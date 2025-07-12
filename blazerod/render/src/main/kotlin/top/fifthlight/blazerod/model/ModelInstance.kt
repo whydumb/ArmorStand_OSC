@@ -1,5 +1,6 @@
 package top.fifthlight.blazerod.model
 
+import com.mojang.blaze3d.textures.GpuTextureView
 import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.util.Identifier
@@ -120,7 +121,12 @@ class ModelInstance(val scene: RenderScene) : AbstractRefCount() {
         scene.updateRenderData(this)
     }
 
-    fun render(modelViewMatrix: Matrix4fc, light: Int) {
+    fun render(
+        modelViewMatrix: Matrix4fc,
+        light: Int,
+        colorFrameBuffer: GpuTextureView,
+        depthFrameBuffer: GpuTextureView?,
+    ) {
         // Upload indices don't change the actual data
         modelData.targetBuffers.forEach { it.content.uploadIndices() }
         scene.render(
@@ -129,6 +135,8 @@ class ModelInstance(val scene: RenderScene) : AbstractRefCount() {
             modelMatricesBuffer = modelData.modelMatricesBuffer.content,
             skinBuffer = CowBufferList(modelData.skinBuffers),
             morphTargetBuffer = CowBufferList(modelData.targetBuffers),
+            colorFrameBuffer = colorFrameBuffer,
+            depthFrameBuffer = depthFrameBuffer,
         )
     }
 

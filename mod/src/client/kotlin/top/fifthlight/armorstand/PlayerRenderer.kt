@@ -3,6 +3,7 @@ package top.fifthlight.armorstand
 import com.mojang.blaze3d.systems.RenderSystem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.minecraft.client.MinecraftClient
 import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.client.util.math.MatrixStack
@@ -90,7 +91,10 @@ object PlayerRenderer {
             if (renderingWorld) {
                 taskMap.addTask(instance.schedule(matrix, light))
             } else {
-                instance.render(matrix, light)
+                val mainTarget = MinecraftClient.getInstance().framebuffer
+                val colorFrameBuffer = RenderSystem.outputColorTextureOverride ?: mainTarget.colorAttachmentView!!
+                val depthFrameBuffer = RenderSystem.outputDepthTextureOverride ?: mainTarget.depthAttachmentView
+                instance.render(matrix, light, colorFrameBuffer, depthFrameBuffer)
             }
         }
 
@@ -105,7 +109,10 @@ object PlayerRenderer {
 
     fun executeDraw() {
         renderingWorld = false
-        taskMap.executeTasks()
+        val mainTarget = MinecraftClient.getInstance().framebuffer
+        val colorFrameBuffer = RenderSystem.outputColorTextureOverride ?: mainTarget.colorAttachmentView!!
+        val depthFrameBuffer = RenderSystem.outputDepthTextureOverride ?: mainTarget.depthAttachmentView
+        taskMap.executeTasks(colorFrameBuffer, depthFrameBuffer)
     }
 
     fun endFrame() {

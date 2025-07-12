@@ -1,5 +1,6 @@
 package top.fifthlight.blazerod.model.node
 
+import com.mojang.blaze3d.textures.GpuTextureView
 import net.minecraft.client.render.RenderLayer
 import net.minecraft.util.Colors
 import net.minecraft.util.Identifier
@@ -83,6 +84,8 @@ sealed class RenderNodeComponent<C : RenderNodeComponent<C>> : AbstractRefCount(
             modelMatricesBuffer: ModelMatricesBuffer,
             skinBuffer: List<RenderSkinBuffer>?,
             morphTargetBuffer: List<MorphTargetBuffer>?,
+            colorFrameBuffer: GpuTextureView,
+            depthFrameBuffer: GpuTextureView?,
         ) {
             primitive.render(
                 scene = scene,
@@ -95,7 +98,9 @@ sealed class RenderNodeComponent<C : RenderNodeComponent<C>> : AbstractRefCount(
                 },
                 targetBuffer = morphedPrimitiveIndex?.let {
                     (morphTargetBuffer ?: error("Has morph targets but no morph target buffer"))[it]
-                }
+                },
+                colorFrameBuffer = colorFrameBuffer,
+                depthFrameBuffer = depthFrameBuffer,
             )
         }
 
