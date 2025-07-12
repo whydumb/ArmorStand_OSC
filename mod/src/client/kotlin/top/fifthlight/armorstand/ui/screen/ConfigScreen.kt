@@ -15,6 +15,7 @@ import net.minecraft.text.Text
 import net.minecraft.util.Colors
 import net.minecraft.util.Formatting
 import org.lwjgl.glfw.GLFW
+import top.fifthlight.armorstand.ArmorStandClient
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.manage.ModelManager
 import top.fifthlight.armorstand.ui.component.*
@@ -32,7 +33,7 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
     title = Text.translatable("armorstand.config"),
 ) {
     override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
-        if (keyCode == GLFW.GLFW_KEY_1 && hasControlDown()) {
+        if (keyCode == GLFW.GLFW_KEY_1 && hasControlDown() && ArmorStandClient.debug) {
             client?.setScreen(DebugScreen(this))
             return true
         }
