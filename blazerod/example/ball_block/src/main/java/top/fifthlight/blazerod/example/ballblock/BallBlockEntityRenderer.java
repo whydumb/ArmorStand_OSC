@@ -1,12 +1,16 @@
 package top.fifthlight.blazerod.example.ballblock;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTextureView;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
+
+import java.util.Objects;
 
 // Shamelessly copied from https://docs.fabricmc.net/zh_cn/develop/blocks/block-entity-renderer
 public class BallBlockEntityRenderer implements BlockEntityRenderer<BallBlockEntity> {
@@ -23,6 +27,14 @@ public class BallBlockEntityRenderer implements BlockEntityRenderer<BallBlockEnt
         }
         matrix.set(matrices.peek().getPositionMatrix());
         matrix.mulLocal(RenderSystem.getModelViewStack());
-        instance.render(matrix, light);
+        var client = MinecraftClient.getInstance();
+        var frameBuffer = client.getFramebuffer();
+        var colorFrameBuffer = RenderSystem.outputColorTextureOverride != null
+                ? RenderSystem.outputColorTextureOverride
+                : frameBuffer.getColorAttachmentView();
+        var depthFrameBuffer = frameBuffer.useDepthAttachment
+                ? (RenderSystem.outputDepthTextureOverride != null ? RenderSystem.outputDepthTextureOverride : frameBuffer.getDepthAttachmentView())
+                : null;
+        instance.render(matrix, light, Objects.requireNonNull(colorFrameBuffer), depthFrameBuffer);
     }
 }
