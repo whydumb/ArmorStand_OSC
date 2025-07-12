@@ -82,7 +82,7 @@ object PlayerRenderer {
         matrixStack.push()
 
         if (ArmorStandClient.debugBone) {
-            instance.debugRender(consumers)
+            instance.debugRender(matrixStack.peek().positionMatrix, consumers)
         } else {
             matrix.set(matrixStack.peek().positionMatrix)
             matrix.scale(ConfigHolder.config.value.modelScale)

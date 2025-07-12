@@ -95,13 +95,13 @@ class RenderScene(
         executePhase(instance, UpdatePhase.CameraUpdate)
     }
 
-    fun debugRender(instance: ModelInstance, consumers: VertexConsumerProvider) {
+    fun debugRender(instance: ModelInstance, viewProjectionMatrix: Matrix4fc, consumers: VertexConsumerProvider) {
         if (debugRenderNodes.isEmpty()) {
             return
         }
         executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
         executePhase(instance, UpdatePhase.GlobalTransformPropagation)
-        UpdatePhase.DebugRender.acquire(consumers).use {
+        UpdatePhase.DebugRender.acquire(viewProjectionMatrix, consumers).use {
             executePhase(instance, it)
         }
     }

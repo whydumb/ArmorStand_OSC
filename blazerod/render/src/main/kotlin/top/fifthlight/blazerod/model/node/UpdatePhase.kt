@@ -2,6 +2,8 @@ package top.fifthlight.blazerod.model.node
 
 import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.util.Identifier
+import org.joml.Matrix4f
+import org.joml.Matrix4fc
 import top.fifthlight.blazerod.util.ObjectPool
 
 sealed class UpdatePhase(
@@ -25,7 +27,9 @@ sealed class UpdatePhase(
 
     @ConsistentCopyVisibility
     data class DebugRender private constructor(
-        private var _vertexConsumerProvider: VertexConsumerProvider? = null
+        val viewProjectionMatrix: Matrix4f = Matrix4f(),
+        val cacheMatrix: Matrix4f = Matrix4f(),
+        private var _vertexConsumerProvider: VertexConsumerProvider? = null,
     ) : UpdatePhase(
         type = Type.DEBUG_RENDER,
     ), AutoCloseable {
@@ -53,7 +57,11 @@ sealed class UpdatePhase(
                 onClosed = {},
             )
 
-            fun acquire(vertexConsumerProvider: VertexConsumerProvider) = POOL.acquire().apply {
+            fun acquire(
+                viewProjectionMatrix: Matrix4fc,
+                vertexConsumerProvider: VertexConsumerProvider,
+            ) = POOL.acquire().apply {
+                this.viewProjectionMatrix.set(viewProjectionMatrix)
                 _vertexConsumerProvider = vertexConsumerProvider
             }
         }

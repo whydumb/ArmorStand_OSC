@@ -112,8 +112,8 @@ class ModelInstance(val scene: RenderScene) : AbstractRefCount() {
         scene.updateCamera(this)
     }
 
-    fun debugRender(consumers: VertexConsumerProvider) {
-        scene.debugRender(this, consumers)
+    fun debugRender(viewProjectionMatrix: Matrix4fc, consumers: VertexConsumerProvider) {
+        scene.debugRender(this, viewProjectionMatrix, consumers)
     }
 
     fun updateRenderData() {

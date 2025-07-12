@@ -141,8 +141,11 @@ sealed class RenderNodeComponent<C : RenderNodeComponent<C>> : AbstractRefCount(
                     // TODO: find the real parent joint
                     node.parent?.let { parentJoint ->
                         val buffer = consumers.getBuffer(RenderLayer.getDebugLineStrip(1.0))
-                        buffer.vertex(instance.getWorldTransform(parentJoint), 0f, 0f, 0f).color(Colors.YELLOW)
-                        buffer.vertex(instance.getWorldTransform(node), 0f, 0f, 0f).color(Colors.RED)
+
+                        val parent = phase.viewProjectionMatrix.mul(instance.getWorldTransform(parentJoint), phase.cacheMatrix)
+                        buffer.vertex(parent, 0f, 0f, 0f).color(Colors.YELLOW)
+                        val self = phase.viewProjectionMatrix.mul(instance.getWorldTransform(node), phase.cacheMatrix)
+                        buffer.vertex(self, 0f, 0f, 0f).color(Colors.RED)
                     }
                 }
 
