@@ -15,12 +15,14 @@ object AnimationLoader {
         scene: RenderScene,
         animation: Animation,
     ): AnimationItem {
-        fun AnimationChannel.Type.NodeData.findTargetTransformIndex(): Int? =
-            targetNode?.id.let { nodeId -> scene.nodeIdToTransformMap.getInt(nodeId).takeIf { it >= 0 } }
-                ?: targetNodeName?.let { name -> scene.nodeNameToTransformMap.getInt(name).takeIf { it >= 0 } }
+        fun AnimationChannel.Type.NodeData.findTargetTransformIndex(): Int? {
+            val node = targetNode?.id.let { nodeId -> scene.nodeIdMap[nodeId] }
+                ?: targetNodeName?.let { name -> scene.nodeNameMap[name] }
                 ?: targetHumanoidTag?.let { humanoid ->
-                    scene.humanoidTagToTransformMap.getInt(humanoid).takeIf { it >= 0 }
+                    scene.humanoidTagMap[humanoid]
                 }
+            return node?.nodeIndex
+        }
 
         @Suppress("UNCHECKED_CAST")
         fun mapAnimationChannel(channel: AnimationChannel<*, *>): AnimationChannelItem<*, *>? {

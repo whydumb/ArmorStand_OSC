@@ -642,6 +642,9 @@ object ModelManager {
                     autoCommit = false
                     isReadOnly = false
                 },
+                onClosed = {
+                    close()
+                },
             )
         )
         val connection = try {

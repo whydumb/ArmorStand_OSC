@@ -1,8 +1,7 @@
 @file:Suppress("NOTHING_TO_INLINE")
 
-package top.fifthlight.blazerod.model
+package top.fifthlight.blazerod.model.resource
 
-import com.mojang.blaze3d.buffers.GpuBufferSlice
 import com.mojang.blaze3d.pipeline.BlendFunction
 import com.mojang.blaze3d.pipeline.RenderPipeline
 import com.mojang.blaze3d.systems.RenderPass
@@ -16,10 +15,11 @@ import top.fifthlight.blazerod.extension.TextureFormatExt
 import top.fifthlight.blazerod.util.AbstractRefCount
 import top.fifthlight.blazerod.util.BitmapItem
 import top.fifthlight.blazerod.extension.withVertexType
-import top.fifthlight.blazerod.model.uniform.UniformBuffer
 import top.fifthlight.blazerod.model.uniform.UnlitDataUniformBuffer
 import top.fifthlight.blazerod.model.Material.AlphaMode
 import top.fifthlight.blazerod.model.Material.AlphaMode.OPAQUE
+import top.fifthlight.blazerod.model.RgbColor
+import top.fifthlight.blazerod.model.RgbaColor
 
 abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCount() {
     companion object {
@@ -220,13 +220,13 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
     class Pbr(
         override val name: String?,
         override val baseColor: RgbaColor = RgbaColor(1f, 1f, 1f, 1f),
-        override val baseColorTexture: RenderTexture = RenderTexture.WHITE_RGBA_TEXTURE,
+        override val baseColorTexture: RenderTexture = RenderTexture.Companion.WHITE_RGBA_TEXTURE,
         val metallicFactor: Float = 1f,
         val roughnessFactor: Float = 1f,
-        val metallicRoughnessTexture: RenderTexture = RenderTexture.WHITE_RGBA_TEXTURE,
-        val normalTexture: RenderTexture = RenderTexture.WHITE_RGBA_TEXTURE,
-        val occlusionTexture: RenderTexture = RenderTexture.WHITE_RGBA_TEXTURE,
-        val emissiveTexture: RenderTexture = RenderTexture.WHITE_RGBA_TEXTURE,
+        val metallicRoughnessTexture: RenderTexture = RenderTexture.Companion.WHITE_RGBA_TEXTURE,
+        val normalTexture: RenderTexture = RenderTexture.Companion.WHITE_RGBA_TEXTURE,
+        val occlusionTexture: RenderTexture = RenderTexture.Companion.WHITE_RGBA_TEXTURE,
+        val emissiveTexture: RenderTexture = RenderTexture.Companion.WHITE_RGBA_TEXTURE,
         val emissiveFactor: RgbColor = RgbColor(1f, 1f, 1f),
         override val alphaMode: AlphaMode = OPAQUE,
         override val alphaCutoff: Float = .5f,
@@ -288,7 +288,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
     class Unlit(
         override val name: String?,
         override val baseColor: RgbaColor = RgbaColor(1f, 1f, 1f, 1f),
-        override val baseColorTexture: RenderTexture = RenderTexture.WHITE_RGBA_TEXTURE,
+        override val baseColorTexture: RenderTexture = RenderTexture.Companion.WHITE_RGBA_TEXTURE,
         override val alphaMode: AlphaMode = OPAQUE,
         override val alphaCutoff: Float = .5f,
         override val doubleSided: Boolean = false,
@@ -304,9 +304,9 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
 
         override val vertexType: VertexType
             get() = if (skinned) {
-                VertexType.POSITION_TEXTURE_COLOR_JOINT_WEIGHT
+                VertexType.Companion.POSITION_TEXTURE_COLOR_JOINT_WEIGHT
             } else {
-                VertexType.POSITION_TEXTURE_COLOR
+                VertexType.Companion.POSITION_TEXTURE_COLOR
             }
 
         override fun setup(instanced: Boolean, renderPassCreator: () -> RenderPass): RenderPass {
@@ -359,9 +359,9 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
                     withSampler("SamplerBaseColor")
                     withSampler("SamplerLightMap")
                     if (info.skinned) {
-                        withVertexType(VertexType.POSITION_TEXTURE_COLOR_JOINT_WEIGHT)
+                        withVertexType(VertexType.Companion.POSITION_TEXTURE_COLOR_JOINT_WEIGHT)
                     } else {
-                        withVertexType(VertexType.POSITION_TEXTURE_COLOR)
+                        withVertexType(VertexType.Companion.POSITION_TEXTURE_COLOR)
                     }
                     withUniform("UnlitData", UniformType.UNIFORM_BUFFER)
                 }.build()

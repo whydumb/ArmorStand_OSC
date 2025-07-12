@@ -1,4 +1,4 @@
-package top.fifthlight.blazerod.model
+package top.fifthlight.blazerod.model.resource
 
 import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.buffers.GpuBufferSlice
@@ -14,9 +14,13 @@ import org.joml.Vector2i
 import top.fifthlight.blazerod.extension.draw
 import top.fifthlight.blazerod.extension.setVertexBuffer
 import top.fifthlight.blazerod.extension.shaderDataPool
+import top.fifthlight.blazerod.model.node.RenderNode
+import top.fifthlight.blazerod.model.RenderScene
+import top.fifthlight.blazerod.model.RenderTask
 import top.fifthlight.blazerod.model.data.ModelMatricesBuffer
 import top.fifthlight.blazerod.model.data.MorphTargetBuffer
 import top.fifthlight.blazerod.model.data.RenderSkinBuffer
+import top.fifthlight.blazerod.model.node.RenderNodeComponent
 import top.fifthlight.blazerod.model.uniform.InstanceDataUniformBuffer
 import top.fifthlight.blazerod.model.uniform.MorphDataUniformBuffer
 import top.fifthlight.blazerod.model.uniform.SkinModelIndicesUniformBuffer
@@ -101,7 +105,7 @@ class RenderPrimitive(
 
         try {
             instanceDataUniformBufferSlice = InstanceDataUniformBuffer.write {
-                primitiveSize = scene.primitiveNodes.size
+                primitiveSize = scene.primitiveComponents.size
                 this.primitiveIndex = primitiveIndex
                 this.modelViewMatrices[0] = viewModelMatrix
                 lightVector.set(
@@ -183,7 +187,7 @@ class RenderPrimitive(
 
     fun renderInstanced(
         tasks: List<RenderTask>,
-        node: RenderNode.Primitive,
+        component: RenderNodeComponent.Primitive,
     ) {
         require(material.supportInstancing) { "Primitives which cannot be instanced were scheduled" }
 
@@ -205,8 +209,8 @@ class RenderPrimitive(
         val scene = firstInstance.scene
         try {
             instanceDataUniformBufferSlice = InstanceDataUniformBuffer.write {
-                primitiveSize = scene.primitiveNodes.size
-                this.primitiveIndex = node.primitiveIndex
+                primitiveSize = scene.primitiveComponents.size
+                this.primitiveIndex = component.primitiveIndex
                 for ((index, task) in tasks.withIndex()) {
                     val light = task.light
                     lightVector.set(
@@ -218,14 +222,14 @@ class RenderPrimitive(
                 }
             }
             modelMatricesBufferSlice = device.shaderDataPool.upload(tasks.map { it.modelMatricesBuffer.content.buffer })
-            node.skinIndex?.let { skinIndex ->
+            component.skinIndex?.let { skinIndex ->
                 val firstSkinBuffer = firstTask.skinBuffer[skinIndex].content
                 skinModelIndicesBufferSlice = SkinModelIndicesUniformBuffer.write {
                     skinJoints = firstSkinBuffer.jointSize
                 }
                 skinJointBufferSlice = device.shaderDataPool.upload(tasks.map { it.skinBuffer[skinIndex].content.buffer })
             }
-            node.morphedPrimitiveIndex?.let { morphedPrimitiveIndex ->
+            component.morphedPrimitiveIndex?.let { morphedPrimitiveIndex ->
                 val targets = targets ?: error("Morphed primitive index was set but targets were not")
                 morphDataUniformBufferSlice = MorphDataUniformBuffer.write {
                     totalVertices = vertexBuffer.verticesCount
@@ -251,7 +255,7 @@ class RenderPrimitive(
 
             with(renderPass) {
                 if (RenderPassImpl.IS_DEVELOPMENT) {
-                    require(material.skinned == (node.skinIndex != null)) {
+                    require(material.skinned == (component.skinIndex != null)) {
                         "Primitive's skin data and material skinned property not matching"
                     }
                 }

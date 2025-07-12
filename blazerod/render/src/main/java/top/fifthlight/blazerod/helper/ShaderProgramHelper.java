@@ -6,7 +6,7 @@ import net.minecraft.client.gl.CompiledShader;
 import net.minecraft.client.gl.ShaderLoader;
 import net.minecraft.client.gl.ShaderProgram;
 import org.jetbrains.annotations.NotNull;
-import top.fifthlight.blazerod.model.VertexType;
+import top.fifthlight.blazerod.model.resource.VertexType;
 import top.fifthlight.blazerod.util.Blaze3DConstsKt;
 
 public class ShaderProgramHelper {

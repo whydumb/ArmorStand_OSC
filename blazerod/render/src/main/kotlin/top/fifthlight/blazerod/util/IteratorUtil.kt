@@ -8,22 +8,6 @@ private object EmptyIterator: Iterator<Nothing> {
     override fun hasNext() = false
 }
 
-fun <T> iteratorOf(): Iterator<T> = EmptyIterator
-
-fun <T> iteratorOf(item: T) = object : Iterator<T> {
-    private var finished = false
-
-    override fun next(): T {
-        if (finished) {
-            throw NoSuchElementException()
-        }
-        finished = true
-        return item
-    }
-
-    override fun hasNext() = !finished
-}
-
 inline fun IntIterable.forEachInt(action: (Int) -> Unit) {
     val iterator = intIterator()
     while (iterator.hasNext()) {

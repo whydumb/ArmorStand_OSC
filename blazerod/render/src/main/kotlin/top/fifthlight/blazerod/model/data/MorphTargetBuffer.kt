@@ -4,7 +4,7 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import it.unimi.dsi.fastutil.ints.IntSet
 import net.minecraft.util.Identifier
 import top.fifthlight.blazerod.BlazeRod
-import top.fifthlight.blazerod.model.RenderPrimitive
+import top.fifthlight.blazerod.model.resource.RenderPrimitive
 import top.fifthlight.blazerod.util.AbstractRefCount
 import top.fifthlight.blazerod.util.CowBuffer
 import java.nio.ByteBuffer

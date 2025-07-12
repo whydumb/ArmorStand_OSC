@@ -1,7 +1,6 @@
 package top.fifthlight.blazerod.util
 
 import net.minecraft.client.render.VertexConsumer
-import net.minecraft.util.Colors
 import org.joml.Matrix4f
 
 fun VertexConsumer.drawBox(matrix: Matrix4f, halfSize: Float, color: Int) {

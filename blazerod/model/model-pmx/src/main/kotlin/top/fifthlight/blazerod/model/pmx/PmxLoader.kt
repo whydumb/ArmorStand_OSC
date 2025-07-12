@@ -18,6 +18,7 @@ import top.fifthlight.blazerod.model.Metadata
 import top.fifthlight.blazerod.model.Model
 import top.fifthlight.blazerod.model.ModelFileLoader
 import top.fifthlight.blazerod.model.Node
+import top.fifthlight.blazerod.model.NodeComponent
 import top.fifthlight.blazerod.model.NodeId
 import top.fifthlight.blazerod.model.NodeTransform
 import top.fifthlight.blazerod.model.Primitive
@@ -26,6 +27,7 @@ import top.fifthlight.blazerod.model.RgbaColor
 import top.fifthlight.blazerod.model.Scene
 import top.fifthlight.blazerod.model.Skin
 import top.fifthlight.blazerod.model.Texture
+import top.fifthlight.blazerod.model.TransformId
 import top.fifthlight.blazerod.model.pmx.format.PmxBone
 import top.fifthlight.blazerod.model.pmx.format.PmxGlobals
 import top.fifthlight.blazerod.model.pmx.format.PmxHeader
@@ -841,118 +843,94 @@ object PmxLoader : ModelFileLoader {
 
             val modelId = UUID.randomUUID()
             val rootNodes = mutableListOf<Node>()
-            var nextNodeId = 0
 
-            val boneNodeIds = mutableListOf<NodeId>()
-            val ikBoneNodeIds = mutableListOf<NodeId?>()
-            // Pre allocate ID, to avoid problems
-            for ((boneIndex, bone) in bones.withIndex()) {
-                val nodeIndex = nextNodeId++
-                val nodeId = NodeId(modelId, nodeIndex)
-                boneNodeIds.add(nodeId)
-                if (boneIndex in ikAffectedBoneIndices) {
-                    val nodeIndex = nextNodeId++
-                    val nodeId = NodeId(modelId, nodeIndex)
-                    ikBoneNodeIds.add(nodeId)
-                } else {
-                    ikBoneNodeIds.add(null)
-                }
-            }
-
-            val totalInfluences = mutableListOf<Influence>()
             fun addBone(index: Int, parentPosition: Vector3fc? = null): Node {
                 val bone = bones[index]
-                val nodeId = boneNodeIds[index]
-                var children = childBoneMap[index]?.map {
+                val boneNodeId = NodeId(modelId, index)
+
+                val children = childBoneMap[index]?.map {
                     addBone(it, bone.position)
                 } ?: listOf()
-                if (index in ikAffectedBoneIndices) {
-                    val nodeId = ikBoneNodeIds[index]!!
-                    children = listOf(
-                        Node(
-                            name = "Ik transform bone for ${bone.nameLocal}",
-                            id = nodeId,
-                            children = children,
-                            transform = NodeTransform.Decomposed(),
-                        )
-                    )
-                }
-                val influences = buildList {
+
+                val components = buildList {
+                    if (bone.flags.ik) {
+                        bone.ikData?.let { ikData ->
+                            add(
+                                NodeComponent.IkTargetComponent(
+                                    ikTarget = IkTarget(
+                                        targetNodeId = NodeId(modelId, ikData.targetIndex),
+                                        loopCount = ikData.loopCount,
+                                        limitRadian = ikData.limitRadian,
+                                        ikLinks = ikData.links.map { link ->
+                                            IkTarget.IkLink(
+                                                nodeId = NodeId(modelId, link.index),
+                                                limit = link.limits?.let {
+                                                    IkTarget.IkLink.Limits(
+                                                        min = it.limitMin,
+                                                        max = it.limitMax,
+                                                    )
+                                                }
+                                            )
+                                        }
+                                    ),
+                                    transformId = TransformId.IK,
+                                )
+                            )
+                        }
+                    }
+
                     if (bone.flags.inheritRotation || bone.flags.inheritTranslation) {
                         val influence = Influence(
-                            sources = buildList {
-                                val parentIndex = bone.inheritParentIndex!!
-                                add(boneNodeIds[parentIndex])
-                                ikBoneNodeIds[parentIndex]?.let { add(it) }
-                            },
+                            source = NodeId(modelId, bone.inheritParentIndex!!),
                             influence = bone.inheritParentInfluence!!,
-                            relative = true,
                             influenceRotation = bone.flags.inheritRotation,
                             influenceTranslation = bone.flags.inheritTranslation,
                         )
-                        add(influence)
-                        totalInfluences.add(influence)
+                        add(NodeComponent.InfluenceTargetComponent(influence, TransformId.INFLUENCE))
                     }
                 }
+
                 return Node(
                     name = bone.nameLocal,
-                    id = nodeId,
-                    children = children,
+                    id = boneNodeId,
                     transform = NodeTransform.Decomposed(
                         translation = Vector3f().set(bone.position).also {
                             if (parentPosition != null) {
                                 it.sub(parentPosition)
                             }
                         },
+                        rotation = Quaternionf(),
+                        scale = Vector3f(1f),
                     ),
-                    ikTarget = bone.ikData?.let { ikData ->
-                        IkTarget(
-                            loopCount = ikData.loopCount,
-                            limitRadian = ikData.limitRadian,
-                            ikLinks = ikData.links.map { link ->
-                                IkTarget.IkLink(
-                                    index = ikBoneNodeIds[link.index]!!,
-                                    limit = link.limits?.let {
-                                        IkTarget.IkLink.Limits(
-                                            min = it.limitMin,
-                                            max = it.limitMax,
-                                        )
-                                    }
-                                )
-                            }
-                        )
-                    },
-                    influences = influences,
+                    children = children,
+                    components = components,
                 )
             }
+
             rootBones.forEach { index ->
                 rootNodes.add(addBone(index))
             }
 
+            var nextNodeIndex = bones.size
+
             val joints = mutableListOf<NodeId>()
             val inverseBindMatrices = mutableListOf<Matrix4f>()
             val jointHumanoidTags = mutableListOf<HumanoidTag?>()
-            for (boneIndex in 0 until bones.size) {
-                val bone = bones[boneIndex]
-                val inverseBindMatrix = Matrix4f().translation(bone.position).invertAffine()
 
-                val nodeId = ikBoneNodeIds[boneIndex] ?: boneNodeIds[boneIndex]
+            for (boneIndex in bones.indices) {
+                val bone = bones[boneIndex]
+                val nodeId = NodeId(modelId, boneIndex)
                 joints.add(nodeId)
+
+                val inverseBindMatrix = Matrix4f().translation(bone.position).invertAffine()
                 inverseBindMatrices.add(inverseBindMatrix)
+
                 jointHumanoidTags.add(
                     HumanoidTag.fromPmxJapanese(bone.nameLocal)
                         ?: HumanoidTag.fromPmxEnglish(bone.nameUniversal)
                 )
             }
-            for (boneIndex in 0 until bones.size) {
-                if (ikBoneNodeIds[boneIndex] == null) {
-                    continue
-                }
-                val boneNodeId = boneNodeIds[boneIndex]
-                joints.add(boneNodeId)
-                inverseBindMatrices.add(inverseBindMatrices[boneIndex])
-                jointHumanoidTags.add(null)
-            }
+
             val skin = Skin(
                 name = "PMX skin",
                 joints = joints,
@@ -962,11 +940,13 @@ object PmxLoader : ModelFileLoader {
 
             var indexOffset = 0
             val materialToMeshIds = mutableMapOf<Int, MeshId>()
+
             materials.forEachIndexed { materialIndex, pmxMaterial ->
-                val nodeIndex = nextNodeId++
+                val nodeIndex = nextNodeIndex++
                 val nodeId = NodeId(modelId, nodeIndex)
                 val meshId = MeshId(modelId, nodeIndex)
                 materialToMeshIds[materialIndex] = meshId
+
                 val material = Material.Unlit(
                     name = pmxMaterial.nameLocal,
                     baseColor = pmxMaterial.diffuseColor,
@@ -978,34 +958,41 @@ object PmxLoader : ModelFileLoader {
                     doubleSided = pmxMaterial.drawingFlags.noCull,
                 )
 
-                Node(
-                    name = "Node for material ${pmxMaterial.nameLocal}",
-                    id = nodeId,
-                    skin = skin,
-                    mesh = Mesh(
-                        id = meshId,
-                        primitives = listOf(
-                            Primitive(
-                                mode = Primitive.Mode.TRIANGLES,
-                                material = material,
-                                attributes = vertexAttributes,
-                                indices = Accessor(
-                                    bufferView = indexBufferView,
-                                    byteOffset = indexOffset * indexBufferType.byteLength,
-                                    componentType = indexBufferType,
-                                    normalized = false,
-                                    count = pmxMaterial.surfaceCount,
-                                    type = Accessor.AccessorType.SCALAR,
-                                ),
-                                targets = morphTargets.map { it.data },
+                rootNodes.add(
+                    Node(
+                        name = "Node for material ${pmxMaterial.nameLocal}",
+                        id = nodeId,
+                        transform = null,
+                        components = buildList {
+                            add(NodeComponent.SkinComponent(skin))
+                            add(
+                                NodeComponent.MeshComponent(
+                                    mesh = Mesh(
+                                        id = meshId,
+                                        primitives = listOf(
+                                            Primitive(
+                                                mode = Primitive.Mode.TRIANGLES,
+                                                material = material,
+                                                attributes = vertexAttributes,
+                                                indices = Accessor(
+                                                    bufferView = indexBufferView,
+                                                    byteOffset = indexOffset * indexBufferType.byteLength,
+                                                    componentType = indexBufferType,
+                                                    normalized = false,
+                                                    count = pmxMaterial.surfaceCount,
+                                                    type = Accessor.AccessorType.SCALAR,
+                                                ),
+                                                targets = morphTargets.map { it.data },
+                                            )
+                                        ),
+                                        weights = null,
+                                    )
+                                )
                             )
-                        ),
-                        weights = null,
+                        }
                     )
-                ).also {
-                    rootNodes.add(it)
-                    indexOffset += pmxMaterial.surfaceCount
-                }
+                )
+                indexOffset += pmxMaterial.surfaceCount
             }
 
             val scene = Scene(
@@ -1062,7 +1049,6 @@ object PmxLoader : ModelFileLoader {
                         }
                     },
                     defaultScene = scene,
-                    influences = totalInfluences,
                 ),
                 animations = listOf(),
             )

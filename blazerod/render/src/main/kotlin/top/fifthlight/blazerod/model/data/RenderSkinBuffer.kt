@@ -3,7 +3,7 @@ package top.fifthlight.blazerod.model.data
 import net.minecraft.util.Identifier
 import org.joml.Matrix4f
 import org.joml.Matrix4fc
-import top.fifthlight.blazerod.model.RenderSkin
+import top.fifthlight.blazerod.model.resource.RenderSkin
 import top.fifthlight.blazerod.util.AbstractRefCount
 import top.fifthlight.blazerod.util.CowBuffer
 import java.nio.ByteBuffer

@@ -19,19 +19,6 @@ interface Pool<T> : AutoCloseable {
     fun release(obj: T)
 }
 
-fun <T : AutoCloseable> ObjectPool(
-    identifier: Identifier,
-    create: () -> T,
-    onAcquired: (T.() -> Unit)? = null,
-    onReleased: (T.() -> Unit)? = null,
-) = ObjectPool(
-    identifier = identifier,
-    create = create,
-    onAcquired = onAcquired,
-    onReleased = onReleased,
-    onClosed = { close() },
-)
-
 open class ObjectPool<T : Any>(
     protected val identifier: Identifier,
     protected val create: () -> T,

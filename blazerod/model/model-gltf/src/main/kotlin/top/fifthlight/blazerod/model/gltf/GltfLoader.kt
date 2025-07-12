@@ -69,6 +69,7 @@ internal class GltfLoader(
             } catch (e: IllegalArgumentException) {
                 throw GltfLoadException("Bad base64 data URI", e)
             }
+
             else -> throw GltfLoadException("Unknown encoding: $encoding")
         }
         val directBuffer = ByteBuffer.allocateDirect(byteArray.size)
@@ -359,6 +360,7 @@ internal class GltfLoader(
                         )
                     } ?: throw GltfLoadException("Bad perspective camera: no perspective")
                 }
+
                 GltfCameraType.ORTHOGRAPHIC -> {
                     camera.orthographic?.let { orthographic ->
                         Camera.Orthographic(
@@ -377,27 +379,46 @@ internal class GltfLoader(
     private fun loadNode(index: Int): Node = nodes.getOrPut(index) {
         // TODO avoid stack overflow on bad models
         val node = gltf.nodes?.getOrNull(index) ?: throw GltfLoadException("No node at index $index")
-        val transform = when {
-            node.matrix != null -> NodeTransform.Matrix(node.matrix)
-            node.translation != null || node.rotation != null || node.scale != null -> NodeTransform.Decomposed(
-                translation = node.translation ?: Vector3f(),
-                rotation = node.rotation ?: Quaternionf(),
-                scale = node.scale ?: Vector3f(1f),
-            )
-
-            else -> null
-        }
         Node(
             name = node.name,
             id = NodeId(
                 modelId = uuid,
                 index = index,
             ),
+            transform = when {
+                node.matrix != null -> NodeTransform.Matrix(node.matrix)
+                node.translation != null || node.rotation != null || node.scale != null -> NodeTransform.Decomposed(
+                    translation = node.translation ?: Vector3f(),
+                    rotation = node.rotation ?: Quaternionf(),
+                    scale = node.scale ?: Vector3f(1f),
+                )
+
+                else -> null
+            },
             children = (node.children ?: listOf()).map(::loadNode),
-            mesh = node.mesh?.let { meshes.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown mesh $it") },
-            transform = transform,
-            skin = node.skin?.let { skins.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown skin $it") },
-            camera = node.camera?.let { cameras.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown camera $it") },
+            components = buildList {
+                node.mesh?.let {
+                    add(
+                        NodeComponent.MeshComponent(
+                            meshes.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown mesh $it")
+                        )
+                    )
+                }
+                node.skin?.let {
+                    add(
+                        NodeComponent.SkinComponent(
+                            skins.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown skin $it")
+                        )
+                    )
+                }
+                node.camera?.let {
+                    add(
+                        NodeComponent.CameraComponent(
+                            cameras.getOrNull(it) ?: throw GltfLoadException("Bad node: unknown camera $it")
+                        )
+                    )
+                }
+            },
         )
     }
 

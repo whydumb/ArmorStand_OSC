@@ -4,11 +4,11 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 import top.fifthlight.blazerod.model.ModelInstance
 import top.fifthlight.blazerod.model.NodeTransform
-import top.fifthlight.blazerod.model.RenderExpression
-import top.fifthlight.blazerod.model.RenderExpressionGroup
+import top.fifthlight.blazerod.model.TransformId
+import top.fifthlight.blazerod.model.resource.RenderExpression
+import top.fifthlight.blazerod.model.resource.RenderExpressionGroup
 import top.fifthlight.blazerod.model.animation.AnimationChannel
 import top.fifthlight.blazerod.model.util.MutableFloat
-import kotlin.math.exp
 
 sealed class AnimationChannelItem<T : Any, D>(
     val channel: AnimationChannel<T, D>
@@ -26,12 +26,8 @@ sealed class AnimationChannelItem<T : Any, D>(
         private val transform = NodeTransform.Decomposed()
 
         override fun apply(instance: ModelInstance, time: Float) {
-            instance.setRelativeTransformDecomposed(index) {
-                channel.getKeyFrameData(time, transform)
-                translation.add(transform.translation)
-                rotation.mul(transform.rotation)
-                scale.mul(transform.scale)
-            }
+            channel.getKeyFrameData(time, transform)
+            instance.setTransformDecomposed(index, TransformId.RELATIVE_ANIMATION, transform)
         }
     }
 
@@ -44,7 +40,7 @@ sealed class AnimationChannelItem<T : Any, D>(
         }
 
         override fun apply(instance: ModelInstance, time: Float) {
-            instance.setTransformDecomposed(index) {
+            instance.setTransformDecomposed(index, TransformId.ABSOLUTE) {
                 channel.getKeyFrameData(time, translation)
             }
         }
@@ -59,7 +55,7 @@ sealed class AnimationChannelItem<T : Any, D>(
         }
 
         override fun apply(instance: ModelInstance, time: Float) {
-            instance.setTransformDecomposed(index) {
+            instance.setTransformDecomposed(index, TransformId.ABSOLUTE) {
                 channel.getKeyFrameData(time, scale)
             }
         }
@@ -74,7 +70,7 @@ sealed class AnimationChannelItem<T : Any, D>(
         }
 
         override fun apply(instance: ModelInstance, time: Float) {
-            instance.setTransformDecomposed(index) {
+            instance.setTransformDecomposed(index, TransformId.ABSOLUTE) {
                 channel.getKeyFrameData(time, rotation)
                 rotation.normalize()
             }

@@ -5,7 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import top.fifthlight.blazerod.extension.internal.RenderPipelineExtInternal;
-import top.fifthlight.blazerod.model.VertexType;
+import top.fifthlight.blazerod.model.resource.VertexType;
 
 import java.util.Optional;
 

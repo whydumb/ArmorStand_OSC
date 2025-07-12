@@ -3,12 +3,13 @@ package top.fifthlight.blazerod.model
 import org.joml.Vector3fc
 
 data class IkTarget(
+    val targetNodeId: NodeId,
     val loopCount: Int,
     val limitRadian: Float,
     val ikLinks: List<IkLink>,
 ) {
     data class IkLink(
-        val index: NodeId,
+        val nodeId: NodeId,
         val limit: Limits?,
     ) {
         data class Limits(

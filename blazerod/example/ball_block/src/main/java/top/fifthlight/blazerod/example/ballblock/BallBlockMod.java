@@ -4,6 +4,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactories;
 import top.fifthlight.blazerod.model.*;
+import top.fifthlight.blazerod.model.node.RenderNode;
 
 import java.io.IOException;
 import java.net.URI;
@@ -53,15 +54,13 @@ public class BallBlockMod implements ClientModInitializer {
         BALL_SCENE.increaseReferenceCount();
         BALL_INSTANCE = new ModelInstance(BALL_SCENE);
         BALL_INSTANCE.increaseReferenceCount();
-        var rootTransformNodeIndex = BALL_SCENE.getRootTransformNodeIndex();
-        var rootTransformNode = (RenderNode.Transform) BALL_SCENE.getNodes().get(rootTransformNodeIndex);
-        var rootTransformIndex = rootTransformNode.getTransformIndex();
+        var rootTransformNodeIndex = BALL_SCENE.getRootNode().getNodeIndex();
         // Move and scale
-        BALL_INSTANCE.setTransformDecomposed(rootTransformIndex, matrix -> {
+         BALL_INSTANCE.setTransformDecomposed(rootTransformNodeIndex, TransformId.ABSOLUTE, matrix -> {
             matrix.getScale().mul(0.5f);
             matrix.getTranslation().add(0.5f, 0.5f, 0.5f);
         });
-        BALL_INSTANCE.update();
+        BALL_INSTANCE.updateRenderData();
     }
 
     public static ModelInstance getBallInstance() {

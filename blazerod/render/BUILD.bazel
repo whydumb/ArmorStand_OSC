@@ -117,6 +117,7 @@ kt_jvm_test(
         "src/test/kotlin/top/fifthlight/blazerod/test/StandaloneTest.kt",
         "src/test/kotlin/top/fifthlight/blazerod/test/layout/Std140Test.kt",
         "src/test/kotlin/top/fifthlight/blazerod/test/layout/Std430Test.kt",
+        "src/test/kotlin/top/fifthlight/blazerod/test/model/node/TransformMapTest.kt",
     ],
     main_class = "org.junit.platform.console.ConsoleLauncher",
     args = ["execute", "--select-class", "top.fifthlight.blazerod.test.StandaloneTest"],

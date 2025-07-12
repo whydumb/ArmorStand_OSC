@@ -1,7 +1,7 @@
 package top.fifthlight.blazerod.extension.internal;
 
 import top.fifthlight.blazerod.extension.RenderPipelineExt;
-import top.fifthlight.blazerod.model.VertexType;
+import top.fifthlight.blazerod.model.resource.VertexType;
 
 import java.util.Optional;
 

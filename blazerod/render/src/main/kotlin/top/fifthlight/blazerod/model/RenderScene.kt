@@ -1,30 +1,27 @@
 package top.fifthlight.blazerod.model
 
-import it.unimi.dsi.fastutil.ints.IntList
-import it.unimi.dsi.fastutil.objects.Object2IntMap
-import it.unimi.dsi.fastutil.objects.Reference2IntMap
+import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap
 import net.minecraft.client.render.VertexConsumerProvider
-import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.util.Identifier
-import org.joml.Matrix4fStack
 import org.joml.Matrix4fc
 import top.fifthlight.blazerod.model.data.ModelMatricesBuffer
 import top.fifthlight.blazerod.model.data.MorphTargetBuffer
 import top.fifthlight.blazerod.model.data.RenderSkinBuffer
+import top.fifthlight.blazerod.model.node.RenderNode
+import top.fifthlight.blazerod.model.node.RenderNodeComponent
+import top.fifthlight.blazerod.model.node.UpdatePhase
+import top.fifthlight.blazerod.model.node.forEach
+import top.fifthlight.blazerod.model.resource.RenderCamera
+import top.fifthlight.blazerod.model.resource.RenderExpression
+import top.fifthlight.blazerod.model.resource.RenderExpressionGroup
+import top.fifthlight.blazerod.model.resource.RenderSkin
 import top.fifthlight.blazerod.util.AbstractRefCount
 import top.fifthlight.blazerod.util.CowBufferList
 
 class RenderScene(
     val rootNode: RenderNode,
     val nodes: List<RenderNode>,
-    val primitiveNodes: List<RenderNode.Primitive>,
-    val transformNodeIndices: IntList,
-    val morphedPrimitiveNodeIndices: IntList,
-    val rootTransformNodeIndex: Int,
     val skins: List<RenderSkin>,
-    val nodeIdToTransformMap: Object2IntMap<NodeId>,
-    val nodeNameToTransformMap: Object2IntMap<String>,
-    val humanoidTagToTransformMap: Reference2IntMap<HumanoidTag>,
     val expressions: List<RenderExpression>,
     val expressionGroups: List<RenderExpressionGroup>,
     val cameras: List<RenderCamera>,
@@ -36,27 +33,83 @@ class RenderScene(
     override val typeId: Identifier
         get() = TYPE_ID
 
+    private val sortedNodes: List<RenderNode>
+    private val debugRenderNodes: List<RenderNode>
+    val primitiveComponents: List<RenderNodeComponent.Primitive>
+    val morphedPrimitiveComponents: List<RenderNodeComponent.Primitive>
+    val nodeIdMap: Map<NodeId, RenderNode>
+    val nodeNameMap: Map<String, RenderNode>
+    val humanoidTagMap: Map<HumanoidTag, RenderNode>
     init {
         rootNode.increaseReferenceCount()
-        humanoidTagToTransformMap.defaultReturnValue(-1)
-        nodeNameToTransformMap.defaultReturnValue(-1)
-        nodeIdToTransformMap.defaultReturnValue(-1)
+        val nodes = mutableListOf<RenderNode>()
+        val debugRenderNodes = mutableListOf<RenderNode>()
+        val primitiveComponents = mutableListOf<RenderNodeComponent.Primitive>()
+        val morphedPrimitives = Int2ReferenceOpenHashMap<RenderNodeComponent.Primitive>()
+        val nodeIdMap = mutableMapOf<NodeId, RenderNode>()
+        val nodeNameMap = mutableMapOf<String, RenderNode>()
+        val humanoidTagMap = mutableMapOf<HumanoidTag, RenderNode>()
+        rootNode.forEach { node ->
+            nodes.add(node)
+            node.nodeId?.let { nodeIdMap.put(it, node) }
+            node.nodeName?.let { nodeNameMap.put(it, node) }
+            node.humanoidTags.forEach { humanoidTagMap[it] = node }
+            if (node.hasPhase(UpdatePhase.Type.DEBUG_RENDER)) {
+                debugRenderNodes.add(node)
+            }
+            node.getComponentsOfType(RenderNodeComponent.Type.Primitive)?.let { components ->
+                primitiveComponents.addAll(components)
+                for (component in components) {
+                    component.morphedPrimitiveIndex?.let { index ->
+                        if (morphedPrimitives.containsKey(index)) {
+                            throw IllegalStateException("Duplicate morphed primitive index: $index")
+                        }
+                        morphedPrimitives.put(index, component)
+                    }
+                }
+            }
+        }
+        this.sortedNodes = nodes
+        this.debugRenderNodes = debugRenderNodes
+        this.primitiveComponents = primitiveComponents
+        this.morphedPrimitiveComponents = (0 until morphedPrimitives.size).map {
+            morphedPrimitives.get(it) ?: error("Morphed primitive index not found: $it")
+        }
+        this.nodeIdMap = nodeIdMap
+        this.nodeNameMap = nodeNameMap
+        this.humanoidTagMap = humanoidTagMap
     }
 
-    fun updateCamera(modelInstance: ModelInstance, matrixStack: Matrix4fStack) {
+    private fun executePhase(instance: ModelInstance, phase: UpdatePhase) {
+        for (node in sortedNodes) {
+            node.update(phase, node, instance)
+        }
+    }
+
+    fun updateCamera(instance: ModelInstance) {
         if (cameras.isEmpty()) {
             return
         }
-        rootNode.updateCamera(modelInstance, matrixStack, false)
+        executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
+        executePhase(instance, UpdatePhase.GlobalTransformPropagation)
+        executePhase(instance, UpdatePhase.CameraUpdate)
     }
 
-    fun debugRender(instance: ModelInstance, matrixStack: MatrixStack, consumers: VertexConsumerProvider) {
-        rootNode.debugRender(instance, matrixStack, consumers)
+    fun debugRender(instance: ModelInstance, consumers: VertexConsumerProvider) {
+        if (debugRenderNodes.isEmpty()) {
+            return
+        }
+        executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
+        executePhase(instance, UpdatePhase.GlobalTransformPropagation)
+        UpdatePhase.DebugRender.acquire(consumers).use {
+            executePhase(instance, it)
+        }
     }
 
-    fun update(modelInstance: ModelInstance, matrixStack: Matrix4fStack) {
-        rootNode.preUpdate(modelInstance, matrixStack, false)
-        rootNode.update(modelInstance, matrixStack, false)
+    fun updateRenderData(instance: ModelInstance) {
+        executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
+        executePhase(instance, UpdatePhase.GlobalTransformPropagation)
+        executePhase(instance, UpdatePhase.RenderDataUpdate)
     }
 
     fun render(
@@ -66,8 +119,11 @@ class RenderScene(
         skinBuffer: List<RenderSkinBuffer>?,
         morphTargetBuffer: List<MorphTargetBuffer>?,
     ) {
-        for (node in primitiveNodes) {
-            node.render(
+        if (primitiveComponents.isEmpty()) {
+            return
+        }
+        for (primitiveComponent in primitiveComponents) {
+            primitiveComponent.render(
                 scene = this,
                 modelViewMatrix = modelViewMatrix,
                 light = light,
@@ -92,8 +148,8 @@ class RenderScene(
                 )
             }
 
-            else -> for (node in primitiveNodes) {
-                node.renderInstanced(tasks)
+            else -> for (primitiveComponent in primitiveComponents) {
+                primitiveComponent.renderInstanced(tasks)
             }
         }
     }

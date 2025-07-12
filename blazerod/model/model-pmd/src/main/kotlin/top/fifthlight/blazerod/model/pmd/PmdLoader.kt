@@ -4,7 +4,6 @@ import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import top.fifthlight.blazerod.model.*
-import top.fifthlight.blazerod.model.Material.TextureInfo
 import top.fifthlight.blazerod.model.pmd.format.PmdBone
 import top.fifthlight.blazerod.model.pmd.format.PmdHeader
 import top.fifthlight.blazerod.model.pmd.format.PmdMaterial
@@ -295,41 +294,44 @@ object PmdLoader: ModelFileLoader {
 
             val modelId = UUID.randomUUID()
             val rootNodes = mutableListOf<Node>()
-            var nextNodeId = 0
 
-            val jointIds = mutableMapOf<Int, NodeId>()
             fun addBone(index: Int, parentPosition: Vector3f? = null): Node {
                 val bone = bones[index]
-                val nodeIndex = nextNodeId++
-                val nodeId = NodeId(modelId, nodeIndex)
-                jointIds[index] = nodeId
+
                 val children = childBoneMap[index]?.map { addBone(it, bone.position) } ?: listOf()
+
                 return Node(
                     name = bone.name,
-                    id = nodeId,
-                    children = children,
+                    id = NodeId(modelId, index),
                     transform = NodeTransform.Decomposed(
                         translation = Vector3f().set(bone.position).also {
                             if (parentPosition != null) {
                                 it.sub(parentPosition)
                             }
                         },
-                    )
+                        rotation = Quaternionf(),
+                        scale = Vector3f(1f),
+                    ),
+                    children = children,
+                    components = listOf(),
                 )
             }
+
             rootBones.forEach { index ->
                 rootNodes.add(addBone(index))
             }
 
+            var nextNodeIndex = bones.size
+
             val skin = Skin(
-                name = "PMX skin",
-                joints = (0 until bones.size).map { jointIds[it]!! },
+                name = "PMD skin",
+                joints = (0 until bones.size).map { NodeId(modelId, it) },
                 inverseBindMatrices = bones.map { Matrix4f().translation(it.position).invertAffine() },
                 jointHumanoidTags = bones.map { HumanoidTag.fromPmxJapanese(it.name) },
             )
 
             val vertexBuffer = Buffer(
-                name = "Vertex Buffer",
+                name = "PMD Vertex Buffer",
                 buffer = vertexBuffer
             )
             val vertexBufferView = BufferView(
@@ -339,7 +341,7 @@ object PmdLoader: ModelFileLoader {
                 byteStride = VERTEX_ATTRIBUTE_SIZE,
             )
             val indexBuffer = Buffer(
-                name = "Index Buffer",
+                name = "PMD Index Buffer",
                 buffer = indexBuffer,
             )
             val indexBufferView = BufferView(
@@ -350,84 +352,89 @@ object PmdLoader: ModelFileLoader {
             )
 
             var indexOffset = 0
-            materials.map { pmdMaterial ->
-                val nodeId = nextNodeId++
+            materials.forEach { pmdMaterial ->
+                val nodeIndex = nextNodeIndex++
+                val nodeId = NodeId(modelId, nodeIndex)
+                val meshId = MeshId(modelId, nodeIndex)
                 val material = Material.Unlit(
                     name = null,
                     baseColor = pmdMaterial.diffuseColor,
-                    baseColorTexture = pmdMaterial.textureFilename?.let { TextureInfo(loadTexture(it)) },
+                    baseColorTexture = pmdMaterial.textureFilename?.let { Material.TextureInfo(loadTexture(it)) },
                     doubleSided = true,
                 )
+
                 Node(
-                    id = NodeId(modelId, nodeId),
-                    skin = skin,
-                    mesh = Mesh(
-                        id = MeshId(modelId, nodeId),
-                        primitives = listOf(
-                            Primitive(
-                                mode = Primitive.Mode.TRIANGLES,
-                                material = material,
-                                attributes = Primitive.Attributes.Primitive(
-                                    position = Accessor(
-                                        bufferView = vertexBufferView,
-                                        byteOffset = 0,
-                                        componentType = Accessor.ComponentType.FLOAT,
-                                        normalized = false,
-                                        count = vertices,
-                                        type = Accessor.AccessorType.VEC3,
-                                    ),
-                                    normal = Accessor(
-                                        bufferView = vertexBufferView,
-                                        byteOffset = 3 * 4,
-                                        componentType = Accessor.ComponentType.FLOAT,
-                                        normalized = false,
-                                        count = vertices,
-                                        type = Accessor.AccessorType.VEC3,
-                                    ),
-                                    texcoords = listOf(
-                                        Accessor(
+                    id = nodeId,
+                    components = buildList {
+                        add(NodeComponent.MeshComponent(Mesh(
+                            id = meshId,
+                            primitives = listOf(
+                                Primitive(
+                                    mode = Primitive.Mode.TRIANGLES,
+                                    material = material,
+                                    attributes = Primitive.Attributes.Primitive(
+                                        position = Accessor(
                                             bufferView = vertexBufferView,
-                                            byteOffset = (3 + 3) * 4,
+                                            byteOffset = 0,
                                             componentType = Accessor.ComponentType.FLOAT,
                                             normalized = false,
                                             count = vertices,
-                                            type = Accessor.AccessorType.VEC2,
-                                        )
-                                    ),
-                                    joints = listOf(
-                                        Accessor(
+                                            type = Accessor.AccessorType.VEC3,
+                                        ),
+                                        normal = Accessor(
                                             bufferView = vertexBufferView,
-                                            byteOffset = (3 + 3 + 2) * 4,
-                                            componentType = Accessor.ComponentType.UNSIGNED_INT,
-                                            normalized = false,
-                                            count = vertices,
-                                            type = Accessor.AccessorType.VEC4,
-                                        )
-                                    ),
-                                    weights = listOf(
-                                        Accessor(
-                                            bufferView = vertexBufferView,
-                                            byteOffset = (3 + 3 + 2 + 4) * 4,
+                                            byteOffset = 3 * 4,
                                             componentType = Accessor.ComponentType.FLOAT,
                                             normalized = false,
                                             count = vertices,
-                                            type = Accessor.AccessorType.VEC4,
+                                            type = Accessor.AccessorType.VEC3,
+                                        ),
+                                        texcoords = listOf(
+                                            Accessor(
+                                                bufferView = vertexBufferView,
+                                                byteOffset = (3 + 3) * 4,
+                                                componentType = Accessor.ComponentType.FLOAT,
+                                                normalized = false,
+                                                count = vertices,
+                                                type = Accessor.AccessorType.VEC2,
+                                            )
+                                        ),
+                                        joints = listOf(
+                                            Accessor(
+                                                bufferView = vertexBufferView,
+                                                byteOffset = (3 + 3 + 2) * 4,
+                                                componentType = Accessor.ComponentType.UNSIGNED_INT,
+                                                normalized = false,
+                                                count = vertices,
+                                                type = Accessor.AccessorType.VEC4,
+                                            )
+                                        ),
+                                        weights = listOf(
+                                            Accessor(
+                                                bufferView = vertexBufferView,
+                                                byteOffset = (3 + 3 + 2 + 4) * 4,
+                                                componentType = Accessor.ComponentType.FLOAT,
+                                                normalized = false,
+                                                count = vertices,
+                                                type = Accessor.AccessorType.VEC4,
+                                            )
                                         )
-                                    )
-                                ),
-                                indices = Accessor(
-                                    bufferView = indexBufferView,
-                                    byteOffset = indexOffset * 2,
-                                    componentType = Accessor.ComponentType.UNSIGNED_SHORT,
-                                    normalized = false,
-                                    count = pmdMaterial.verticesCount,
-                                    type = Accessor.AccessorType.SCALAR,
-                                ),
-                                targets = listOf(),
-                            )
-                        ),
-                        weights = null,
-                    )
+                                    ),
+                                    indices = Accessor(
+                                        bufferView = indexBufferView,
+                                        byteOffset = indexOffset * 2,
+                                        componentType = Accessor.ComponentType.UNSIGNED_SHORT,
+                                        normalized = false,
+                                        count = pmdMaterial.verticesCount,
+                                        type = Accessor.AccessorType.SCALAR,
+                                    ),
+                                    targets = listOf(),
+                                )
+                            ),
+                            weights = null,
+                        )))
+                        add(NodeComponent.SkinComponent(skin))
+                    }
                 ).also {
                     rootNodes.add(it)
                     indexOffset += pmdMaterial.verticesCount

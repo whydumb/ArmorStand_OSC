@@ -25,12 +25,6 @@ object ModelFileLoaders {
         loaders.filter { ModelFileLoader.Ability.EMBED_THUMBNAIL in it.abilities }
     }
 
-    private val probableLoaders by lazy {
-        loaders.filter { it.probeLength != null }
-    }
-    private val unprobableLoaders by lazy {
-        loaders.filter { it.probeLength == null }
-    }
     private val probeBytes by lazy {
         loaders
             .asSequence()
@@ -58,6 +52,7 @@ object ModelFileLoaders {
     }
 
     private fun probeLoader(loaders: List<ModelFileLoader>, path: Path): ModelFileLoader? {
+        val (probableLoaders, unprobableLoaders) = loaders.partition { it.probeLength != null }
         // First try probe by content
         probeByContent(probableLoaders, path)?.let { return it }
         // Second try probe by extension

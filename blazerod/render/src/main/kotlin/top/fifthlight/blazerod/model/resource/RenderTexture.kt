@@ -1,4 +1,4 @@
-package top.fifthlight.blazerod.model
+package top.fifthlight.blazerod.model.resource
 
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.textures.GpuTexture

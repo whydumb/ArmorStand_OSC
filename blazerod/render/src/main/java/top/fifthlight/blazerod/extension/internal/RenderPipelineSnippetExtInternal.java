@@ -2,7 +2,7 @@ package top.fifthlight.blazerod.extension.internal;
 
 import org.jetbrains.annotations.NotNull;
 import top.fifthlight.blazerod.extension.RenderPipelineSnippetExt;
-import top.fifthlight.blazerod.model.VertexType;
+import top.fifthlight.blazerod.model.resource.VertexType;
 
 import java.util.Optional;
 

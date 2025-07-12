@@ -1,4 +1,4 @@
-package top.fifthlight.blazerod.model
+package top.fifthlight.blazerod.model.resource
 
 data class MorphTargetGroup(
     val position: Int?,

@@ -11,7 +11,7 @@ import java.nio.ByteOrder
 
 class ModelMatricesBuffer private constructor(val primitiveNodesSize: Int) : CowBuffer.Content<ModelMatricesBuffer>,
     AbstractRefCount() {
-    constructor(scene: RenderScene) : this(scene.primitiveNodes.size)
+    constructor(scene: RenderScene) : this(scene.primitiveComponents.size)
 
     companion object {
         private val IDENTITY = Matrix4f()

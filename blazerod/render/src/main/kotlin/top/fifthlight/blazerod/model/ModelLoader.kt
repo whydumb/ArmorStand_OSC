@@ -5,37 +5,36 @@ import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.textures.GpuTexture
 import com.mojang.blaze3d.textures.TextureFormat
 import com.mojang.blaze3d.vertex.VertexFormat
-import it.unimi.dsi.fastutil.ints.IntArrayList
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
+import it.unimi.dsi.fastutil.objects.Reference2IntMap
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap
-import top.fifthlight.blazerod.util.blaze3d
-import top.fifthlight.blazerod.extension.CommandEncoderExt
-import top.fifthlight.blazerod.extension.NativeImageExt
-import top.fifthlight.blazerod.extension.TextureFormatExt
-import top.fifthlight.blazerod.extension.createBuffer
-import top.fifthlight.blazerod.extension.createVertexBuffer
+import top.fifthlight.blazerod.extension.*
+import top.fifthlight.blazerod.model.node.RenderNode
+import top.fifthlight.blazerod.model.node.RenderNodeComponent
+import top.fifthlight.blazerod.model.resource.*
 import top.fifthlight.blazerod.render.IndexBuffer
 import top.fifthlight.blazerod.render.RefCountedGpuBuffer
 import top.fifthlight.blazerod.render.VertexBuffer
+import top.fifthlight.blazerod.util.blaze3d
 import top.fifthlight.blazerod.util.useMipmap
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import kotlin.collections.get
 
 class ModelLoader {
-    private lateinit var skinsMap: Map<Skin, Pair<Int, RenderSkin>>
+    private lateinit var skinIndexMap: Reference2IntMap<Skin>
     private lateinit var skinsList: List<RenderSkin>
 
-    data class JointSkinData(
+    data class SkinJointData(
         val skinIndex: Int,
         val jointIndex: Int,
         val humanoidTag: HumanoidTag?,
     )
 
-    private lateinit var jointSkins: Map<NodeId, List<JointSkinData>>
+    private lateinit var skinJoints: Map<NodeId, List<SkinJointData>>
     private fun loadSkins(skins: List<Skin>) {
-        val jointSkinMap = mutableMapOf<NodeId, MutableList<JointSkinData>>()
-        val skinsMap = mutableMapOf<Skin, Pair<Int, RenderSkin>>()
+        val skinIndexMap = Reference2IntOpenHashMap<Skin>()
+        val skinJointMap = mutableMapOf<NodeId, MutableList<SkinJointData>>()
         val skinsList = mutableListOf<RenderSkin>()
         for ((index, skin) in skins.withIndex()) {
             val renderSkin = RenderSkin(
@@ -44,40 +43,28 @@ class ModelLoader {
                 jointSize = skin.joints.size,
             )
             for ((jointIndex, joint) in skin.joints.withIndex()) {
-                jointSkinMap.getOrPut(joint) { mutableListOf() }.add(
-                    JointSkinData(
+                skinJointMap.getOrPut(joint) { mutableListOf() }.add(
+                    SkinJointData(
                         skinIndex = index,
                         jointIndex = jointIndex,
                         humanoidTag = skin.jointHumanoidTags[jointIndex],
                     )
                 )
             }
-            skinsMap[skin] = Pair(index, renderSkin)
             skinsList.add(renderSkin)
+            skinIndexMap.put(skin, index)
         }
         this.skinsList = skinsList
-        this.skinsMap = skinsMap
-        jointSkins = jointSkinMap
+        this.skinIndexMap = skinIndexMap
+        this.skinJoints = skinJointMap
     }
 
-    private lateinit var influenceSourceNodeIds: Set<NodeId>
-    private fun loadInfluences(influences: List<Influence>) {
-        val ids = mutableSetOf<NodeId>()
-        for (influence in influences) {
-            ids.addAll(influence.sources)
-        }
-        this.influenceSourceNodeIds = ids
-    }
-
-    private val nodes = mutableListOf<RenderNode>()
-    private val transformNodeIndices = IntArrayList()
-    private val primitiveNodes = mutableListOf<RenderNode.Primitive>()
-    private val morphedPrimitiveNodeIndices = IntArrayList()
+    private val nodeIdToIndexMap = Object2IntOpenHashMap<NodeId>()
+    private val renderNodes = Int2ObjectOpenHashMap<RenderNode>()
+    private val primitiveComponents = mutableListOf<RenderNodeComponent.Primitive>()
+    private val morphedPrimitiveComponents = mutableListOf<RenderNodeComponent.Primitive>()
     private val nodeToMorphedPrimitiveMap = mutableMapOf<NodeId, MutableList<Int>>()
     private val meshToMorphedPrimitiveMap = mutableMapOf<MeshId, MutableList<Int>>()
-    private val nodeIdTransformMap = Object2IntOpenHashMap<NodeId>()
-    private val nodeNameTransformMap = Object2IntOpenHashMap<String>()
-    private val humanoidJointTransformIndices = Reference2IntOpenHashMap<HumanoidTag>()
     private val textureCache = mutableMapOf<Texture, RenderTexture>()
     private val vertexBufferCache = mutableMapOf<Buffer, RefCountedGpuBuffer>()
     private val cameras = mutableListOf<RenderCamera>()
@@ -406,14 +393,14 @@ class ModelLoader {
     }
 
     private fun loadPrimitive(
+        mesh: Mesh,
         primitive: Primitive,
-        skin: Pair<Int, RenderSkin>?,
-        weights: List<Float>?,
+        skinIndex: Int?,
         nodeId: NodeId,
         meshId: MeshId,
-    ): RenderNode.Primitive? {
+    ): RenderNodeComponent.Primitive? {
         val hasSkinElements =
-            skin != null && primitive.attributes.joints.isNotEmpty() && primitive.attributes.weights.isNotEmpty()
+            skinIndex != null && primitive.attributes.joints.isNotEmpty() && primitive.attributes.weights.isNotEmpty()
         val material = primitive.material?.let {
             loadMaterial(
                 material = it,
@@ -437,21 +424,21 @@ class ModelLoader {
             verticesCount = verticesCount,
         )
         val (targets, targetGroups) = if (material.morphed) {
-            loadMorphTargets(verticesCount, primitive.targets, weights)
+            loadMorphTargets(verticesCount, primitive.targets, mesh.weights)
         } else {
             Pair(null, listOf())
         }
         val indexBuffer = primitive.indices?.let { loadIndexBuffer(it) }
         val morphedPrimitiveIndex = if (material.morphed) {
-            val morphedPrimitiveIndex = morphedPrimitiveNodeIndices.size
+            val morphedPrimitiveIndex = morphedPrimitiveComponents.size
             meshToMorphedPrimitiveMap.getOrPut(meshId) { mutableListOf() }.add(morphedPrimitiveIndex)
             nodeToMorphedPrimitiveMap.getOrPut(nodeId) { mutableListOf() }.add(morphedPrimitiveIndex)
             morphedPrimitiveIndex
         } else {
             null
         }
-        return RenderNode.Primitive(
-            primitiveIndex = primitiveNodes.size,
+        return RenderNodeComponent.Primitive(
+            primitiveIndex = primitiveComponents.size,
             primitive = RenderPrimitive(
                 vertexBuffer = vertexBuffer,
                 indexBuffer = indexBuffer,
@@ -459,135 +446,107 @@ class ModelLoader {
                 targets = targets,
                 targetGroups = targetGroups,
             ),
-            skinIndex = skin?.first,
+            skinIndex = skinIndex,
             morphedPrimitiveIndex = morphedPrimitiveIndex,
-        )
+            firstPersonFlag = mesh.firstPersonFlag,
+        ).also {
+            primitiveComponents.add(it)
+            if (it.morphedPrimitiveIndex != null) {
+                morphedPrimitiveComponents.add(it)
+            }
+        }
     }
 
     private fun loadNode(node: Node): RenderNode? {
-        val skinItem = skinsMap[node.skin]
-        val jointSkin = jointSkins[node.id]
+        val jointSkin = skinJoints[node.id]
 
-        val children = buildList {
+        val components = buildList {
             jointSkin?.forEach { (skinIndex, jointIndex) ->
-                val jointNode = RenderNode.Joint(
-                    skinIndex = skinIndex,
-                    jointIndex = jointIndex,
-                )
-                add(jointNode)
-                nodes.add(jointNode)
-            }
-            node.mesh?.let { mesh ->
-                for (primitive in mesh.primitives) {
-                    val primitiveNode = loadPrimitive(
-                        primitive = primitive,
-                        skin = skinItem,
-                        weights = mesh.weights,
-                        nodeId = node.id,
-                        meshId = mesh.id,
-                    ) ?: continue
-                    primitiveNodes.add(primitiveNode)
-                    val renderNodeIndex = nodes.size
-                    if (primitiveNode.primitive.targets != null) {
-                        morphedPrimitiveNodeIndices.add(renderNodeIndex)
-                    }
-                    add(primitiveNode)
-                    nodes.add(primitiveNode)
-                }
-            }
-            node.camera?.let {
-                val cameraTransformIndex = cameras.size
-                cameras.add(
-                    RenderCamera(
-                        cameraTransformIndex = cameraTransformIndex,
-                        camera = it,
+                add(
+                    RenderNodeComponent.Joint(
+                        skinIndex = skinIndex,
+                        jointIndex = jointIndex,
                     )
                 )
-                add(RenderNode.Camera(cameraTransformIndex).also { node -> nodes.add(node) })
             }
-            node.ikTarget?.takeIf { it.ikLinks.isNotEmpty() }?.let { ikTarget ->
-                add(
-                    RenderNode.Ik(
-                        loopCount = ikTarget.loopCount,
-                        limitRadian = ikTarget.limitRadian,
-                        ikLinks = ikTarget.ikLinks.map { RenderNode.Ik.IkLinkItem(it) },
-                    ).also { node -> nodes.add(node) }
-                )
+            node.meshComponent?.let { meshComponent ->
+                val mesh = meshComponent.mesh
+                val skin = node.skinComponent?.skin
+                for (primitive in mesh.primitives) {
+                    loadPrimitive(
+                        mesh = mesh,
+                        primitive = primitive,
+                        skinIndex = skin?.let { skinIndexMap.getInt(it) },
+                        nodeId = node.id,
+                        meshId = mesh.id,
+                    )?.let { add(it) }
+                }
             }
-            if (node.id in influenceSourceNodeIds) {
-                add(RenderNode.InfluenceSource().also { node -> nodes.add(node) })
+            for (component in node.components) {
+                when (component) {
+                    is NodeComponent.CameraComponent -> {
+                        val cameraIndex = cameras.size
+                        cameras.add(
+                            RenderCamera(
+                                cameraIndex = cameraIndex,
+                                camera = component.camera,
+                            )
+                        )
+                        add(RenderNodeComponent.Camera(cameraIndex))
+                    }
+
+                    is NodeComponent.InfluenceTargetComponent -> {
+                        val influence = component.influence
+                        add(
+                            RenderNodeComponent.InfluenceTarget(
+                                sourceNodeIndex = nodeIdToIndexMap.getInt(influence.source),
+                                influence = influence.influence,
+                                influenceRotation = influence.influenceRotation,
+                                influenceTranslation = influence.influenceTranslation,
+                                target = TransformId.INFLUENCE,
+                            )
+                        )
+                    }
+
+                    else -> {}
+                }
             }
-            node.children.forEach { loadNode(it)?.let { child -> add(child) } }
-        }
-        if (children.isEmpty()) {
-            return null
         }
 
-        var currentNode: RenderNode = if (children.size == 1) {
-            children.first()
-        } else {
-            val groupNode = RenderNode.Group(children)
-            children.forEach { it.parent = groupNode }
-            nodes.add(groupNode)
-            groupNode
-        }
-
-        for (influence in node.influences) {
-            currentNode = RenderNode.InfluenceTransform(
-                child = currentNode,
-                sourceNodeIds = influence.sources,
-                influence = influence.influence,
-                relative = influence.relative,
-                influenceRotation = influence.influenceRotation,
-                influenceTranslation = influence.influenceTranslation,
-            ).also {
-                currentNode.parent = it
-                nodes.add(it)
-            }
-        }
-
-        val transformIndex = transformNodeIndices.size
-        transformNodeIndices.add(nodes.size)
-        jointSkin?.let {
-            for (skinItem in jointSkin) {
-                skinItem.humanoidTag?.let { tag -> humanoidJointTransformIndices.put(tag, transformIndex) }
-            }
-        }
-        nodeIdTransformMap.put(node.id, transformIndex)
-        node.name?.let { nodeNameTransformMap.put(it, transformIndex) }
-        currentNode = RenderNode.Transform(
-            transformIndex = transformIndex,
-            defaultTransform = node.transform,
-            child = currentNode,
-        ).also {
-            currentNode.parent = it
-            nodes.add(it)
-        }
-
-        return currentNode
+        return RenderNode(
+            nodeIndex = nodeIdToIndexMap.getInt(node.id),
+            children = node.children.mapNotNull { loadNode(it) },
+            absoluteTransform = node.transform,
+            components = components,
+            nodeId = node.id,
+            nodeName = node.name,
+            humanoidTags = jointSkin?.mapNotNull { it.humanoidTag } ?: listOf(),
+        ).also { renderNodes[it.nodeIndex] = it }
     }
 
     private fun loadScene(scene: Scene, expressions: List<Expression>): RenderScene {
-        val rootNode = RenderNode.Transform(
-            child = RenderNode.Group(scene.nodes.mapNotNull { loadNode(it) }),
-            defaultTransform = scene.initialTransform,
-            transformIndex = transformNodeIndices.size,
+        // Pre-allocate node id
+        var nodeIndex = 0
+        for (node in scene.nodes) {
+            node.forEach { node ->
+                nodeIdToIndexMap[node.id] = nodeIndex++
+            }
+        }
+
+        val rootNode = RenderNode(
+            nodeIndex = nodeIndex,
+            children = scene.nodes.mapNotNull { loadNode(it) },
+            absoluteTransform = scene.initialTransform,
+            components = listOf(),
         )
-        val rootTransformId = nodes.size
-        transformNodeIndices.add(rootTransformId)
-        nodes.add(rootNode)
+        renderNodes[nodeIdToIndexMap.size] = rootNode
         val expressionTargetMap = mutableMapOf<Int, Int>()
         return RenderScene(
             rootNode = rootNode,
-            nodes = nodes,
-            transformNodeIndices = transformNodeIndices,
-            primitiveNodes = primitiveNodes,
-            morphedPrimitiveNodeIndices = morphedPrimitiveNodeIndices,
+            nodes = (0 until renderNodes.size).map { index ->
+                renderNodes[index] ?: error("Missing node index $index")
+            },
             skins = skinsList,
-            rootTransformNodeIndex = rootTransformId,
-            humanoidTagToTransformMap = humanoidJointTransformIndices,
-            nodeNameToTransformMap = nodeNameTransformMap,
-            nodeIdToTransformMap = nodeIdTransformMap,
             expressions = buildList {
                 for ((expressionIndex, expression) in expressions.withIndex()) {
                     if (expression !is Expression.Target) {
@@ -651,7 +610,6 @@ class ModelLoader {
 
     fun loadModel(model: Model): RenderScene {
         loadSkins(model.skins)
-        loadInfluences(model.influences)
         return loadScene(model.defaultScene ?: model.scenes.first(), model.expressions)
     }
 }

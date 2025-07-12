@@ -128,7 +128,8 @@ sealed class GpuShaderDataPool : AutoCloseable {
                         _buffer = null
                         bufferSize = -1
                         lastUsedFrame = -1
-                    }
+                    },
+                    onClosed = { },
                 )
 
                 fun acquire(buffer: GpuBuffer, lastUsedFrame: Int) = POOL.acquire().apply {

@@ -2,6 +2,7 @@ package top.fifthlight.blazerod.model.vmd
 
 import it.unimi.dsi.fastutil.floats.FloatArrayList
 import it.unimi.dsi.fastutil.ints.IntArrayList
+import it.unimi.dsi.fastutil.ints.IntIterable
 import top.fifthlight.blazerod.model.HumanoidTag
 import top.fifthlight.blazerod.model.ModelFileLoader
 import top.fifthlight.blazerod.model.NodeTransform
@@ -17,6 +18,13 @@ import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 
 class VmdLoadException(message: String) : Exception(message)
+
+private inline fun IntIterable.forEachInt(action: (Int) -> Unit) {
+    val iterator = intIterator()
+    while (iterator.hasNext()) {
+        action(iterator.nextInt())
+    }
+}
 
 object VmdLoader : ModelFileLoader {
     private val OLD_VMD_SIGNATURE = "Vocaloid Motion Data file".toByteArray()
@@ -89,7 +97,7 @@ object VmdLoader : ModelFileLoader {
 
             val sortedTimeList = FloatArrayList(frameList.size)
             val sortedTransformList = FloatArrayList(transformList.size)
-            for (i in indices) {
+            indices.forEachInt { i ->
                 sortedTimeList.add(frameList.getInt(i) * FRAME_TIME_SEC)
                 val start = i * 10
                 for (j in 0 until 10) {
@@ -162,7 +170,8 @@ object VmdLoader : ModelFileLoader {
 
             val sortedTimeList = FloatArrayList(frameList.size)
             val sortedWeightList = FloatArrayList(weightList.size)
-            for (i in indices) {
+
+            indices.forEachInt { i ->
                 sortedTimeList.add(frameList.getInt(i) * FRAME_TIME_SEC)
                 sortedWeightList.add(weightList.getFloat(i))
             }

@@ -2,19 +2,18 @@ package top.fifthlight.armorstand.state
 
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState
 import net.minecraft.util.math.MathHelper
-import org.joml.Matrix4f
-import org.joml.Matrix4fc
 import top.fifthlight.armorstand.ui.model.AnimationViewModel
 import top.fifthlight.armorstand.util.toRadian
 import top.fifthlight.blazerod.animation.AnimationItem
 import top.fifthlight.blazerod.animation.Timeline
 import top.fifthlight.blazerod.model.ModelInstance
-import top.fifthlight.blazerod.model.RenderExpression
-import top.fifthlight.blazerod.model.RenderNode
+import top.fifthlight.blazerod.model.resource.RenderExpression
 import top.fifthlight.blazerod.model.RenderScene
 import top.fifthlight.blazerod.model.Expression
 import top.fifthlight.blazerod.model.HumanoidTag
-import top.fifthlight.blazerod.model.RenderExpressionGroup
+import top.fifthlight.blazerod.model.NodeTransform
+import top.fifthlight.blazerod.model.TransformId
+import top.fifthlight.blazerod.model.resource.RenderExpressionGroup
 import java.util.UUID
 import kotlin.math.abs
 
@@ -23,15 +22,10 @@ sealed class ModelController {
     abstract fun apply(instance: ModelInstance)
 
     private class JointItem(
-        private val initialMatrix: Matrix4fc,
-        private val transformIndex: Int,
+        private val nodeIndex: Int,
     ) {
-        private val targetMatrix = Matrix4f()
-
-        inline fun update(instance: ModelInstance, crossinline func: Matrix4f.() -> Unit) {
-            targetMatrix.set(initialMatrix)
-            func(targetMatrix)
-            instance.setTransformMatrix(transformIndex, targetMatrix)
+        fun update(instance: ModelInstance, func: NodeTransform.Decomposed.() -> Unit) {
+            instance.setTransformDecomposed(nodeIndex, TransformId.RELATIVE_ANIMATION, func)
         }
     }
 
@@ -80,14 +74,7 @@ sealed class ModelController {
 
         companion object {
             private fun RenderScene.getBone(tag: HumanoidTag) =
-                humanoidTagToTransformMap.getInt(tag).takeIf { it != -1 }?.let { transformIndex ->
-                    val nodeIndex = transformNodeIndices.getInt(transformIndex)
-                    val transformNode = nodes[nodeIndex] as RenderNode.Transform
-                    JointItem(
-                        initialMatrix = transformNode.defaultTransform?.matrix ?: Matrix4f(),
-                        transformIndex = transformIndex,
-                    )
-                }
+                humanoidTagMap[tag]?.let { node -> JointItem(nodeIndex = node.nodeIndex) }
 
             private fun RenderScene.getExpression(tag: Expression.Tag) =
                 expressions.firstOrNull { it.tag == tag }?.let { ExpressionItem.Expression(it) }
@@ -103,10 +90,10 @@ sealed class ModelController {
 
         override fun apply(instance: ModelInstance) {
             center?.update(instance) {
-                rotateY(bodyYaw)
+                rotation.rotationY(bodyYaw)
             }
             head?.update(instance) {
-                rotateYXZ(headYaw, headPitch, 0f)
+                rotation.rotationYXZ(headYaw, headPitch, 0f)
             }
             blinkExpression?.apply(instance, blinkProgress)
         }

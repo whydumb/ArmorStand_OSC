@@ -9,7 +9,7 @@ import top.fifthlight.armorstand.debug.ResourceCountTrackerFrame
 import top.fifthlight.blazerod.debug.*
 import top.fifthlight.blazerod.event.RenderEvents
 import top.fifthlight.blazerod.extension.shaderDataPool
-import top.fifthlight.blazerod.model.RenderMaterial
+import top.fifthlight.blazerod.model.resource.RenderMaterial
 import top.fifthlight.blazerod.model.uniform.UniformBuffer
 import top.fifthlight.blazerod.util.cleanupPools
 import javax.swing.SwingUtilities

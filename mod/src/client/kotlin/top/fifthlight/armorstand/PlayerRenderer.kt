@@ -9,8 +9,8 @@ import net.minecraft.client.util.math.MatrixStack
 import org.joml.Matrix4f
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.state.ModelInstanceManager
-import top.fifthlight.blazerod.model.CameraTransform
-import top.fifthlight.blazerod.model.RenderCamera
+import top.fifthlight.blazerod.model.resource.CameraTransform
+import top.fifthlight.blazerod.model.resource.RenderCamera
 import top.fifthlight.blazerod.model.TaskMap
 import java.lang.ref.WeakReference
 import java.util.*
@@ -75,14 +75,14 @@ object PlayerRenderer {
 
         controller.update(uuid, vanillaState)
         controller.apply(instance)
-        instance.update()
+        instance.updateRenderData()
 
         val backupItem = matrixStack.peek().copy()
         matrixStack.pop()
         matrixStack.push()
 
         if (ArmorStandClient.debugBone) {
-            instance.debugRender(matrixStack, consumers)
+            instance.debugRender(consumers)
         } else {
             matrix.set(matrixStack.peek().positionMatrix)
             matrix.scale(ConfigHolder.config.value.modelScale)

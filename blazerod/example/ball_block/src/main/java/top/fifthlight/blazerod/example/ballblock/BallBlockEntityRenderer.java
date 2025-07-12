@@ -13,7 +13,7 @@ public class BallBlockEntityRenderer implements BlockEntityRenderer<BallBlockEnt
     public BallBlockEntityRenderer(BlockEntityRendererFactory.Context context) {
     }
 
-    private Matrix4f matrix = new Matrix4f();
+    private final Matrix4f matrix = new Matrix4f();
 
     @Override
     public void render(BallBlockEntity entity, float tickProgress, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay, Vec3d cameraPos) {

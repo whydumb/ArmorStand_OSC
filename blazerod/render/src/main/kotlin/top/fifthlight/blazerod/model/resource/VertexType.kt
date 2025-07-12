@@ -1,4 +1,4 @@
-package top.fifthlight.blazerod.model
+package top.fifthlight.blazerod.model.resource
 
 import top.fifthlight.blazerod.model.Primitive
 
