@@ -152,7 +152,7 @@ object PmdLoader: ModelFileLoader {
 
                 outputBuffer.putInt(outputPosition, buffer.getShort(inputPosition).toUShort().toInt())
                 outputBuffer.putInt(outputPosition + 4, buffer.getShort(inputPosition + 2).toUShort().toInt())
-                val weight = buffer.get().toUShort().toFloat() / 100f
+                val weight = buffer.get(inputPosition + 4).toUByte().toFloat() / 100f
                 outputBuffer.putFloat(outputPosition + 16, weight)
                 outputBuffer.putFloat(outputPosition + 20, 1f - weight)
                 outputPosition += SKIN_VERTEX_ATTRIBUTE_SIZE
@@ -236,7 +236,7 @@ object PmdLoader: ModelFileLoader {
                         throw PmdLoadException("Texture too large! Maximum supported is 256M.")
                     }
                     val size = size.toInt()
-                    val buffer = ByteBuffer.allocateDirect(size)
+                    val buffer = ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder())
                     channel.readAll(buffer)
                     buffer.flip()
                     buffer
