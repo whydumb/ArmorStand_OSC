@@ -251,7 +251,7 @@ fun GpuShaderDataPool.write(size: Int, block: ByteBuffer.() -> Unit) = allocate(
     }
 }
 
-fun GpuShaderDataPool.upload(byteBuffer: ByteBuffer) = write(byteBuffer.capacity()){
+fun GpuShaderDataPool.upload(byteBuffer: ByteBuffer) = write(byteBuffer.capacity()) {
     val copied = byteBuffer.duplicate()
     copied.clear()
     put(copied)
@@ -263,9 +263,4 @@ fun GpuShaderDataPool.upload(byteBuffers: List<ByteBuffer>) = write(byteBuffers.
         copied.clear()
         put(copied)
     }
-}
-
-// Assume each ByteBuffer has same size
-fun <T> GpuShaderDataPool.upload(list: List<T>, transform: (T) -> ByteBuffer) {
-    TODO()
 }

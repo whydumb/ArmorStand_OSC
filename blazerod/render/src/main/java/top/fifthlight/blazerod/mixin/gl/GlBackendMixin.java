@@ -44,11 +44,32 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
     @Final
     private Set<String> usedGlCapabilities;
 
+    @Shadow
+    @Final
+    private int uniformOffsetAlignment;
+
     @Unique
     private GpuShaderDataPool gpuShaderDataPool;
 
     @Unique
     private boolean supportSsbo;
+
+    @Unique
+    private int gcd(int a, int b) {
+        var max = Math.max(a, b);
+        var min = Math.min(a, b);
+        while (min != 0) {
+            var temp = max % min;
+            max = min;
+            min = temp;
+        }
+        return max;
+    }
+
+    @Unique
+    private int lcm(int a, int b) {
+        return a * b / gcd(a, b);
+    }
 
     @Inject(method = "<init>", at = @At("TAIL"))
     private void onInit(long contextId, int debugVerbosity, boolean sync, BiFunction<Identifier, ShaderType, String> shaderSourceGetter, boolean renderDebugLabels, CallbackInfo ci, @Local(ordinal = 0) GLCapabilities glCapabilities) {
@@ -66,6 +87,7 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
         } else {
             supportTextureBufferSlice = false;
         }
+        var vanillaAlignment = uniformOffsetAlignment;
         int shaderDataAlignment;
         if (supportSsbo) {
             shaderDataAlignment = GL11.glGetInteger(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT);
@@ -73,6 +95,11 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
             shaderDataAlignment = GL11.glGetInteger(ARBTextureBufferRange.GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT);
         } else {
             shaderDataAlignment = 0;
+        }
+        if (shaderDataAlignment != 0 && vanillaAlignment != 0) {
+            shaderDataAlignment = lcm(vanillaAlignment, shaderDataAlignment);
+        } else {
+            shaderDataAlignment = Math.max(vanillaAlignment, shaderDataAlignment);
         }
         gpuShaderDataPool = GpuShaderDataPool.create(shaderDataAlignment, supportSsbo || supportTextureBufferSlice);
     }

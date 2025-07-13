@@ -14,7 +14,6 @@ import org.joml.Vector2i
 import top.fifthlight.blazerod.extension.draw
 import top.fifthlight.blazerod.extension.setVertexBuffer
 import top.fifthlight.blazerod.extension.shaderDataPool
-import top.fifthlight.blazerod.model.node.RenderNode
 import top.fifthlight.blazerod.model.RenderScene
 import top.fifthlight.blazerod.model.RenderTask
 import top.fifthlight.blazerod.model.data.ModelMatricesBuffer

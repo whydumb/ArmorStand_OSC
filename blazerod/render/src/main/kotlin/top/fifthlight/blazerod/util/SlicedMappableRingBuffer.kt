@@ -5,7 +5,6 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice
 import com.mojang.blaze3d.buffers.GpuFence
 import com.mojang.blaze3d.systems.RenderSystem
 import java.lang.AutoCloseable
-import java.nio.ByteBuffer
 import java.util.function.Supplier
 
 class SlicedMappableRingBuffer(
@@ -27,7 +26,7 @@ class SlicedMappableRingBuffer(
     init {
         require(alignment >= 0) { "Alignment must be non-negative" }
         sliceSize = if (alignment == 0) {
-            1
+            size
         } else {
             size roundUpToMultiple alignment
         }
