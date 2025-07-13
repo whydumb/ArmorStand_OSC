@@ -368,4 +368,91 @@ class TransformMapTest {
         assertTrue(firstSum.equals(secondSum, 1e-6f))
         assertTrue(firstSum.equals(thirdSum, 1e-6f))
     }
+
+    @Test
+    fun clearFromRemovesCorrectTransforms() {
+        transformMap.updateDecomposed(TransformId.RELATIVE_ANIMATION) { translation.set(1f, 0f, 0f) }
+        transformMap.updateMatrix(TransformId.INFLUENCE) { matrix.translate(0f, 1f, 0f) }
+        transformMap.updateDecomposed(TransformId.IK) { translation.set(0f, 0f, 1f) }
+        transformMap.updateMatrix(TransformId.PHYSICS) { matrix.translate(0f, 0f, 0f) } // Add one more transform
+
+        assertNotNull(transformMap.get(TransformId.RELATIVE_ANIMATION))
+        assertNotNull(transformMap.get(TransformId.INFLUENCE))
+        assertNotNull(transformMap.get(TransformId.IK))
+        assertNotNull(transformMap.get(TransformId.PHYSICS))
+
+        val initialPhysicsSum = transformMap.getSum(TransformId.PHYSICS)
+        assertTrue(initialPhysicsSum.equals(Matrix4f().translate(1f, 1f, 1f), 1e-6f))
+
+        transformMap.clearFrom(TransformId.INFLUENCE)
+
+        assertNotNull(transformMap.get(TransformId.RELATIVE_ANIMATION))
+        assertNotNull(transformMap.get(TransformId.INFLUENCE))
+        assertNull(transformMap.get(TransformId.IK))
+        assertNull(transformMap.get(TransformId.PHYSICS))
+
+        assertNotNull(transformMap.getSum(TransformId.RELATIVE_ANIMATION))
+        assertNotNull(transformMap.getSum(TransformId.INFLUENCE))
+
+        val expectedIKSumAfterClear = transformMap.getSum(TransformId.INFLUENCE)
+        assertTrue(expectedIKSumAfterClear.equals(transformMap.getSum(TransformId.IK), 1e-6f))
+        assertTrue(expectedIKSumAfterClear.equals(transformMap.getSum(TransformId.PHYSICS), 1e-6f))
+    }
+
+    @Test
+    fun clearFromDefaultIdClearsAllButAbsolute() {
+        transformMap.updateDecomposed(TransformId.RELATIVE_ANIMATION) { translation.set(1f, 0f, 0f) }
+        transformMap.updateMatrix(TransformId.INFLUENCE) { matrix.translate(0f, 1f, 0f) }
+        transformMap.updateDecomposed(TransformId.IK) { translation.set(0f, 0f, 1f) }
+
+        assertNotNull(transformMap.get(TransformId.ABSOLUTE))
+        assertNotNull(transformMap.get(TransformId.RELATIVE_ANIMATION))
+        assertNotNull(transformMap.get(TransformId.INFLUENCE))
+        assertNotNull(transformMap.get(TransformId.IK))
+
+        transformMap.clearFrom(TransformId.ABSOLUTE)
+
+        assertNotNull(transformMap.get(TransformId.ABSOLUTE))
+        assertNull(transformMap.get(TransformId.RELATIVE_ANIMATION))
+        assertNull(transformMap.get(TransformId.INFLUENCE))
+        assertNull(transformMap.get(TransformId.IK))
+
+        assertNotNull(transformMap.getSum(TransformId.ABSOLUTE))
+
+        val expectedRelAnimSumAfterClear = transformMap.getSum(TransformId.ABSOLUTE)
+        assertTrue(expectedRelAnimSumAfterClear.equals(transformMap.getSum(TransformId.RELATIVE_ANIMATION), 1e-6f))
+        assertTrue(expectedRelAnimSumAfterClear.equals(transformMap.getSum(TransformId.INFLUENCE), 1e-6f))
+        assertTrue(expectedRelAnimSumAfterClear.equals(transformMap.getSum(TransformId.IK), 1e-6f))
+    }
+
+    @Test
+    fun clearFromHandlesEmptyMap() {
+        transformMap.clearFrom(TransformId.RELATIVE_ANIMATION)
+
+        assertNotNull(transformMap.get(TransformId.ABSOLUTE))
+        assertNull(transformMap.get(TransformId.RELATIVE_ANIMATION))
+        assertNull(transformMap.get(TransformId.INFLUENCE))
+    }
+
+    @Test
+    fun clearFromDoesNotAffectPrecedingTransforms() {
+        transformMap.updateDecomposed(TransformId.RELATIVE_ANIMATION) { translation.set(1f, 0f, 0f) }
+        transformMap.updateMatrix(TransformId.INFLUENCE) { matrix.translate(0f, 1f, 0f) }
+        transformMap.updateDecomposed(TransformId.IK) { translation.set(0f, 0f, 1f) }
+
+        val initialRelAnimTransform = transformMap.get(TransformId.RELATIVE_ANIMATION)
+        val initialRelAnimSum = transformMap.getSum(TransformId.RELATIVE_ANIMATION)
+
+        transformMap.clearFrom(TransformId.INFLUENCE)
+
+        assertNotNull(transformMap.get(TransformId.RELATIVE_ANIMATION))
+        assertNotNull(transformMap.get(TransformId.INFLUENCE))
+        assertNull(transformMap.get(TransformId.IK))
+
+        assertTrue(initialRelAnimTransform!!.matrix.equals(transformMap.get(TransformId.RELATIVE_ANIMATION)!!.matrix, 1e-6f))
+        assertTrue(initialRelAnimSum.equals(transformMap.getSum(TransformId.RELATIVE_ANIMATION), 1e-6f))
+
+        val expectedInfluenceSum = Matrix4f().translate(1f,0f,0f).translate(0f,1f,0f) // Sum of REL_ANIM and INFLUENCE
+        assertTrue(expectedInfluenceSum.equals(transformMap.getSum(TransformId.INFLUENCE), 1e-6f))
+    }
 }

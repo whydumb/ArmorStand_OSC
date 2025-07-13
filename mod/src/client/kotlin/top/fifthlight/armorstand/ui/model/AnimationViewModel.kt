@@ -136,6 +136,7 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
             is AnimationScreenState.AnimationItem.Source.Embed -> {
                 val index = source.index
                 val animation = instanceItem.animations[index]
+                instanceItem.instance.clearTransform()
                 instanceItem.controller = ModelController.Predefined(animation)
             }
             is AnimationScreenState.AnimationItem.Source.External -> {
@@ -146,6 +147,7 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
                         val result = ModelFileLoaders.probeAndLoad(path)
                         val animation = result?.animations?.firstOrNull() ?: error("No animation in file")
                         val animationItem = AnimationLoader.load(instanceItem.instance.scene, animation)
+                        instanceItem.instance.clearTransform()
                         instanceItem.controller = ModelController.Predefined(animationItem)
                     } catch (ex: Throwable) {
                         logger.warn("Failed to load animation", ex)

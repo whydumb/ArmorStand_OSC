@@ -77,6 +77,12 @@ class ModelInstance(val scene: RenderScene) : AbstractRefCount() {
         }
     }
 
+    fun clearTransform() {
+        for (transformMap in modelData.transformMaps) {
+            transformMap.clearFrom(TransformId.ABSOLUTE)
+        }
+    }
+
     fun setTransformMatrix(nodeIndex: Int, transformId: TransformId, matrix: Matrix4f) {
         val transform = modelData.transformMaps[nodeIndex]
         transform.setMatrix(transformId, matrix)

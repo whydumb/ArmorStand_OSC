@@ -10,37 +10,48 @@ import top.fifthlight.blazerod.model.TransformId
 import java.lang.IllegalStateException
 import java.util.*
 
-class TransformMap(absolute: NodeTransform?) {
+class TransformMap(first: NodeTransform?) {
     val transforms = EnumMap<TransformId, NodeTransform>(TransformId::class.java).also {
-        it.put(TransformId.ABSOLUTE, absolute ?: NodeTransform.Decomposed())
+        it.put(TransformId.FIRST, first ?: NodeTransform.Decomposed())
     }
 
     private val dirtyTransforms = EnumSet.noneOf(TransformId::class.java)
 
     private val intermediateMatrices = EnumMap<TransformId, Matrix4f>(TransformId::class.java).also {
-        it.put(TransformId.ABSOLUTE, absolute?.matrix?.let { mat -> Matrix4f(mat) } ?: Matrix4f())
+        it.put(TransformId.FIRST, first?.matrix?.let { mat -> Matrix4f(mat) } ?: Matrix4f())
+    }
+
+    /**
+     * 清除从指定 TransformId 开始的所有变换。
+     *
+     * @param id 起始 TransformId。
+     */
+    fun clearFrom(id: TransformId = TransformId.FIRST) {
+        transforms.keys.removeIf { it > id }
+        intermediateMatrices.keys.removeIf { it > id }
+        dirtyTransforms.removeIf { it > id }
     }
 
     private val tempAccumulatedMatrix = Matrix4f()
     private fun calculateIntermediateMatrices(targetId: TransformId): Matrix4fc {
         // 1. 确定计算的起始点 (startId)。
         // 找到从 targetId 向前追溯，第一个非脏并存在的 TransformId。
-        // 如果所有祖先都脏，则从 TransformId.ABSOLUTE 开始。
+        // 如果所有祖先都脏，则从 TransformId.FIRST 开始。
         var startId = targetId
 
         while (startId in dirtyTransforms || startId !in transforms.keys) {
-            if (startId == TransformId.ABSOLUTE) {
-                break // 如果 ABSOLUTE 都脏，就从 ABSOLUTE 自身开始
+            if (startId == TransformId.FIRST) {
+                break // 如果 FIRST 都脏，就从 FIRST 自身开始
             }
 
             startId = TransformId.entries[startId.ordinal - 1]
         }
 
         // 获取起始点的基础矩阵。
-        // 如果 startId 是 ABSOLUTE 且它自身被标记为脏（意味着需要重新初始化其矩阵），则从原始 transform 获取。
+        // 如果 startId 是 FIRST 且它自身被标记为脏（意味着需要重新初始化其矩阵），则从原始 transform 获取。
         // 否则，从 intermediateMatrices 获取。
-        val baseMatrix = if (startId == TransformId.ABSOLUTE && dirtyTransforms.contains(TransformId.ABSOLUTE)) {
-            transforms[TransformId.ABSOLUTE]!!.matrix.get(tempAccumulatedMatrix)
+        val baseMatrix = if (startId == TransformId.FIRST && dirtyTransforms.contains(TransformId.FIRST)) {
+            transforms[TransformId.FIRST]!!.matrix.get(tempAccumulatedMatrix)
         } else {
             tempAccumulatedMatrix.set(
                 intermediateMatrices[startId]

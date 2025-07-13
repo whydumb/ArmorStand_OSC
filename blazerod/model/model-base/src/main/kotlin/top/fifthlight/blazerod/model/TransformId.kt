@@ -15,7 +15,7 @@ enum class TransformId: Comparable<TransformId> {
     PHYSICS;
 
     companion object {
-        val LAST
-            get() = entries.last()
+        val FIRST = entries.first()
+        val LAST = entries.last()
     }
 }
