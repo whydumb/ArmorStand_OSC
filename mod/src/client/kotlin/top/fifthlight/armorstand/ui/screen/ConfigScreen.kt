@@ -1,6 +1,5 @@
 package top.fifthlight.armorstand.ui.screen
 
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -12,7 +11,6 @@ import net.minecraft.client.gui.widget.TabNavigationWidget
 import net.minecraft.client.gui.widget.TextWidget
 import net.minecraft.screen.ScreenTexts
 import net.minecraft.text.Text
-import net.minecraft.util.Colors
 import net.minecraft.util.Formatting
 import org.lwjgl.glfw.GLFW
 import top.fifthlight.armorstand.ArmorStandClient
@@ -25,7 +23,6 @@ import top.fifthlight.armorstand.ui.util.checkbox
 import top.fifthlight.armorstand.ui.util.slider
 import top.fifthlight.armorstand.ui.util.textField
 import top.fifthlight.armorstand.util.ceilDiv
-import kotlin.math.exp
 
 class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, ConfigViewModel>(
     parent = parent,
@@ -141,7 +138,7 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
     private val modelGrid by lazy {
         GridLayout(
             cellWidth = 64,
-            cellHeight = 80,
+            cellHeightRange = 60..80,
             padding = Insets(horizonal = 8),
             verticalGap = 8,
         ).also { grid ->
@@ -272,7 +269,11 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
         padding = Insets(8),
     ) {
         BorderLayout().apply {
-            setCenterElement(MetadataWidget(currentClient).also {
+            setCenterElement(
+                MetadataWidget(
+                    client = currentClient,
+                    textClickHandler = ::handleTextClick,
+                ).also {
                 scope.launch {
                     viewModel.uiState.collect { state ->
                         it.metadata = state.currentMetadata

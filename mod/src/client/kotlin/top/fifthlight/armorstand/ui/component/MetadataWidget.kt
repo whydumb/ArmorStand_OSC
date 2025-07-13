@@ -10,13 +10,17 @@ import net.minecraft.client.gui.widget.ClickableWidget
 import net.minecraft.client.gui.widget.ContainerWidget
 import net.minecraft.client.gui.widget.Widget
 import net.minecraft.screen.ScreenTexts
-import net.minecraft.text.Text
+import net.minecraft.text.*
 import net.minecraft.util.Colors
+import net.minecraft.util.Formatting
 import top.fifthlight.blazerod.model.Metadata
+import java.net.URI
+import java.net.URISyntaxException
 import java.util.function.Consumer
 
 class MetadataWidget(
     private val client: MinecraftClient,
+    textClickHandler: (Style) -> Unit,
     x: Int = 0,
     y: Int = 0,
     width: Int = 0,
@@ -27,12 +31,13 @@ class MetadataWidget(
         private const val GAP = 8
     }
 
+    private val textRenderer = client.textRenderer
     private val entries = listOf<Entry>(
-        Entry.TitleAndVersionEntry(),
-        Entry.AuthorCopyrightEntry(),
-        Entry.CommentsEntry(),
-        Entry.LicenseEntry(),
-        Entry.PermissionsEntry(),
+        Entry.TitleAndVersionEntry(textRenderer, textClickHandler),
+        Entry.AuthorCopyrightEntry(textRenderer, textClickHandler),
+        Entry.CommentsEntry(textRenderer, textClickHandler),
+        Entry.LicenseEntry(textRenderer, textClickHandler),
+        Entry.PermissionsEntry(textRenderer, textClickHandler),
     )
 
     override fun getContentsHeightWithPadding(): Int = entries.filter { it.visible }.let { entries ->
@@ -58,13 +63,12 @@ class MetadataWidget(
             }
             val entryTop = currentYOffset
             val entryBottom = currentYOffset + entry.height
-            entry.refreshPositions(client.textRenderer, x, entryTop - visibleAreaTop, entryWidth)
+            entry.refreshPositions(x, y + entryTop - visibleAreaTop, entryWidth)
             currentYOffset += entry.height + GAP
             if (entryBottom < visibleAreaTop || entryTop > visibleAreaBottom) {
                 continue
             }
             entry.render(
-                client.textRenderer,
                 context,
                 mouseX,
                 mouseY,
@@ -76,6 +80,18 @@ class MetadataWidget(
         }
         context.disableScissor()
         drawScrollbar(context)
+    }
+
+    override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
+        for (entry in entries) {
+            if (!entry.visible) {
+                continue
+            }
+            if (entry.mouseClicked(mouseX, mouseY, button)) {
+                return true
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button)
     }
 
     override fun appendClickableNarrations(builder: NarrationMessageBuilder) {
@@ -91,10 +107,13 @@ class MetadataWidget(
     override fun children(): List<Element> = entries.filter { it.visible }
 
     @Suppress("PropertyName")
-    private sealed class Entry : Element, Widget {
+    private sealed class Entry(
+        val textRenderer: TextRenderer,
+        val textClickHandler: (Style) -> Unit,
+    ) : Element, Widget {
         abstract fun update(metadata: Metadata?)
         abstract val visible: Boolean
-        abstract fun refreshPositions(textRenderer: TextRenderer, x: Int, y: Int, width: Int)
+        abstract fun refreshPositions(x: Int, y: Int, width: Int)
         protected var _x: Int = 0
         protected var _y: Int = 0
         protected var _width: Int = 0
@@ -124,7 +143,6 @@ class MetadataWidget(
         override fun forEachChild(consumer: Consumer<ClickableWidget>) = Unit
 
         abstract fun render(
-            textRenderer: TextRenderer,
             context: DrawContext,
             mouseX: Int,
             mouseY: Int,
@@ -135,10 +153,12 @@ class MetadataWidget(
         )
 
         abstract class TextListEntry(
+            textRenderer: TextRenderer,
+            textClickHandler: (Style) -> Unit,
             val padding: Int = 8,
             val gap: Int = 8,
-            val surface: Surface = Surface.border(Colors.WHITE),
-        ) : Entry() {
+            val surface: Surface = Surface.color(0x88000000u) + Surface.border(0xAA000000u),
+        ) : Entry(textRenderer, textClickHandler) {
             private var texts: List<Text>? = null
             abstract fun getTexts(metadata: Metadata?): List<Text>?
 
@@ -152,7 +172,7 @@ class MetadataWidget(
                 textHeights = Array(newTexts?.size ?: 0) { 0 }
             }
 
-            override fun refreshPositions(textRenderer: TextRenderer, x: Int, y: Int, width: Int) {
+            override fun refreshPositions(x: Int, y: Int, width: Int) {
                 var totalHeight = 0
                 texts?.let { texts ->
                     val realWidth = width - padding * 2
@@ -169,7 +189,6 @@ class MetadataWidget(
             }
 
             override fun render(
-                textRenderer: TextRenderer,
                 context: DrawContext,
                 mouseX: Int,
                 mouseY: Int,
@@ -196,9 +215,41 @@ class MetadataWidget(
                     }
                 }
             }
+
+            override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
+                val texts = texts ?: return false
+                if (mouseX.toInt() !in (x + padding) until (x + width - padding)) {
+                    return false
+                }
+                if (mouseY.toInt() !in (y + padding) until (y + height - padding)) {
+                    return false
+                }
+
+                val offsetX = mouseX.toInt() - (x + padding)
+                val offsetY = mouseY.toInt() - (y + padding)
+                var textY = 0
+                for ((index, height) in textHeights.withIndex()) {
+                    if (offsetY in textY until textY + height) {
+                        val lineOffsetY = offsetY - textY
+                        val lineIndex = lineOffsetY / textRenderer.fontHeight
+                        val text = texts[index]
+                        val textLines = textRenderer.wrapLines(text, width - padding * 2)
+                        val textLine = textLines.getOrNull(lineIndex) ?: return false
+                        val style = textRenderer.textHandler.getStyleAt(textLine, offsetX) ?: return false
+                        textClickHandler(style)
+                        break
+                    }
+                    textY += height + gap
+                }
+
+                return super.mouseClicked(mouseX, mouseY, button)
+            }
         }
 
-        class TitleAndVersionEntry : TextListEntry() {
+        class TitleAndVersionEntry(
+            textRenderer: TextRenderer,
+            textClickHandler: (Style) -> Unit,
+        ) : TextListEntry(textRenderer, textClickHandler) {
             override fun getTexts(metadata: Metadata?) = metadata?.let {
                 listOfNotNull(
                     metadata.title?.let {
@@ -211,7 +262,10 @@ class MetadataWidget(
             }
         }
 
-        class AuthorCopyrightEntry : TextListEntry() {
+        class AuthorCopyrightEntry(
+            textRenderer: TextRenderer,
+            textClickHandler: (Style) -> Unit,
+        ) : TextListEntry(textRenderer, textClickHandler) {
             override fun getTexts(metadata: Metadata?) = metadata?.let { metadata ->
                 listOfNotNull(
                     metadata.authors
@@ -238,7 +292,10 @@ class MetadataWidget(
             }
         }
 
-        class CommentsEntry : TextListEntry() {
+        class CommentsEntry(
+            textRenderer: TextRenderer,
+            textClickHandler: (Style) -> Unit,
+        ) : TextListEntry(textRenderer, textClickHandler) {
             override fun getTexts(metadata: Metadata?) = listOfNotNull(
                 metadata?.comment
                     ?.takeIf(String::isNotBlank)
@@ -247,24 +304,30 @@ class MetadataWidget(
             )
         }
 
-        class LicenseEntry : TextListEntry() {
+        class LicenseEntry(
+            textRenderer: TextRenderer,
+            textClickHandler: (Style) -> Unit,
+        ) : TextListEntry(textRenderer, textClickHandler) {
             override fun getTexts(metadata: Metadata?) = listOfNotNull(
                 metadata?.licenseType
                     ?.takeIf(String::isNotBlank)
                     ?.let { Text.translatable("armorstand.metadata.license_type", it) },
                 metadata?.licenseUrl
                     ?.takeIf(String::isNotBlank)
-                    ?.let { Text.translatable("armorstand.metadata.license_url", it) },
+                    ?.let { Text.translatable("armorstand.metadata.license_url", it.urlText()) },
                 metadata?.thirdPartyLicenses
                     ?.takeIf(String::isNotBlank)
                     ?.let { Text.translatable("armorstand.metadata.third_party_licenses", it) },
                 metadata?.specLicenseUrl
                     ?.takeIf(String::isNotBlank)
-                    ?.let { Text.translatable("armorstand.metadata.spec_license_url", it) },
+                    ?.let { Text.translatable("armorstand.metadata.spec_license_url", it.urlText()) },
             )
         }
 
-        class PermissionsEntry : TextListEntry() {
+        class PermissionsEntry(
+            textRenderer: TextRenderer,
+            textClickHandler: (Style) -> Unit,
+        ) : TextListEntry(textRenderer, textClickHandler) {
             override fun getTexts(metadata: Metadata?) = listOfNotNull(
                 metadata?.allowedUser?.let {
                     when (it) {
@@ -332,8 +395,23 @@ class MetadataWidget(
                 },
                 metadata?.permissionUrl
                     ?.takeIf(String::isNotBlank)
-                    ?.let { Text.translatable("armorstand.metadata.permission_url", it) },
+                    ?.let { Text.translatable("armorstand.metadata.permission_url", it.urlText()) },
             )
         }
     }
+}
+
+private fun String.urlText(uri: URI): Text = MutableText
+    .of(PlainTextContent.of(this))
+    .setStyle(
+        Style.EMPTY
+            .withFormatting(Formatting.BLUE)
+            .withUnderline(true)
+            .withClickEvent(ClickEvent.OpenUrl(uri))
+    )
+
+private fun String.urlText() = try {
+    urlText(URI(this))
+} catch (e: URISyntaxException) {
+    Text.of(this)
 }

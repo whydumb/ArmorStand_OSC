@@ -1,13 +1,8 @@
 package top.fifthlight.armorstand.ui.component
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.font.TextRenderer
 import net.minecraft.client.gl.RenderPipelines
@@ -20,10 +15,10 @@ import net.minecraft.util.Colors
 import net.minecraft.util.Identifier
 import org.slf4j.LoggerFactory
 import top.fifthlight.armorstand.config.ConfigHolder
-import top.fifthlight.blazerod.extension.NativeImageExt
 import top.fifthlight.armorstand.manage.ModelItem
 import top.fifthlight.armorstand.manage.ModelManager
 import top.fifthlight.armorstand.util.ThreadExecutorDispatcher
+import top.fifthlight.blazerod.extension.NativeImageExt
 import top.fifthlight.blazerod.model.util.readToBuffer
 import java.nio.channels.FileChannel
 
@@ -32,7 +27,7 @@ class ModelButton(
     y: Int = 0,
     width: Int = 0,
     height: Int = 0,
-    modelItem: ModelItem,
+    private val modelItem: ModelItem,
     private val textRenderer: TextRenderer,
     private val padding: Insets = Insets(),
     onPressAction: () -> Unit,
@@ -47,9 +42,11 @@ class ModelButton(
 ), AutoCloseable {
     companion object {
         private val LOGGER = LoggerFactory.getLogger(ModelButton::class.java)
-        private val PLACEHOLDER_ICON: Identifier = Identifier.of("armorstand", "thumbnail_placeholder")
+        private val LOADING_ICON: Identifier = Identifier.of("armorstand", "loading")
         private const val ICON_WIDTH = 32
         private const val ICON_HEIGHT = 32
+        private const val SMALL_ICON_WIDTH = 16
+        private const val SMALL_ICON_HEIGHT = 16
     }
 
     private var closed = false
@@ -219,6 +216,15 @@ class ModelButton(
                         icon.width,
                         icon.height,
                     )
+
+                    context.drawGuiTexture(
+                        RenderPipelines.GUI_TEXTURED,
+                        modelItem.type.icon,
+                        left + imageWidth - SMALL_ICON_WIDTH / 2,
+                        top + yOffset + scaledHeight - SMALL_ICON_HEIGHT / 2,
+                        SMALL_ICON_WIDTH,
+                        SMALL_ICON_HEIGHT,
+                    )
                 } else {
                     val scaledWidth = (imageHeight * iconAspect).toInt()
                     val xOffset = (imageWidth - scaledWidth) / 2
@@ -237,26 +243,35 @@ class ModelButton(
                         icon.width,
                         icon.height,
                     )
+
+                    context.drawGuiTexture(
+                        RenderPipelines.GUI_TEXTURED,
+                        modelItem.type.icon,
+                        left + xOffset + scaledWidth - SMALL_ICON_WIDTH / 2,
+                        top + imageHeight - SMALL_ICON_HEIGHT / 2,
+                        SMALL_ICON_WIDTH,
+                        SMALL_ICON_HEIGHT,
+                    )
                 }
             }
 
             ModelIconState.Loading -> {
                 context.drawGuiTexture(
                     RenderPipelines.GUI_TEXTURED,
-                    LoadingOverlay.LOADING_ICON,
-                    (left + right - LoadingOverlay.ICON_WIDTH) / 2,
-                    (top + imageBottom - LoadingOverlay.ICON_HEIGHT) / 2,
-                    LoadingOverlay.ICON_WIDTH,
-                    LoadingOverlay.ICON_HEIGHT,
+                    LOADING_ICON,
+                    (left + right - ICON_WIDTH) / 2,
+                    (top + imageBottom - ICON_HEIGHT) / 2,
+                    ICON_WIDTH,
+                    ICON_HEIGHT,
                 )
             }
 
             ModelIconState.None -> {
                 context.drawGuiTexture(
                     RenderPipelines.GUI_TEXTURED,
-                    PLACEHOLDER_ICON,
-                    (left + right - LoadingOverlay.ICON_WIDTH) / 2,
-                    (top + imageBottom - LoadingOverlay.ICON_HEIGHT) / 2,
+                    modelItem.type.icon,
+                    (left + right - ICON_WIDTH) / 2,
+                    (top + imageBottom - ICON_HEIGHT) / 2,
                     ICON_WIDTH,
                     ICON_HEIGHT,
                 )

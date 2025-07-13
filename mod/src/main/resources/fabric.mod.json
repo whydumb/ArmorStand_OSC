@@ -5,6 +5,10 @@
 	"name": "ArmorStand",
 	"description": "Load your models into Minecraft!",
 	"authors": ["fifth_light"],
+	"contributors": [
+		"fengzhou0w0",
+		"white_elephant"
+	],
 	"license": "LGPL-3.0-or-later",
 	"icon": "assets/armorstand/icon.png",
 	"contact": {

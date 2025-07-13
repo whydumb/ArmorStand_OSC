@@ -12,7 +12,7 @@ class GridLayout(
     width: Int = 0,
     height: Int = 0,
     private val cellWidth: Int,
-    private val cellHeight: Int,
+    private val cellHeightRange: IntRange,
     private val forceAtLeastOneRow: Boolean = true,
     private val verticalGap: Int = 0,
     private val padding: Insets = Insets.ZERO,
@@ -35,9 +35,26 @@ class GridLayout(
         elements.forEach { consumer.accept(it.widget) }
     }
 
+    private var cellHeight = (cellHeightRange.first + cellHeightRange.last) / 2
     override fun setDimensions(width: Int, height: Int) {
         this.width = width
         this.height = height
+        val (_, contentHeight) = contentSize()
+        val minRows =
+            ((contentHeight + verticalGap) / (cellHeightRange.first + verticalGap)).coerceAtLeast(if (forceAtLeastOneRow) 1 else 0)
+        val maxRows = ((contentHeight + verticalGap) / (cellHeightRange.last + verticalGap)).coerceAtLeast(minRows)
+        val minRowsSpace = (contentHeight + verticalGap) - (minRows * (cellHeightRange.first + verticalGap))
+        val maxRowsSpace = (contentHeight + verticalGap) - (maxRows * (cellHeightRange.last + verticalGap))
+        val rows = if (minRowsSpace < maxRowsSpace) {
+            minRows
+        } else {
+            maxRows
+        }
+        cellHeight = if (rows <= 0) {
+            cellHeightRange.first
+        } else {
+            ((contentHeight - (rows - 1) * verticalGap) / rows).coerceIn(cellHeightRange)
+        }
     }
 
     fun clear() = elements.clear()

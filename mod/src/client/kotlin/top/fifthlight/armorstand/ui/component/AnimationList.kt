@@ -32,7 +32,23 @@ class AnimationList(
         private const val ENTRY_PADDING = 8
     }
 
-    override fun getRowWidth() = width
+    override fun getScrollbarX() = right - 6
+
+    override fun getRowLeft() = x
+
+    override fun getRowWidth() = width - 9
+
+    override fun drawSelectionHighlight(
+        context: DrawContext,
+        y: Int,
+        entryWidth: Int,
+        entryHeight: Int,
+        borderColor: Int,
+        fillColor: Int,
+    ) {
+        context.fill(rowLeft, y - 2, rowRight, y + entryHeight + 2, borderColor)
+        context.fill(rowLeft + 1, y - 1, rowRight - 1, y + entryHeight + 1, fillColor)
+    }
 
     fun setEntries(entries: List<AnimationScreenState.AnimationItem>) {
         clearEntries()
@@ -109,7 +125,7 @@ class AnimationList(
                 x + ENTRY_PADDING + sourceTextWidth / 2,
                 x + ENTRY_PADDING,
                 y + entryHeight - ENTRY_PADDING - textRenderer.fontHeight,
-                right - ENTRY_PADDING,
+                x + entryWidth - ENTRY_PADDING,
                 y + entryHeight - ENTRY_PADDING,
                 Colors.GRAY,
             )
