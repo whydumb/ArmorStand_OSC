@@ -1,5 +1,6 @@
 package top.fifthlight.blazerod.model.vmd
 
+import it.unimi.dsi.fastutil.bytes.ByteArrayList
 import it.unimi.dsi.fastutil.floats.FloatArrayList
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.ints.IntIterable
@@ -92,12 +93,16 @@ object VmdLoader : ModelFileLoader {
         val frameIndexer: AnimationKeyFrameIndexer,
         val translation: AnimationKeyFrameData<Vector3f>,
         val rotation: AnimationKeyFrameData<Quaternionf>,
+        val translationCurve: VmdBezierChannelComponent,
+        val rotationCurve: VmdBezierChannelComponent,
     )
 
     private class BoneChannel {
         val frameList = IntArrayList()
         val translationData = FloatArrayList()
         val rotationData = FloatArrayList()
+        val translationCurveData = ByteArrayList()
+        val rotationCurveData = ByteArrayList()
 
         fun toData(): ChannelData {
             val indices = IntArrayList(frameList.size)
@@ -107,6 +112,8 @@ object VmdLoader : ModelFileLoader {
             val sortedTimeList = FloatArrayList(frameList.size)
             val sortedTranslationList = FloatArrayList(translationData.size)
             val sortedRotationList = FloatArrayList(rotationData.size)
+            val sortedTranslationCurveList = ByteArrayList(translationCurveData.size)
+            val sortedRotationCurveList = ByteArrayList(rotationCurveData.size)
             indices.forEachInt { i ->
                 sortedTimeList.add(frameList.getInt(i) * FRAME_TIME_SEC)
                 repeat(3) {
@@ -115,17 +122,25 @@ object VmdLoader : ModelFileLoader {
                 repeat(4) {
                     sortedRotationList.add(rotationData.getFloat(i * 4 + it))
                 }
+                repeat(12) {
+                    sortedTranslationCurveList.add(translationCurveData.getByte(i * 12 + it))
+                }
+                repeat(4) {
+                    sortedRotationCurveList.add(rotationCurveData.getByte(i * 4 + it))
+                }
             }
 
             return ChannelData(
                 frameIndexer = ListAnimationKeyFrameIndexer(sortedTimeList),
                 translation = AnimationKeyFrameData.ofVector3f(sortedTranslationList, 1),
                 rotation = AnimationKeyFrameData.ofQuaternionf(sortedRotationList, 1),
+                translationCurve = VmdBezierChannelComponent(sortedTranslationCurveList, sortedTimeList.size, 3),
+                rotationCurve = VmdBezierChannelComponent(sortedRotationCurveList, sortedTimeList.size, 1),
             )
         }
     }
 
-    private const val FRAME_TIME_SEC = 1f / 24f
+    private const val FRAME_TIME_SEC = 1f / 30f
 
     private fun loadBone(buffer: ByteBuffer): List<AnimationChannel<*, *>> {
         val channels = mutableMapOf<String, BoneChannel>()
@@ -147,12 +162,19 @@ object VmdLoader : ModelFileLoader {
             channel.rotationData.add(buffer.getFloat())
             channel.rotationData.add(buffer.getFloat())
 
-            // Skip curve data (not supported for now)
-            buffer.position(buffer.position() + 64)
+            // translation curve data
+            repeat(12) {
+                channel.translationCurveData.add(buffer.get())
+            }
+            // rotation curve data
+            repeat(4) {
+                channel.rotationCurveData.add(buffer.get())
+            }
+            buffer.position(buffer.position() + 48)
         }
 
         return channels.flatMap { (name, channel) ->
-            val (indexer, translation, rotation) = channel.toData()
+            val channelData = channel.toData()
             listOf(
                 SimpleAnimationChannel(
                     type = AnimationChannel.Type.Translation,
@@ -164,9 +186,12 @@ object VmdLoader : ModelFileLoader {
                         ),
                         transformId = TransformId.RELATIVE_ANIMATION,
                     ),
-                    indexer = indexer,
-                    keyframeData = translation,
-                    interpolation = AnimationInterpolation.linear,
+                    indexer = channelData.frameIndexer,
+                    keyframeData = channelData.translation,
+                    interpolation = VmdBezierInterpolation,
+                    interpolator = VmdBezierVector3fInterpolator(),
+                    components = listOf(channelData.translationCurve),
+                    defaultValue = ::Vector3f,
                 ),
                 SimpleAnimationChannel(
                     type = AnimationChannel.Type.Rotation,
@@ -178,9 +203,12 @@ object VmdLoader : ModelFileLoader {
                         ),
                         transformId = TransformId.RELATIVE_ANIMATION,
                     ),
-                    indexer = indexer,
-                    keyframeData = rotation,
-                    interpolation = AnimationInterpolation.linear,
+                    indexer = channelData.frameIndexer,
+                    keyframeData = channelData.rotation,
+                    interpolation = VmdBezierInterpolation,
+                    interpolator = VmdBezierQuaternionfInterpolator(),
+                    components = listOf(channelData.rotationCurve),
+                    defaultValue = ::Quaternionf,
                 ),
             )
         }

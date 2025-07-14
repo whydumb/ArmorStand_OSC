@@ -10,6 +10,8 @@ abstract class AnimationInterpolation(val elements: Int) {
 
     abstract fun interpolateVector3f(
         delta: Float,
+        startFrame: Int,
+        endFrame: Int,
         startValue: List<Vector3fc>,
         endValue: List<Vector3fc>,
         result: Vector3f,
@@ -17,6 +19,8 @@ abstract class AnimationInterpolation(val elements: Int) {
 
     abstract fun interpolateQuaternionf(
         delta: Float,
+        startFrame: Int,
+        endFrame: Int,
         startValue: List<Quaternionfc>,
         endValue: List<Quaternionfc>,
         result: Quaternionf,
@@ -24,6 +28,8 @@ abstract class AnimationInterpolation(val elements: Int) {
 
     abstract fun interpolateFloat(
         delta: Float,
+        startFrame: Int,
+        endFrame: Int,
         startValue: List<MutableFloat>,
         endValue: List<MutableFloat>,
         result: MutableFloat,
@@ -35,6 +41,8 @@ abstract class AnimationInterpolation(val elements: Int) {
         val linear = object : AnimationInterpolation(1) {
             override fun interpolateVector3f(
                 delta: Float,
+                startFrame: Int,
+                endFrame: Int,
                 startValue: List<Vector3fc>,
                 endValue: List<Vector3fc>,
                 result: Vector3f,
@@ -44,6 +52,8 @@ abstract class AnimationInterpolation(val elements: Int) {
 
             override fun interpolateQuaternionf(
                 delta: Float,
+                startFrame: Int,
+                endFrame: Int,
                 startValue: List<Quaternionfc>,
                 endValue: List<Quaternionfc>,
                 result: Quaternionf,
@@ -53,6 +63,8 @@ abstract class AnimationInterpolation(val elements: Int) {
 
             override fun interpolateFloat(
                 delta: Float,
+                startFrame: Int,
+                endFrame: Int,
                 startValue: List<MutableFloat>,
                 endValue: List<MutableFloat>,
                 result: MutableFloat,
@@ -64,6 +76,8 @@ abstract class AnimationInterpolation(val elements: Int) {
         val step = object : AnimationInterpolation(1) {
             override fun interpolateVector3f(
                 delta: Float,
+                startFrame: Int,
+                endFrame: Int,
                 startValue: List<Vector3fc>,
                 endValue: List<Vector3fc>,
                 result: Vector3f,
@@ -73,6 +87,8 @@ abstract class AnimationInterpolation(val elements: Int) {
 
             override fun interpolateQuaternionf(
                 delta: Float,
+                startFrame: Int,
+                endFrame: Int,
                 startValue: List<Quaternionfc>,
                 endValue: List<Quaternionfc>,
                 result: Quaternionf,
@@ -82,6 +98,8 @@ abstract class AnimationInterpolation(val elements: Int) {
 
             override fun interpolateFloat(
                 delta: Float,
+                startFrame: Int,
+                endFrame: Int,
                 startValue: List<MutableFloat>,
                 endValue: List<MutableFloat>,
                 result: MutableFloat,
@@ -93,6 +111,8 @@ abstract class AnimationInterpolation(val elements: Int) {
         val cubicSpline = object : AnimationInterpolation(3) {
             override fun interpolateVector3f(
                 delta: Float,
+                startFrame: Int,
+                endFrame: Int,
                 startValue: List<Vector3fc>,
                 endValue: List<Vector3fc>,
                 result: Vector3f,
@@ -116,6 +136,8 @@ abstract class AnimationInterpolation(val elements: Int) {
             private val tempQuaternion = Quaternionf()
             override fun interpolateQuaternionf(
                 delta: Float,
+                startFrame: Int,
+                endFrame: Int,
                 startValue: List<Quaternionfc>,
                 endValue: List<Quaternionfc>,
                 result: Quaternionf,
@@ -141,6 +163,8 @@ abstract class AnimationInterpolation(val elements: Int) {
 
             override fun interpolateFloat(
                 delta: Float,
+                startFrame: Int,
+                endFrame: Int,
                 startValue: List<MutableFloat>,
                 endValue: List<MutableFloat>,
                 result: MutableFloat,
@@ -171,6 +195,8 @@ interface AnimationInterpolator<T> {
 
     fun interpolate(
         delta: Float,
+        startFrame: Int,
+        endFrame: Int,
         type: AnimationInterpolation,
         startValue: List<T>,
         endValue: List<T>,
@@ -185,12 +211,16 @@ object Vector3AnimationInterpolator : AnimationInterpolator<Vector3f> {
 
     override fun interpolate(
         delta: Float,
+        startFrame: Int,
+        endFrame: Int,
         type: AnimationInterpolation,
         startValue: List<Vector3f>,
         endValue: List<Vector3f>,
         result: Vector3f,
     ) = type.interpolateVector3f(
         delta = delta,
+        startFrame = startFrame,
+        endFrame = endFrame,
         startValue = startValue,
         endValue = endValue,
         result = result,
@@ -204,12 +234,16 @@ object QuaternionAnimationInterpolator : AnimationInterpolator<Quaternionf> {
 
     override fun interpolate(
         delta: Float,
+        startFrame: Int,
+        endFrame: Int,
         type: AnimationInterpolation,
         startValue: List<Quaternionf>,
         endValue: List<Quaternionf>,
         result: Quaternionf,
     ) = type.interpolateQuaternionf(
         delta = delta,
+        startFrame = startFrame,
+        endFrame = endFrame,
         startValue = startValue,
         endValue = endValue,
         result = result,
@@ -226,6 +260,8 @@ object FloatAnimationInterpolator : AnimationInterpolator<MutableFloat> {
 
     override fun interpolate(
         delta: Float,
+        startFrame: Int,
+        endFrame: Int,
         type: AnimationInterpolation,
         startValue: List<MutableFloat>,
         endValue: List<MutableFloat>,
@@ -233,6 +269,8 @@ object FloatAnimationInterpolator : AnimationInterpolator<MutableFloat> {
     ) {
         type.interpolateFloat(
             delta = delta,
+            startFrame = startFrame,
+            endFrame = endFrame,
             startValue = startValue,
             endValue = endValue,
             result = result,

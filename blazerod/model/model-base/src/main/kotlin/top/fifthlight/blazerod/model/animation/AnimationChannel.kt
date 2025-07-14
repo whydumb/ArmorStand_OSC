@@ -7,8 +7,12 @@ import top.fifthlight.blazerod.model.Node
 import top.fifthlight.blazerod.model.TransformId
 import top.fifthlight.blazerod.model.util.MutableFloat
 
-interface AnimationChannel<T: Any, D> {
-    sealed class Type<T: Any, D> {
+interface AnimationChannelComponentContainer {
+    fun <T : AnimationChannelComponent.Type<C, T>, C> getComponent(type: T): C?
+}
+
+interface AnimationChannel<T : Any, D> : AnimationChannelComponentContainer {
+    sealed class Type<T : Any, D> {
         data class NodeData(
             val targetNode: Node?,
             val targetNodeName: String?,
@@ -31,7 +35,7 @@ interface AnimationChannel<T: Any, D> {
         data object Scale : Type<Vector3f, TransformData>()
         data object Rotation : Type<Quaternionf, TransformData>()
 
-        data object Morph: Type<MutableFloat, Morph.MorphData>() {
+        data object Morph : Type<MutableFloat, Morph.MorphData>() {
             data class MorphData(
                 val nodeData: NodeData,
                 val targetMorphGroupIndex: Int,
@@ -42,18 +46,21 @@ interface AnimationChannel<T: Any, D> {
     val type: Type<T, D>
     val data: D
     val duration: Float
+    val interpolation: AnimationInterpolation
+    val interpolator: AnimationInterpolator<T>
     fun getKeyFrameData(time: Float, result: T)
 }
 
 data class SimpleAnimationChannel<T : Any, D>(
     override val type: AnimationChannel.Type<T, D>,
     override val data: D,
+    private val components: List<AnimationChannelComponent<*, *>> = listOf(),
     val indexer: AnimationKeyFrameIndexer,
-    val interpolator: AnimationInterpolator<T>,
+    override val interpolator: AnimationInterpolator<T>,
     val keyframeData: AnimationKeyFrameData<T>,
-    val interpolation: AnimationInterpolation,
+    override val interpolation: AnimationInterpolation,
     val defaultValue: () -> T,
-): AnimationChannel<T, D> {
+) : AnimationChannel<T, D> {
     init {
         require(interpolation.elements == keyframeData.elements) { "Bad elements of keyframe data: ${keyframeData.elements}" }
     }
@@ -65,6 +72,18 @@ data class SimpleAnimationChannel<T : Any, D>(
     private val startValues = List(interpolation.elements) { defaultValue() }
     private val endValues = List(interpolation.elements) { defaultValue() }
 
+    private val componentOfTypes = components.associateBy { it.type }
+
+    init {
+        for (component in componentOfTypes.values) {
+            component.onAttachToChannel(this)
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : AnimationChannelComponent.Type<C, T>, C> getComponent(type: T): C? =
+        componentOfTypes[type] as C?
+
     override fun getKeyFrameData(time: Float, result: T) {
         indexer.findKeyFrames(time, indexResult)
         if (indexResult.startFrame == indexResult.endFrame || indexResult.startTime > time || indexResult.endTime < time) {
@@ -75,7 +94,15 @@ data class SimpleAnimationChannel<T : Any, D>(
         val delta = (time - indexResult.startTime) / (indexResult.endTime - indexResult.startTime)
         keyframeData.get(indexResult.startFrame, startValues)
         keyframeData.get(indexResult.endFrame, endValues)
-        interpolator.interpolate(delta, interpolation, startValues, endValues, result)
+        interpolator.interpolate(
+            delta = delta,
+            startFrame = indexResult.startFrame,
+            endFrame = indexResult.endFrame,
+            type = interpolation,
+            startValue = startValues,
+            endValue = endValues,
+            result = result,
+        )
     }
 }
 
@@ -83,12 +110,14 @@ data class SimpleAnimationChannel<T : Any, D>(
 fun <D> SimpleAnimationChannel(
     type: AnimationChannel.Type<Vector3f, D>,
     data: D,
+    components: List<AnimationChannelComponent<*, *>> = listOf(),
     indexer: AnimationKeyFrameIndexer,
     keyframeData: AnimationKeyFrameData<Vector3f>,
     interpolation: AnimationInterpolation,
 ): SimpleAnimationChannel<Vector3f, D> = SimpleAnimationChannel(
     type = type,
     data = data,
+    components = components,
     indexer = indexer,
     interpolator = Vector3AnimationInterpolator,
     keyframeData = keyframeData,
@@ -100,12 +129,14 @@ fun <D> SimpleAnimationChannel(
 fun <D> SimpleAnimationChannel(
     type: AnimationChannel.Type<Quaternionf, D>,
     data: D,
+    components: List<AnimationChannelComponent<*, *>> = listOf(),
     indexer: AnimationKeyFrameIndexer,
     keyframeData: AnimationKeyFrameData<Quaternionf>,
     interpolation: AnimationInterpolation,
 ): SimpleAnimationChannel<Quaternionf, D> = SimpleAnimationChannel(
     type = type,
     data = data,
+    components = components,
     indexer = indexer,
     interpolator = QuaternionAnimationInterpolator,
     keyframeData = keyframeData,
@@ -117,12 +148,14 @@ fun <D> SimpleAnimationChannel(
 fun <D> SimpleAnimationChannel(
     type: AnimationChannel.Type<MutableFloat, D>,
     data: D,
+    components: List<AnimationChannelComponent<*, *>> = listOf(),
     indexer: AnimationKeyFrameIndexer,
     keyframeData: AnimationKeyFrameData<MutableFloat>,
     interpolation: AnimationInterpolation,
 ): SimpleAnimationChannel<MutableFloat, D> = SimpleAnimationChannel(
     type = type,
     data = data,
+    components = components,
     indexer = indexer,
     interpolator = FloatAnimationInterpolator,
     keyframeData = keyframeData,
