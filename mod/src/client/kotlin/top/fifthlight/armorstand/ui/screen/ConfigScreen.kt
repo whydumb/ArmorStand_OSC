@@ -397,8 +397,8 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
                 align = LinearLayout.Align.CENTER,
                 gap = gap,
             ).apply {
-                add(closeButton, Positioner.create().apply { alignVerticalCenter() })
                 add(openModelDirectoryButton, Positioner.create().apply { alignVerticalCenter() })
+                add(closeButton, Positioner.create().apply { alignVerticalCenter() })
             }
         )
 
