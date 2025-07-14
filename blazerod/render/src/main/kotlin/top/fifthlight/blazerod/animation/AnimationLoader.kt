@@ -3,12 +3,10 @@ package top.fifthlight.blazerod.animation
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import top.fifthlight.blazerod.animation.AnimationChannelItem.*
-import top.fifthlight.blazerod.model.NodeTransform
 import top.fifthlight.blazerod.model.RenderScene
 import top.fifthlight.blazerod.model.animation.Animation
 import top.fifthlight.blazerod.model.animation.AnimationChannel
 import top.fifthlight.blazerod.model.util.MutableFloat
-import kotlin.collections.mapNotNull
 
 object AnimationLoader {
     fun load(
@@ -27,34 +25,29 @@ object AnimationLoader {
         @Suppress("UNCHECKED_CAST")
         fun mapAnimationChannel(channel: AnimationChannel<*, *>): AnimationChannelItem<*, *>? {
             return when (channel.type) {
-                AnimationChannel.Type.RelativeNodeTransformItem -> {
-                    val data = channel.data as AnimationChannel.Type.NodeData
-                    RelativeNodeTransformItem(
-                        index = data.findTargetTransformIndex() ?: return null,
-                        channel = channel as AnimationChannel<NodeTransform.Decomposed, Unit>,
-                    )
-                }
-
                 AnimationChannel.Type.Translation -> {
-                    val data = channel.data as AnimationChannel.Type.NodeData
+                    val data = channel.data as AnimationChannel.Type.TransformData
                     TranslationItem(
-                        index = data.findTargetTransformIndex() ?: return null,
+                        index = data.node.findTargetTransformIndex() ?: return null,
+                        transformId = data.transformId,
                         channel = channel as AnimationChannel<Vector3f, Unit>,
                     )
                 }
 
                 AnimationChannel.Type.Scale -> {
-                    val data = channel.data as AnimationChannel.Type.NodeData
+                    val data = channel.data as AnimationChannel.Type.TransformData
                     ScaleItem(
-                        index = data.findTargetTransformIndex() ?: return null,
+                        index = data.node.findTargetTransformIndex() ?: return null,
+                        transformId = data.transformId,
                         channel = channel as AnimationChannel<Vector3f, Unit>,
                     )
                 }
 
                 AnimationChannel.Type.Rotation -> {
-                    val data = channel.data as AnimationChannel.Type.NodeData
+                    val data = channel.data as AnimationChannel.Type.TransformData
                     RotationItem(
-                        index = data.findTargetTransformIndex() ?: return null,
+                        index = data.node.findTargetTransformIndex() ?: return null,
+                        transformId = data.transformId,
                         channel = channel as AnimationChannel<Quaternionf, Unit>,
                     )
                 }

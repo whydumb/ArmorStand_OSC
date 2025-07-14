@@ -1,11 +1,6 @@
 package top.fifthlight.blazerod.model.animation
 
-import org.joml.Math
-import org.joml.Quaternionf
-import org.joml.Quaternionfc
-import org.joml.Vector3f
-import org.joml.Vector3fc
-import top.fifthlight.blazerod.model.NodeTransform
+import org.joml.*
 import top.fifthlight.blazerod.model.util.MutableFloat
 
 abstract class AnimationInterpolation(val elements: Int) {
@@ -219,67 +214,6 @@ object QuaternionAnimationInterpolator : AnimationInterpolator<Quaternionf> {
         endValue = endValue,
         result = result,
     )
-}
-
-object NodeTransformAnimationInterpolator : AnimationInterpolator<NodeTransform.Decomposed> {
-    override fun set(
-        value: List<NodeTransform.Decomposed>,
-        result: NodeTransform.Decomposed,
-    ) {
-        result.set(value[0])
-    }
-
-    private val vec3ElementsStart = List(AnimationInterpolation.MAX_ELEMENTS) { Vector3f() }
-    private val vec3ElementsEnd = List(AnimationInterpolation.MAX_ELEMENTS) { Vector3f() }
-    private val quatElementsStart = List(AnimationInterpolation.MAX_ELEMENTS) { Quaternionf() }
-    private val quatElementsEnd = List(AnimationInterpolation.MAX_ELEMENTS) { Quaternionf() }
-
-    override fun interpolate(
-        delta: Float,
-        type: AnimationInterpolation,
-        startValue: List<NodeTransform.Decomposed>,
-        endValue: List<NodeTransform.Decomposed>,
-        result: NodeTransform.Decomposed,
-    ) = with(result) {
-        startValue.forEachIndexed { index, value ->
-            vec3ElementsStart[index].set(value.translation)
-        }
-        endValue.forEachIndexed { index, value ->
-            vec3ElementsEnd[index].set(value.translation)
-        }
-        type.interpolateVector3f(
-            delta = delta,
-            startValue = vec3ElementsStart,
-            endValue = vec3ElementsEnd,
-            result = translation,
-        )
-
-        startValue.forEachIndexed { index, value ->
-            vec3ElementsStart[index].set(value.scale)
-        }
-        endValue.forEachIndexed { index, value ->
-            vec3ElementsEnd[index].set(value.scale)
-        }
-        type.interpolateVector3f(
-            delta = delta,
-            startValue = vec3ElementsStart,
-            endValue = vec3ElementsEnd,
-            result = scale,
-        )
-
-        startValue.forEachIndexed { index, value ->
-            quatElementsStart[index].set(value.rotation)
-        }
-        endValue.forEachIndexed { index, value ->
-            quatElementsEnd[index].set(value.rotation)
-        }
-        type.interpolateQuaternionf(
-            delta,
-            startValue = quatElementsStart,
-            endValue = quatElementsEnd,
-            result = rotation,
-        )
-    }
 }
 
 object FloatAnimationInterpolator : AnimationInterpolator<MutableFloat> {

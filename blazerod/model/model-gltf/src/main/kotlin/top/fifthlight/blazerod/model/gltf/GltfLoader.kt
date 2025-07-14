@@ -450,10 +450,13 @@ internal class GltfLoader(
                     when (channel.target.path) {
                         GltfAnimationTarget.Path.TRANSLATION -> SimpleAnimationChannel(
                             type = AnimationChannel.Type.Translation,
-                            data = AnimationChannel.Type.NodeData(
-                                targetNode = targetNode,
-                                targetNodeName = targetNodeName,
-                                targetHumanoidTag = targetHumanoidTag,
+                            data = AnimationChannel.Type.TransformData(
+                                node = AnimationChannel.Type.NodeData(
+                                    targetNode = targetNode,
+                                    targetNodeName = targetNodeName,
+                                    targetHumanoidTag = targetHumanoidTag,
+                                ),
+                                transformId = TransformId.ABSOLUTE,
                             ),
                             indexer = AccessorAnimationKeyFrameIndexer(inputAccessor),
                             keyframeData = AccessorAnimationKeyFrameData(
@@ -466,10 +469,13 @@ internal class GltfLoader(
 
                         GltfAnimationTarget.Path.SCALE -> SimpleAnimationChannel(
                             type = AnimationChannel.Type.Scale,
-                            data = AnimationChannel.Type.NodeData(
-                                targetNode = targetNode,
-                                targetNodeName = targetNodeName,
-                                targetHumanoidTag = targetHumanoidTag,
+                            data = AnimationChannel.Type.TransformData(
+                                node = AnimationChannel.Type.NodeData(
+                                    targetNode = targetNode,
+                                    targetNodeName = targetNodeName,
+                                    targetHumanoidTag = targetHumanoidTag,
+                                ),
+                                transformId = TransformId.ABSOLUTE,
                             ),
                             indexer = AccessorAnimationKeyFrameIndexer(inputAccessor),
                             keyframeData = AccessorAnimationKeyFrameData(
@@ -482,10 +488,13 @@ internal class GltfLoader(
 
                         GltfAnimationTarget.Path.ROTATION -> SimpleAnimationChannel(
                             type = AnimationChannel.Type.Rotation,
-                            data = AnimationChannel.Type.NodeData(
-                                targetNode = targetNode,
-                                targetNodeName = targetNodeName,
-                                targetHumanoidTag = targetHumanoidTag,
+                            data = AnimationChannel.Type.TransformData(
+                                node = AnimationChannel.Type.NodeData(
+                                    targetNode = targetNode,
+                                    targetNodeName = targetNodeName,
+                                    targetHumanoidTag = targetHumanoidTag,
+                                ),
+                                transformId = TransformId.ABSOLUTE,
                             ),
                             indexer = AccessorAnimationKeyFrameIndexer(inputAccessor),
                             keyframeData = AccessorAnimationKeyFrameData(

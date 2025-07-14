@@ -3,9 +3,11 @@ package top.fifthlight.blazerod.model.vmd
 import it.unimi.dsi.fastutil.floats.FloatArrayList
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.ints.IntIterable
+import org.joml.Quaternionf
+import org.joml.Vector3f
 import top.fifthlight.blazerod.model.HumanoidTag
 import top.fifthlight.blazerod.model.ModelFileLoader
-import top.fifthlight.blazerod.model.NodeTransform
+import top.fifthlight.blazerod.model.TransformId
 import top.fifthlight.blazerod.model.animation.*
 import top.fifthlight.blazerod.model.util.MutableFloat
 import top.fifthlight.blazerod.model.util.readAll
@@ -86,28 +88,39 @@ object VmdLoader : ModelFileLoader {
         }
     }
 
+    private data class ChannelData(
+        val frameIndexer: AnimationKeyFrameIndexer,
+        val translation: AnimationKeyFrameData<Vector3f>,
+        val rotation: AnimationKeyFrameData<Quaternionf>,
+    )
+
     private class BoneChannel {
         val frameList = IntArrayList()
-        val transformList = FloatArrayList()
+        val translationData = FloatArrayList()
+        val rotationData = FloatArrayList()
 
-        fun toData(): Pair<AnimationKeyFrameIndexer, AnimationKeyFrameData<NodeTransform.Decomposed>> {
+        fun toData(): ChannelData {
             val indices = IntArrayList(frameList.size)
             repeat(frameList.size) { indices.add(it) }
             indices.sort { a, b -> frameList.getInt(a) - frameList.getInt(b) }
 
             val sortedTimeList = FloatArrayList(frameList.size)
-            val sortedTransformList = FloatArrayList(transformList.size)
+            val sortedTranslationList = FloatArrayList(translationData.size)
+            val sortedRotationList = FloatArrayList(rotationData.size)
             indices.forEachInt { i ->
                 sortedTimeList.add(frameList.getInt(i) * FRAME_TIME_SEC)
-                val start = i * 10
-                for (j in 0 until 10) {
-                    sortedTransformList.add(transformList.getFloat(start + j))
+                repeat(3) {
+                    sortedTranslationList.add(translationData.getFloat(i * 3 + it))
+                }
+                repeat(4) {
+                    sortedRotationList.add(rotationData.getFloat(i * 4 + it))
                 }
             }
 
-            return Pair(
-                ListAnimationKeyFrameIndexer(sortedTimeList),
-                AnimationKeyFrameData.ofDecomposedNodeTransform(sortedTransformList, 1)
+            return ChannelData(
+                frameIndexer = ListAnimationKeyFrameIndexer(sortedTimeList),
+                translation = AnimationKeyFrameData.ofVector3f(sortedTranslationList, 1),
+                rotation = AnimationKeyFrameData.ofQuaternionf(sortedRotationList, 1),
             )
         }
     }
@@ -117,6 +130,7 @@ object VmdLoader : ModelFileLoader {
     private fun loadBone(buffer: ByteBuffer): List<AnimationChannel<*, *>> {
         val channels = mutableMapOf<String, BoneChannel>()
         val boneKeyframeCount = buffer.getInt()
+
         repeat(boneKeyframeCount) {
             val boneName = loadString(buffer, 15)
             val channel = channels.getOrPut(boneName, ::BoneChannel)
@@ -124,35 +138,48 @@ object VmdLoader : ModelFileLoader {
             val frameNumber = buffer.getInt()
             channel.frameList.add(frameNumber)
             // translation, invert Z axis
-            channel.transformList.add(buffer.getFloat())
-            channel.transformList.add(buffer.getFloat())
-            channel.transformList.add(-buffer.getFloat())
+            channel.translationData.add(buffer.getFloat())
+            channel.translationData.add(buffer.getFloat())
+            channel.translationData.add(-buffer.getFloat())
             // rotation, invert X and Y
-            channel.transformList.add(-buffer.getFloat())
-            channel.transformList.add(-buffer.getFloat())
-            channel.transformList.add(buffer.getFloat())
-            channel.transformList.add(buffer.getFloat())
-            // scale
-            repeat(3) {
-                channel.transformList.add(1f)
-            }
+            channel.rotationData.add(-buffer.getFloat())
+            channel.rotationData.add(-buffer.getFloat())
+            channel.rotationData.add(buffer.getFloat())
+            channel.rotationData.add(buffer.getFloat())
 
             // Skip curve data (not supported for now)
             buffer.position(buffer.position() + 64)
         }
 
         return channels.flatMap { (name, channel) ->
-            val (indexer, data) = channel.toData()
+            val (indexer, translation, rotation) = channel.toData()
             listOf(
                 SimpleAnimationChannel(
-                    type = AnimationChannel.Type.RelativeNodeTransformItem,
-                    data = AnimationChannel.Type.NodeData(
-                        targetNode = null,
-                        targetNodeName = name,
-                        targetHumanoidTag = HumanoidTag.fromPmxJapanese(name),
+                    type = AnimationChannel.Type.Translation,
+                    data = AnimationChannel.Type.TransformData(
+                        node = AnimationChannel.Type.NodeData(
+                            targetNode = null,
+                            targetNodeName = name,
+                            targetHumanoidTag = HumanoidTag.fromPmxJapanese(name),
+                        ),
+                        transformId = TransformId.RELATIVE_ANIMATION,
                     ),
                     indexer = indexer,
-                    keyframeData = data,
+                    keyframeData = translation,
+                    interpolation = AnimationInterpolation.linear,
+                ),
+                SimpleAnimationChannel(
+                    type = AnimationChannel.Type.Rotation,
+                    data = AnimationChannel.Type.TransformData(
+                        node = AnimationChannel.Type.NodeData(
+                            targetNode = null,
+                            targetNodeName = name,
+                            targetHumanoidTag = HumanoidTag.fromPmxJapanese(name),
+                        ),
+                        transformId = TransformId.RELATIVE_ANIMATION,
+                    ),
+                    indexer = indexer,
+                    keyframeData = rotation,
                     interpolation = AnimationInterpolation.linear,
                 ),
             )

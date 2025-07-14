@@ -4,7 +4,7 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 import top.fifthlight.blazerod.model.HumanoidTag
 import top.fifthlight.blazerod.model.Node
-import top.fifthlight.blazerod.model.NodeTransform
+import top.fifthlight.blazerod.model.TransformId
 import top.fifthlight.blazerod.model.util.MutableFloat
 
 interface AnimationChannel<T: Any, D> {
@@ -15,22 +15,26 @@ interface AnimationChannel<T: Any, D> {
             val targetHumanoidTag: HumanoidTag?,
         )
 
-        // For VMD
-        data object RelativeNodeTransformItem: Type<NodeTransform.Decomposed, NodeData>()
+        data class TransformData(
+            val node: NodeData,
+            val transformId: TransformId,
+        )
 
-        data object Translation: Type<Vector3f, NodeData>()
-        data object Scale: Type<Vector3f, NodeData>()
-        data object Rotation: Type<Quaternionf, NodeData>()
+        data object Expression : Type<MutableFloat, Expression.ExpressionData>() {
+            data class ExpressionData(
+                val name: String? = null,
+                val tag: top.fifthlight.blazerod.model.Expression.Tag? = null,
+            )
+        }
+
+        data object Translation : Type<Vector3f, TransformData>()
+        data object Scale : Type<Vector3f, TransformData>()
+        data object Rotation : Type<Quaternionf, TransformData>()
+
         data object Morph: Type<MutableFloat, Morph.MorphData>() {
             data class MorphData(
                 val nodeData: NodeData,
                 val targetMorphGroupIndex: Int,
-            )
-        }
-        data object Expression: Type<MutableFloat, Expression.ExpressionData>() {
-            data class ExpressionData(
-                val name: String? = null,
-                val tag: top.fifthlight.blazerod.model.Expression.Tag? = null,
             )
         }
     }
@@ -107,23 +111,6 @@ fun <D> SimpleAnimationChannel(
     keyframeData = keyframeData,
     interpolation = interpolation,
     defaultValue = ::Quaternionf,
-)
-
-@JvmName("NodeTransformSimpleAnimationChannel")
-fun <D> SimpleAnimationChannel(
-    type: AnimationChannel.Type<NodeTransform.Decomposed, D>,
-    data: D,
-    indexer: AnimationKeyFrameIndexer,
-    keyframeData: AnimationKeyFrameData<NodeTransform.Decomposed>,
-    interpolation: AnimationInterpolation,
-): SimpleAnimationChannel<NodeTransform.Decomposed, D> = SimpleAnimationChannel(
-    type = type,
-    data = data,
-    indexer = indexer,
-    interpolator = NodeTransformAnimationInterpolator,
-    keyframeData = keyframeData,
-    interpolation = interpolation,
-    defaultValue = NodeTransform::Decomposed,
 )
 
 @JvmName("FloatSimpleAnimationChannel")

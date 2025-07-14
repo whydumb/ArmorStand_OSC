@@ -3,11 +3,10 @@ package top.fifthlight.blazerod.animation
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import top.fifthlight.blazerod.model.ModelInstance
-import top.fifthlight.blazerod.model.NodeTransform
 import top.fifthlight.blazerod.model.TransformId
+import top.fifthlight.blazerod.model.animation.AnimationChannel
 import top.fifthlight.blazerod.model.resource.RenderExpression
 import top.fifthlight.blazerod.model.resource.RenderExpressionGroup
-import top.fifthlight.blazerod.model.animation.AnimationChannel
 import top.fifthlight.blazerod.model.util.MutableFloat
 
 sealed class AnimationChannelItem<T : Any, D>(
@@ -15,24 +14,9 @@ sealed class AnimationChannelItem<T : Any, D>(
 ) {
     abstract fun apply(instance: ModelInstance, time: Float)
 
-    class RelativeNodeTransformItem(
-        private val index: Int,
-        channel: AnimationChannel<NodeTransform.Decomposed, Unit>,
-    ) : AnimationChannelItem<NodeTransform.Decomposed, Unit>(channel) {
-        init {
-            require(channel.type == AnimationChannel.Type.RelativeNodeTransformItem) { "Unmatched animation channel: want relative node transform, but got ${channel.type}" }
-        }
-
-        private val transform = NodeTransform.Decomposed()
-
-        override fun apply(instance: ModelInstance, time: Float) {
-            channel.getKeyFrameData(time, transform)
-            instance.setTransformDecomposed(index, TransformId.RELATIVE_ANIMATION, transform)
-        }
-    }
-
     class TranslationItem(
         private val index: Int,
+        private val transformId: TransformId,
         channel: AnimationChannel<Vector3f, Unit>,
     ) : AnimationChannelItem<Vector3f, Unit>(channel) {
         init {
@@ -40,7 +24,7 @@ sealed class AnimationChannelItem<T : Any, D>(
         }
 
         override fun apply(instance: ModelInstance, time: Float) {
-            instance.setTransformDecomposed(index, TransformId.ABSOLUTE) {
+            instance.setTransformDecomposed(index, transformId) {
                 channel.getKeyFrameData(time, translation)
             }
         }
@@ -48,6 +32,7 @@ sealed class AnimationChannelItem<T : Any, D>(
 
     class ScaleItem(
         private val index: Int,
+        private val transformId: TransformId,
         channel: AnimationChannel<Vector3f, Unit>,
     ) : AnimationChannelItem<Vector3f, Unit>(channel) {
         init {
@@ -55,7 +40,7 @@ sealed class AnimationChannelItem<T : Any, D>(
         }
 
         override fun apply(instance: ModelInstance, time: Float) {
-            instance.setTransformDecomposed(index, TransformId.ABSOLUTE) {
+            instance.setTransformDecomposed(index, transformId) {
                 channel.getKeyFrameData(time, scale)
             }
         }
@@ -63,6 +48,7 @@ sealed class AnimationChannelItem<T : Any, D>(
 
     class RotationItem(
         private val index: Int,
+        private val transformId: TransformId,
         channel: AnimationChannel<Quaternionf, Unit>,
     ) : AnimationChannelItem<Quaternionf, Unit>(channel) {
         init {
@@ -70,7 +56,7 @@ sealed class AnimationChannelItem<T : Any, D>(
         }
 
         override fun apply(instance: ModelInstance, time: Float) {
-            instance.setTransformDecomposed(index, TransformId.ABSOLUTE) {
+            instance.setTransformDecomposed(index, transformId) {
                 channel.getKeyFrameData(time, rotation)
                 rotation.normalize()
             }
