@@ -1,6 +1,5 @@
 package top.fifthlight.fabazel.devlaunchwrapper;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,9 +12,15 @@ public class DevLaunchWrapper {
     private static final String type = System.getProperty("dev.launch.type", null);
     private static final String assetsPath = System.getProperty("dev.launch.assetsPath", null);
     private static final String mainClass = System.getProperty("dev.launch.mainClass", null);
+    private static final String glfwLibName = System.getenv("GLFW_LIBNAME");
 
     public static void main(String[] args) throws ReflectiveOperationException, IOException {
         var argsList = new ArrayList<String>(Arrays.asList(args));
+
+        if (glfwLibName != null) {
+            System.setProperty("org.lwjgl.glfw.libname", glfwLibName);
+        }
+
         if (assetsPath != null) {
             var path = Path.of(assetsPath).toRealPath();
             argsList.add("--assetsDir");
