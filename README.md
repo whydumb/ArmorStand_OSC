@@ -1,6 +1,6 @@
 # 盔甲架
 
-盔甲架是一款 Minecraft 1.21.7 的玩家模型 mod，支持加载外部模型以替换原版的玩家模型。
+盔甲架是一款 Minecraft 1.21.8 的玩家模型 mod，支持加载外部模型以替换原版的玩家模型。
 
 [![MC 百科](https://img.shields.io/badge/MC_%E7%99%BE%E7%A7%91-blue?style=for-the-badge)](https://www.mcmod.cn/class/20046.html)
 [![Modrinth](https://img.shields.io/modrinth/dt/armor-stand?style=for-the-badge&logo=modrinth)](https://modrinth.com/mod/armor-stand)
@@ -46,7 +46,8 @@ mod 采取同步模型哈希值的方式，因此你可以重命名模型，甚�
 
 # ArmorStand
 
-ArmorStand is a Minecraft 1.21.7 player model mod that supports loading external models to replace the vanilla player model.
+ArmorStand is a Minecraft 1.21.8 player model mod that supports loading external models to replace the vanilla player
+model.
 
 Currently, the mod is in early development, and supports the following features:
 

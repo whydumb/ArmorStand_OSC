@@ -5,7 +5,7 @@ module(
     version = "0.0.1+dev",
 )
 
-game_version = "1.21.7"
+game_version = "1.21.8"
 
 bazel_dep(name = "rules_java", version = "8.12.0")
 bazel_dep(name = "rules_kotlin", version = "2.1.4")
@@ -18,7 +18,7 @@ maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(
     artifacts = [
         # mapping
-        "net.fabricmc:yarn:1.21.7+build.2:v2",
+        "net.fabricmc:yarn:1.21.8+build.1:v2",
         "net.fabricmc:intermediary:%s:v2" % game_version,
 
         # build dependencies
@@ -33,7 +33,7 @@ maven.install(
         # mod dependencies
         "net.fabricmc:fabric-loader:0.16.14",
         "com.terraformersmc:modmenu:15.0.0-beta.3",
-        "net.fabricmc.fabric-api:fabric-api:0.128.1+1.21.7",
+        "net.fabricmc.fabric-api:fabric-api:0.129.0+1.21.8",
         "net.fabricmc:fabric-language-kotlin:1.13.1+kotlin.2.1.10",
         "net.fabricmc:sponge-mixin:0.15.4+mixin.0.8.7",
         "io.github.llamalad7:mixinextras-fabric:0.4.1",
