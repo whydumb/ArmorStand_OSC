@@ -12,6 +12,7 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import net.minecraft.util.Identifier
 import top.fifthlight.armorstand.ArmorStand
+import top.fifthlight.armorstand.ArmorStandClient
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.armorstand.util.*
 import top.fifthlight.blazerod.model.ModelFileLoader
@@ -612,9 +613,7 @@ object ModelManager {
         }
     }
 
-    suspend fun initialize() = withContext(Dispatchers.IO) {
-        val extractDefaultModel = modelDir.notExists()
-        modelDir.createDirectories()
+    suspend fun setupModelDirectory(extractDefaultModel: Boolean) = withContext(Dispatchers.IO) {
         if (extractDefaultModel) {
             try {
                 LOGGER.info("Extracting default model: {}", DEFAULT_MODEL_NAME)
@@ -628,6 +627,49 @@ object ModelManager {
                 LOGGER.warn("Failed to extract default model", ex)
             }
         }
+        if (extractDefaultModel || ArmorStandClient.debug) {
+            val defaultAnimationDir = ModelInstanceManager.defaultAnimationDir
+            val extractDefaultAnimations = defaultAnimationDir.notExists()
+            defaultAnimationDir.createDirectories()
+            if (extractDefaultAnimations) {
+                LOGGER.info("Extracting default animations")
+                val zipFileSystem = try {
+                    val uri = this.javaClass.classLoader.getResource("default-animation.zip")!!.toURI()
+                    val zipPath = uri.toPath()
+                    FileSystems.newFileSystem(zipPath)
+                } catch (ex: Exception) {
+                    LOGGER.warn("Failed to extract default animations", ex)
+                    return@withContext
+                }
+                zipFileSystem.getPath("/").forEachDirectoryEntry { entry ->
+                    if (!entry.isRegularFile()) {
+                        return@forEachDirectoryEntry
+                    }
+                    val targetPath = defaultAnimationDir.resolve(entry.fileName.toString())
+                    try {
+                        Files.newByteChannel(entry, StandardOpenOption.READ).use { source ->
+                            Files.newByteChannel(
+                                targetPath,
+                                StandardOpenOption.CREATE,
+                                StandardOpenOption.WRITE,
+                                StandardOpenOption.TRUNCATE_EXISTING
+                            ).use { target ->
+                                source.copyTo(target)
+                            }
+                        }
+                    } catch (ex: Exception) {
+                        LOGGER.warn("Failed to extract animation file $entry", ex)
+                    }
+                }
+                LOGGER.info("Extracted default animations")
+            }
+        }
+    }
+
+    suspend fun initialize() = withContext(Dispatchers.IO) {
+        val extractDefaultModel = modelDir.notExists()
+        modelDir.createDirectories()
+        setupModelDirectory(extractDefaultModel)
 
         Class.forName("org.h2.Driver")
         val databaseRelativePath = databaseFile.relativeTo(Paths.get(".").toAbsolutePath())

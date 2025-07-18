@@ -13,6 +13,14 @@ import top.fifthlight.armorstand.extension.internal.PlayerEntityRenderStateExtIn
 public class PlayerEntityRendererMixin {
     @Inject(method = "updateRenderState(Lnet/minecraft/client/network/AbstractClientPlayerEntity;Lnet/minecraft/client/render/entity/state/PlayerEntityRenderState;F)V", at = @At("HEAD"))
     public void onUpdateRenderState(AbstractClientPlayerEntity entity, PlayerEntityRenderState state, float tickProgress, CallbackInfo ci) {
-        ((PlayerEntityRenderStateExtInternal) state).armorStand$setUuid(entity.getUuid());
+        var stateInternal = ((PlayerEntityRenderStateExtInternal) state);
+        stateInternal.armorStand$setUuid(entity.getUuid());
+        var vehicle = entity.getVehicle();
+        if (vehicle != null) {
+            stateInternal.armorStand$setRidingEntityType(vehicle.getType());
+        } else {
+            stateInternal.armorStand$setRidingEntityType(null);
+        }
+        stateInternal.armorStand$setSprinting(entity.isSprinting());
     }
 }

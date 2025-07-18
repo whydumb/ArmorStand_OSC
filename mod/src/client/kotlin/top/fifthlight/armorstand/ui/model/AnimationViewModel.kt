@@ -5,19 +5,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.getAndUpdate
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.minecraft.client.MinecraftClient
 import org.slf4j.LoggerFactory
-import top.fifthlight.armorstand.ArmorStandClient
 import top.fifthlight.armorstand.PlayerRenderer
-import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.manage.ModelManager
-import top.fifthlight.armorstand.mixin.PlayerModelMixin
 import top.fifthlight.armorstand.state.ModelController
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.armorstand.ui.state.AnimationScreenState
-import top.fifthlight.armorstand.util.ModelLoaders
 import top.fifthlight.blazerod.animation.AnimationItem
 import top.fifthlight.blazerod.animation.AnimationLoader
 import top.fifthlight.blazerod.model.ModelFileLoaders
@@ -103,12 +98,6 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
             }
         }
         when (val controller = instanceItem.controller) {
-            is ModelController.LiveUpdated -> {
-                _uiState.getAndUpdate {
-                    it.copy(playState = AnimationScreenState.PlayState.None)
-                }
-            }
-
             is ModelController.Predefined -> {
                 val timeline = controller.timeline
                 val progress = timeline.getCurrentTime(System.nanoTime())
@@ -125,6 +114,12 @@ class AnimationViewModel(scope: CoroutineScope) : ViewModel(scope) {
                 }
                 _uiState.getAndUpdate {
                     it.copy(playState = playState)
+                }
+            }
+
+            else -> {
+                _uiState.getAndUpdate {
+                    it.copy(playState = AnimationScreenState.PlayState.None)
                 }
             }
         }

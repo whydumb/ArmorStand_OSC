@@ -12,6 +12,7 @@ import top.fifthlight.blazerod.util.RefCount
 import top.fifthlight.blazerod.util.TimeUtil
 import java.nio.file.Path
 import java.util.*
+import kotlin.io.path.nameWithoutExtension
 import kotlin.time.measureTimedValue
 
 object ModelInstanceManager {
@@ -25,6 +26,7 @@ object ModelInstanceManager {
     } ?: FabricLoader.getInstance().gameDir.resolve("models")
     val modelCaches = mutableMapOf<Path, ModelCache>()
     val modelInstanceItems = mutableMapOf<UUID, ModelInstanceItem>()
+    val defaultAnimationDir: Path = modelDir.resolve("animations")
 
     sealed class ModelCache {
         data object Failed : ModelCache()
@@ -33,6 +35,7 @@ object ModelInstanceManager {
             val metadata: Metadata?,
             val scene: RenderScene,
             val animations: List<AnimationItem>,
+            val animationSet: AnimationSet,
         ) : RefCount by scene, ModelCache()
     }
 
@@ -55,25 +58,38 @@ object ModelInstanceManager {
 
     private fun loadModel(path: Path): ModelCache {
         val (result, duration) = measureTimedValue {
-            val modelLoadResult = runCatching {
-                ModelFileLoaders.probeAndLoad(modelDir.resolve(path).toAbsolutePath())
+            val modelPath = modelDir.resolve(path).toAbsolutePath()
+            val result = runCatching {
+                ModelFileLoaders.probeAndLoad(modelPath)
             }.let { value ->
                 value.exceptionOrNull()?.let { LOGGER.warn("Model load failed", it) }
                 value.getOrNull()
-            }
-            val result = modelLoadResult?.takeIf { it.model != null }?.let { result ->
-                LOGGER.info("Model metadata: ${result.metadata}")
+            } ?: return ModelCache.Failed
 
-                val scene = ModelLoader().loadModel(result.model!!)
-                val animations = result.animations?.map { AnimationLoader.load(scene, it) } ?: listOf()
+            val model = result.model ?: return ModelCache.Failed
+            LOGGER.info("Model metadata: ${result.metadata}")
 
-                ModelCache.Loaded(
-                    scene = scene,
-                    animations = animations,
-                    metadata = result.metadata,
-                )
-            } ?: ModelCache.Failed
-            result
+            val scene = ModelLoader().loadModel(model)
+            val animations = result.animations?.map { AnimationLoader.load(scene, it) } ?: listOf()
+
+            val defaultAnimationSet = AnimationSetLoader.load(scene, defaultAnimationDir)
+            val modelAnimation = modelPath.parent?.let { parentPath ->
+                listOf(
+                    modelPath.nameWithoutExtension,
+                    modelPath.fileName.toString(),
+                ).asSequence().map {
+                    parentPath.resolve("$it.animations")
+                }.fold(defaultAnimationSet) { acc, path ->
+                    acc + AnimationSetLoader.load(scene, path)
+                }
+            } ?: defaultAnimationSet
+
+            ModelCache.Loaded(
+                scene = scene,
+                animations = animations,
+                metadata = result.metadata,
+                animationSet = modelAnimation,
+            )
         }
         LOGGER.info("Model $path loaded, duration: $duration")
         return result
@@ -135,9 +151,14 @@ object ModelInstanceManager {
                     metadata = cache.metadata,
                     lastAccessTime = lastAccessTime,
                     instance = ModelInstance(scene),
-                    controller = when (val animation = cache.animations.firstOrNull()) {
-                        null -> ModelController.LiveUpdated(scene)
-                        else -> ModelController.Predefined(animation)
+                    controller = run {
+                        val animationSet = FullAnimationSet.from(cache.animationSet)
+                        val animation = cache.animations.firstOrNull()
+                        when {
+                            animationSet != null -> ModelController.LiveSwitched(animationSet)
+                            animation != null -> ModelController.Predefined(animation)
+                            else -> ModelController.LiveUpdated(scene)
+                        }
                     },
                 ).also {
                     it.increaseReferenceCount()
