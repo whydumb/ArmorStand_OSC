@@ -44,7 +44,7 @@ java_library(
     deps = [
         ":remapped_client_access_widened_named",
         ":remapped_deps",
-        "//blazerod/model/model-formats:model-formats_unmerged",
+        "//blazerod/model/model-formats:model-formats",
         "//blazerod/render:render_unmapped",
         "@maven//:net_fabricmc_fabric_loader",
         "@minecraft//:%s_client_libraries" % game_version,
@@ -94,7 +94,7 @@ java_binary(
         ":ball_block_unmapped",
         "//game:remapped_client_named",
         ":remapped_deps",
-        "//blazerod:blazerod_dep",
+        "//blazerod:blazerod_without_jij",
         "@maven//:net_fabricmc_fabric_language_kotlin",
         "@maven//:net_fabricmc_fabric_loader",
         "@maven//:net_fabricmc_sponge_mixin",

@@ -1,48 +1,60 @@
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
-load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("//rule:fabric_mod_json_jar.bzl", "fabric_mod_json_jar")
 load("//rule:merge_jar.bzl", "merge_jar")
 load("//:properties.bzl", "blazerod_version")
+load("@rules_java//java:defs.bzl", "java_library")
 
-expand_template(
+java_library(
+    name = "default_models",
+    visibility = ["//visibility:public"],
+    resources = ["src/test/resources/armorstand.vrm"],
+    resource_strip_prefix = "blazerod/model/model-gltf/src/test/resources",
+)
+
+fabric_mod_json_jar(
     name = "fabric_mod_json",
-    template = "src/main/resources/fabric.mod.json",
+    src = "src/main/resources/fabric.mod.json",
     substitutions = {
         "${version}": blazerod_version,
     },
-    out = "fabric.mod.json",
+    resource_strip_prefix = "blazerod/model/model-gltf",
 )
 
 kt_jvm_library(
-    name = "model-gltf_unmerged",
+    name = "model-gltf",
     srcs = glob(["src/main/kotlin/**/*.kt"]),
-    resources = [":fabric_mod_json"],
-    resource_strip_prefix = "blazerod/model/model-gltf",
+    resource_jars = [
+        ":fabric_mod_json",
+        "//blazerod:icon",
+    ],
+    resources = glob(
+        include = ["src/main/resources/**"],
+        exclude = ["src/main/resources/fabric.mod.json"],
+    ),
     visibility = ["//visibility:public"],
     deps = [
-        "//blazerod/model/model-base:model-base_unmerged",
+        "//blazerod/model/model-base",
         "//:kotlin_serialization",
         "@maven//:org_jetbrains_kotlinx_kotlinx_serialization_json",
     ],
 )
 
-merge_jar(
-    name = "model-gltf",
+filegroup(
+    name = "test_models",
     visibility = ["//visibility:public"],
-    deps = [
-        ":model-gltf_unmerged",
+    data = [
+        "src/test/resources/AliciaSolid.vrm",
+        "src/test/resources/InterpolationTest.glb",
+        "src/test/resources/armorstand.vrm",
     ],
-    resources = {
-        "//blazerod:icon": "blazerod/src/main/resources/",
-    }
 )
 
 kt_jvm_test(
 	name = "glb_load_test",
     srcs = ["src/test/kotlin/top/fifthlight/blazerod/model/gltf/test/GlbLoadTest.kt"],
-    resources = ["@//blazerod/model/model-gltf/src/test/resources:test_models_srcs"],
     main_class = "org.junit.platform.console.ConsoleLauncher",
     args = ["execute", "--select-class", "top.fifthlight.blazerod.model.gltf.test.GlbLoadTest"],
-    associates = [":model-gltf_unmerged"],
+    associates = [":model-gltf"],
     deps = [
         "@maven//:org_jetbrains_kotlin_kotlin_test_junit5",
         "@maven//:org_junit_jupiter_junit_jupiter_api",

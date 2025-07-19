@@ -5,7 +5,7 @@ load("//rule:extract_access_widener.bzl", "extract_access_widener")
 load("//rule:merge_jar.bzl", "merge_jar")
 load("//rule:decompile_jar.bzl", "decompile_jar")
 load("//:properties.bzl", "blazerod_version", "game_version")
-load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("//rule:fabric_mod_json_jar.bzl", "fabric_mod_json_jar")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
 extract_access_widener(
@@ -46,26 +46,18 @@ decompile_jar(
     inputs = [":remapped_client_access_widened_named"],
 )
 
-expand_template(
+fabric_mod_json_jar(
     name = "fabric_mod_json",
-    template = "src/main/resources/fabric.mod.json",
+    src = "src/main/resources/fabric.mod.json",
     substitutions = {
         "${version}": blazerod_version,
     },
-    out = "_generated/fabric.mod.json",
-)
-
-java_library(
-	name = "render_resources",
-    resource_strip_prefix = "blazerod/render/src/main/resources",
-    resources = [
-        "src/main/resources/blazerod.accesswidener",
-        "src/main/resources/blazerod.mixins.json",
-    ] + glob(["src/main/resources/assets/**"]),
+    resource_strip_prefix = "blazerod/render",
 )
 
 kt_jvm_library(
-    name = "render_unmapped_without_resouces",
+    name = "render_unmapped",
+    visibility = ["//visibility:public"],
     srcs = glob(
         include = [
             "src/main/kotlin/**/*.kt",
@@ -74,8 +66,14 @@ kt_jvm_library(
         allow_empty = True,
     ),
     module_name = "top_fifthlight_blazerod_render",
-    resource_strip_prefix = "blazerod/render/_generated",
-    resources = [":fabric_mod_json"],
+    resources = glob(
+        include = ["src/main/resources/**"],
+        exclude = ["src/main/resources/fabric.mod.json"],
+    ),
+    resource_jars = [
+        ":fabric_mod_json",
+        "//blazerod:icon",
+    ],
     deps = [
         ":remapped_client_access_widened_named",
         ":remapped_deps",
@@ -86,18 +84,6 @@ kt_jvm_library(
         "@maven//:io_github_llamalad7_mixinextras_fabric",
         "@minecraft//:%s_client_libraries" % game_version,
     ],
-)
-
-merge_jar(
-    name = "render_unmapped",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":render_unmapped_without_resouces",
-        ":render_resources",
-    ],
-    resources = {
-        "//blazerod:icon": "blazerod/src/main/resources/",
-    }
 )
 
 remap_jar(
@@ -122,7 +108,7 @@ kt_jvm_test(
     main_class = "org.junit.platform.console.ConsoleLauncher",
     args = ["execute", "--select-class", "top.fifthlight.blazerod.test.StandaloneTest"],
     associates = [
-        ":render_unmapped_without_resouces",
+        ":render_unmapped",
     ],
     deps = [
         "//blazerod/model/model-formats",

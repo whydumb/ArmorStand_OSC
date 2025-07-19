@@ -3,7 +3,6 @@ package top.fifthlight.blazerod.model.gltf
 import top.fifthlight.blazerod.model.ModelFileLoader
 import top.fifthlight.blazerod.model.util.readAll
 import top.fifthlight.blazerod.model.util.readToBuffer
-import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
@@ -11,7 +10,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 
-object GltfBinaryLoader : ModelFileLoader {
+class GltfBinaryLoader : ModelFileLoader {
     override val extensions = mapOf(
         "glb" to setOf(
             ModelFileLoader.Ability.MODEL,
@@ -24,7 +23,10 @@ object GltfBinaryLoader : ModelFileLoader {
         ),
     )
 
-    private const val GLTF_BINARY_MAGIC = 0x46546c67
+    companion object {
+        private const val GLTF_BINARY_MAGIC = 0x46546c67
+    }
+
     override val probeLength = 4
     override fun probe(buffer: ByteBuffer): Boolean {
         if (buffer.remaining() < 4) return false

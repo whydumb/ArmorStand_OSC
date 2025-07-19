@@ -1,4 +1,5 @@
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
+load("//rule:fabric_mod_json_jar.bzl", "fabric_mod_json_jar")
 load("//rule:remap_jar.bzl", "remap_jar")
 load("//rule:apply_access_widener.bzl", "apply_access_widener")
 load("//rule:extract_access_widener.bzl", "extract_access_widener")
@@ -7,7 +8,6 @@ load("//rule:generate_remap_classpath.bzl", "generate_remap_classpath")
 load("//rule:decompile_jar.bzl", "decompile_jar")
 load("//rule:merge_jij.bzl", "merge_jij")
 load("//:properties.bzl", "mod_version", "game_version")
-load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
 extract_access_widener(
@@ -64,13 +64,13 @@ apply_access_widener(
     ],
 )
 
-expand_template(
+fabric_mod_json_jar(
     name = "fabric_mod_json",
-    template = "src/main/resources/fabric.mod.json",
+    src = "src/main/resources/fabric.mod.json",
     substitutions = {
         "${version}": mod_version,
     },
-    out = "_generated/fabric.mod.json",
+    resource_strip_prefix = "mod",
 )
 
 kt_jvm_library(
@@ -83,8 +83,11 @@ kt_jvm_library(
         allow_empty = True,
     ),
     module_name = "top_fifthlight_armorstand",
-    resource_strip_prefix = "mod/_generated",
-    resources = [":fabric_mod_json"],
+    resource_jars = [":fabric_mod_json"],
+    resources = glob(
+        include = ["src/main/resources/**"],
+        exclude = ["fabric.mod.json"],
+    ),
     deps = [
         "//:kotlin_serialization",
         ":remapped_server_access_widened_named",
@@ -106,7 +109,7 @@ remap_jar(
 )
 
 kt_jvm_library(
-    name = "mod_client_unmapped_unmerged",
+    name = "mod_client_unmapped",
     srcs = glob(
         include = [
             "src/client/kotlin/**/*.kt",
@@ -120,9 +123,10 @@ kt_jvm_library(
         include = ["src/client/resources/**"],
         allow_empty = True,
     ),
+    resource_jars = ["//blazerod/model/model-gltf:default_models"],
     deps = [
         "//:kotlin_serialization",
-        "//blazerod:blazerod_dep",
+        "//blazerod:blazerod_without_jij",
         ":mod_main_unmapped",
         ":remapped_client_access_widened_named",
         ":remapped_deps",
@@ -133,15 +137,6 @@ kt_jvm_library(
         "@maven//:com_h2database_h2",
         "@minecraft//:%s_client_libraries" % game_version,
     ],
-)
-
-merge_jar(
-    name = "mod_client_unmapped",
-    deps = [":mod_client_unmapped_unmerged"],
-    resources = {
-        "src/main/resources/armorstand.accesswidener": "mod/src/main/resources/",
-        "//blazerod/model/model-gltf/src/test/resources:default_models": "blazerod/model/model-gltf/src/test/resources/",
-    }
 )
 
 remap_jar(
@@ -176,7 +171,7 @@ merge_jij(
     input = ":mod_without_jij",
     deps = {
         "@maven//:com_h2database_h2": "com_h2database_h2:2.3.232",
-        "//blazerod:blazerod_merged": "blazerod_merged:=",
+        "//blazerod:blazerod_without_jij": "blazerod:=",
         "//blazerod/model/model-base": "blazerod-model-base:=",
         "//blazerod/model/model-formats": "blazerod-model-formats:=",
         "//blazerod/model/model-gltf": "blazerod-model-formats-gltf:=",
@@ -199,7 +194,7 @@ java_binary(
     data = [
         ":remap_classpath",
         "@minecraft_assets//:assets_%s" % game_version,
-        "//blazerod/model/model-gltf/src/test/resources:test_models_data",
+        "//blazerod/model/model-gltf:test_models",
     ],
     env = {
         "LANG": "en_US.UTF8",
@@ -210,7 +205,7 @@ java_binary(
         ":mod_unmapped",
         "//game:remapped_client_named",
         ":remapped_deps",
-        "//blazerod:blazerod_dep",
+        "//blazerod:blazerod_without_jij",
         "@maven//:net_fabricmc_fabric_language_kotlin",
         "@maven//:net_fabricmc_fabric_loader",
         "@maven//:net_fabricmc_sponge_mixin",

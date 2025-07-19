@@ -1,37 +1,34 @@
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
-load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
-load("//rule:merge_jar.bzl", "merge_jar")
 load("//:properties.bzl", "blazerod_version")
+load("//rule:fabric_mod_json_jar.bzl", "fabric_mod_json_jar")
+load("//rule:merge_jar.bzl", "merge_jar")
 
-formats = ["gltf", "pmx", "pmd", "vmd"]
-format_targets = ["//blazerod/model/model-" + format + ":model-" + format + "_unmerged" for format in formats]
+formats = [
+    "gltf",
+    "pmx",
+    "pmd",
+    "vmd",
+]
 
-expand_template(
+format_targets = ["//blazerod/model/model-" + format for format in formats]
+
+fabric_mod_json_jar(
     name = "fabric_mod_json",
-    template = "src/main/resources/fabric.mod.json",
+    src = "src/main/resources/fabric.mod.json",
+    resource_strip_prefix = "blazerod/model/model-formats",
     substitutions = {
         "${version}": blazerod_version,
     },
-    out = "fabric.mod.json",
 )
 
 kt_jvm_library(
-    name = "model-formats_unmerged",
-    srcs = glob(["src/main/kotlin/**/*.kt"]),
-    resources = [":fabric_mod_json"],
-    resource_strip_prefix = "blazerod/model/model-formats",
-    visibility = ["//visibility:public"],
-    deps = format_targets,
-    exports = ["//blazerod/model/model-base:model-base_unmerged"] + format_targets,
-)
-
-merge_jar(
     name = "model-formats",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":model-formats_unmerged",
+    srcs = glob(["src/main/kotlin/**/*.kt"]),
+    resource_jars = [
+        ":fabric_mod_json",
+        "//blazerod:icon",
     ],
-    resources = {
-        "//blazerod:icon": "blazerod/src/main/resources/",
-    }
+    visibility = ["//visibility:public"],
+    exports = ["//blazerod/model/model-base"],
+    deps = format_targets,
 )

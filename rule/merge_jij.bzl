@@ -1,6 +1,6 @@
 def _merge_jij_impl(ctx):
     output_jar = ctx.actions.declare_file(ctx.label.name + ".jar")
-    input_jar = ctx.file.input
+    input_jar = ctx.files.input[0]
 
     args = ctx.actions.args()
     args.add(input_jar)
@@ -35,7 +35,7 @@ merge_jij = rule(
     attrs = {
         "input": attr.label(
             mandatory = True,
-            allow_single_file = [".jar"],
+            providers = [DefaultInfo],
             doc = "Input JAR",
         ),
         "deps": attr.label_keyed_string_dict(

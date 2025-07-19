@@ -1,25 +1,17 @@
 package top.fifthlight.blazerod.model
 
-import top.fifthlight.blazerod.model.gltf.GltfBinaryLoader
-import top.fifthlight.blazerod.model.gltf.GltfTextLoader
-import top.fifthlight.blazerod.model.pmd.PmdLoader
-import top.fifthlight.blazerod.model.pmx.PmxLoader
 import top.fifthlight.blazerod.model.util.readRemaining
-import top.fifthlight.blazerod.model.vmd.VmdLoader
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import java.util.*
 import kotlin.io.path.extension
 
 object ModelFileLoaders {
-    val loaders = listOf(
-        GltfBinaryLoader,
-        PmxLoader,
-        PmdLoader,
-        VmdLoader,
-        GltfTextLoader,
-    )
+    val loaders by lazy {
+        ServiceLoader.load(ModelFileLoader::class.java).toList()
+    }
 
     private val embedThumbnailLoaders by lazy {
         loaders.filter { ModelFileLoader.Ability.EMBED_THUMBNAIL in it.abilities }

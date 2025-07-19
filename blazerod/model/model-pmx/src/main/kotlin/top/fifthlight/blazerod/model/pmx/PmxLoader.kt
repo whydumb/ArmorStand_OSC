@@ -4,61 +4,40 @@ import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector3fc
-import top.fifthlight.blazerod.model.Accessor
-import top.fifthlight.blazerod.model.Buffer
-import top.fifthlight.blazerod.model.BufferView
-import top.fifthlight.blazerod.model.Expression
-import top.fifthlight.blazerod.model.HumanoidTag
-import top.fifthlight.blazerod.model.IkTarget
-import top.fifthlight.blazerod.model.Influence
-import top.fifthlight.blazerod.model.Material
-import top.fifthlight.blazerod.model.Mesh
-import top.fifthlight.blazerod.model.MeshId
-import top.fifthlight.blazerod.model.Metadata
-import top.fifthlight.blazerod.model.Model
-import top.fifthlight.blazerod.model.ModelFileLoader
-import top.fifthlight.blazerod.model.Node
-import top.fifthlight.blazerod.model.NodeComponent
-import top.fifthlight.blazerod.model.NodeId
-import top.fifthlight.blazerod.model.NodeTransform
-import top.fifthlight.blazerod.model.Primitive
-import top.fifthlight.blazerod.model.RgbColor
-import top.fifthlight.blazerod.model.RgbaColor
-import top.fifthlight.blazerod.model.Scene
-import top.fifthlight.blazerod.model.Skin
-import top.fifthlight.blazerod.model.Texture
-import top.fifthlight.blazerod.model.TransformId
-import top.fifthlight.blazerod.model.pmx.format.PmxBone
-import top.fifthlight.blazerod.model.pmx.format.PmxGlobals
-import top.fifthlight.blazerod.model.pmx.format.PmxHeader
-import top.fifthlight.blazerod.model.pmx.format.PmxMaterial
-import top.fifthlight.blazerod.model.pmx.format.PmxMorph
-import top.fifthlight.blazerod.model.pmx.format.PmxMorphGroup
-import top.fifthlight.blazerod.model.pmx.format.PmxMorphGroup.*
-import top.fifthlight.blazerod.model.pmx.format.PmxMorphPanelType
-import top.fifthlight.blazerod.model.pmx.format.PmxMorphType
-
+import top.fifthlight.blazerod.model.*
+import top.fifthlight.blazerod.model.pmx.format.*
+import top.fifthlight.blazerod.model.pmx.format.PmxMorphGroup.MorphItem
 import top.fifthlight.blazerod.model.util.readAll
-
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 import java.nio.charset.CodingErrorAction
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
-import java.util.UUID
+import java.util.*
 import kotlin.math.PI
 
 class PmxLoadException(message: String) : Exception(message)
 
 // PMX loader.
 // Format from https://gist.github.com/felixjones/f8a06bd48f9da9a4539f
-object PmxLoader : ModelFileLoader {
+class PmxLoader : ModelFileLoader {
     override val extensions = mapOf(
         "pmx" to setOf(ModelFileLoader.Ability.MODEL),
     )
 
-    private val PMX_SIGNATURE = byteArrayOf(0x50, 0x4D, 0x58, 0x20)
+    companion object {
+        private val PMX_SIGNATURE = byteArrayOf(0x50, 0x4D, 0x58, 0x20)
+        private val VALID_INDEX_SIZES = listOf(1, 2, 4)
+
+        //                                             POS NORM UV
+        private const val BASE_VERTEX_ATTRIBUTE_SIZE = (3 + 3 + 2) * 4
+
+        //                                           JOINT WEIGHT
+        private const val SKIN_VERTEX_ATTRIBUTE_SIZE = (4 + 4) * 4
+        private const val VERTEX_ATTRIBUTE_SIZE = BASE_VERTEX_ATTRIBUTE_SIZE + SKIN_VERTEX_ATTRIBUTE_SIZE
+    }
+
     override val probeLength = PMX_SIGNATURE.size
     override fun probe(buffer: ByteBuffer): Boolean {
         if (buffer.remaining() < PMX_SIGNATURE.size) return false
@@ -66,15 +45,6 @@ object PmxLoader : ModelFileLoader {
         buffer.get(signatureBytes, 0, PMX_SIGNATURE.size)
         return signatureBytes.contentEquals(PMX_SIGNATURE)
     }
-
-    private val VALID_INDEX_SIZES = listOf(1, 2, 4)
-
-    //                                             POS NORM UV
-    private const val BASE_VERTEX_ATTRIBUTE_SIZE = (3 + 3 + 2) * 4
-
-    //                                           JOINT WEIGHT
-    private const val SKIN_VERTEX_ATTRIBUTE_SIZE = (4 + 4) * 4
-    private const val VERTEX_ATTRIBUTE_SIZE = BASE_VERTEX_ATTRIBUTE_SIZE + SKIN_VERTEX_ATTRIBUTE_SIZE
 
     private class Context(
         private val basePath: Path,

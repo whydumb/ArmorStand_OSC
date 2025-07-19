@@ -1,33 +1,30 @@
-load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
-load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
+load("//rule:fabric_mod_json_jar.bzl", "fabric_mod_json_jar")
 load("//rule:merge_jar.bzl", "merge_jar")
 load("//:properties.bzl", "blazerod_version")
 
-expand_template(
+fabric_mod_json_jar(
     name = "fabric_mod_json",
-    template = "src/main/resources/fabric.mod.json",
+    src = "src/main/resources/fabric.mod.json",
     substitutions = {
         "${version}": blazerod_version,
     },
-    out = "fabric.mod.json",
+    resource_strip_prefix = "blazerod/model/model-pmd",
 )
 
 kt_jvm_library(
-    name = "model-pmd_unmerged",
-    srcs = glob(["src/main/kotlin/**/*.kt"]),
-    resources = [":fabric_mod_json"],
-    resource_strip_prefix = "blazerod/model/model-pmd",
-    visibility = ["//visibility:public"],
-    deps = ["//blazerod/model/model-base:model-base_unmerged"],
-)
-
-merge_jar(
     name = "model-pmd",
+    srcs = glob(["src/main/kotlin/**/*.kt"]),
+    resource_jars = [
+        ":fabric_mod_json",
+        "//blazerod:icon",
+    ],
+    resources = glob(
+        include = ["src/main/resources/**"],
+        exclude = ["src/main/resources/fabric.mod.json"],
+    ),
     visibility = ["//visibility:public"],
     deps = [
-        ":model-pmd_unmerged",
+        "//blazerod/model/model-base",
     ],
-    resources = {
-        "//blazerod:icon": "blazerod/src/main/resources/",
-    }
 )

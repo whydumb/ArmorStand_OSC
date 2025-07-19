@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 import java.nio.file.Path
 import kotlin.io.path.readText
 
-object GltfTextLoader : ModelFileLoader {
+class GltfTextLoader : ModelFileLoader {
     override val extensions = mapOf(
         "gltf" to setOf(
             ModelFileLoader.Ability.MODEL,

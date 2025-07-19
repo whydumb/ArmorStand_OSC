@@ -1,36 +1,27 @@
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
-load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("//rule:fabric_mod_json_jar.bzl", "fabric_mod_json_jar")
 load("//rule:merge_jar.bzl", "merge_jar")
 load("//:properties.bzl", "blazerod_version")
 
-expand_template(
+fabric_mod_json_jar(
     name = "fabric_mod_json",
-    template = "src/main/resources/fabric.mod.json",
+    src = "src/main/resources/fabric.mod.json",
     substitutions = {
         "${version}": blazerod_version,
     },
-    out = "fabric.mod.json",
+    resource_strip_prefix = "blazerod/model/model-base",
 )
 
 kt_jvm_library(
-    name = "model-base_unmerged",
-    visibility = ["//visibility:public"],
+    name = "model-base",
     srcs = glob(["src/main/kotlin/**/*.kt"]),
-    resources = [":fabric_mod_json"],
-    resource_strip_prefix = "blazerod/model/model-base",
     deps = [
         "@maven//:org_joml_joml",
         "@maven//:it_unimi_dsi_fastutil",
     ],
-)
-
-merge_jar(
-    name = "model-base",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":model-base_unmerged",
+    resource_jars = [
+        ":fabric_mod_json",
+        "//blazerod:icon",
     ],
-    resources = {
-        "//blazerod:icon": "blazerod/src/main/resources/",
-    }
+    visibility = ["//visibility:public"],
 )

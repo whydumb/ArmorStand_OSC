@@ -29,10 +29,14 @@ private inline fun IntIterable.forEachInt(action: (Int) -> Unit) {
     }
 }
 
-object VmdLoader : ModelFileLoader {
-    private val OLD_VMD_SIGNATURE = "Vocaloid Motion Data file".toByteArray()
-    private val NEW_VMD_SIGNATURE = "Vocaloid Motion Data 0002".toByteArray()
-    private val VMD_SIGNATURES = listOf(OLD_VMD_SIGNATURE, NEW_VMD_SIGNATURE)
+class VmdLoader : ModelFileLoader {
+    companion object {
+        private val OLD_VMD_SIGNATURE = "Vocaloid Motion Data file".toByteArray()
+        private val NEW_VMD_SIGNATURE = "Vocaloid Motion Data 0002".toByteArray()
+        private val VMD_SIGNATURES = listOf(OLD_VMD_SIGNATURE, NEW_VMD_SIGNATURE)
+
+        private const val FRAME_TIME_SEC = 1f / 30f
+    }
 
     override val extensions = mapOf(
         "vmd" to setOf(ModelFileLoader.Ability.EXTERNAL_ANIMATION),
@@ -139,8 +143,6 @@ object VmdLoader : ModelFileLoader {
             )
         }
     }
-
-    private const val FRAME_TIME_SEC = 1f / 30f
 
     private fun loadBone(buffer: ByteBuffer): List<AnimationChannel<*, *>> {
         val channels = mutableMapOf<String, BoneChannel>()
