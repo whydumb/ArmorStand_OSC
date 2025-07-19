@@ -36,6 +36,8 @@ mod 采取同步模型哈希值的方式，因此你可以重命名模型，甚�
 
 感谢 [Saba](https://github.com/benikabocha/saba) 项目为 MMD（PMX/PMD/VMD 格式）的逻辑提供了参考。
 
+项目使用了 [KaiMyEntity-C](https://github.com/Gengorou-C/KAIMyEntity-C) 项目的动画作为默认动画，在此感谢。
+
 ## 许可证
 
 本 mod 以 LGPL 3.0 及以上版本授权，在发布和修改时请遵守许可证要求。
@@ -77,6 +79,9 @@ The mod uses the model's hash value to synchronize models, so you can rename the
 ## Acknowledgments
 
 Thanks for [Saba](https://github.com/benikabocha/saba) project for providing reference for MMD (PMX/PMD/VMD format).
+
+This project used animations from [KaiMyEntity-C](https://github.com/Gengorou-C/KAIMyEntity-C) as default animation.
+Thanks to them.
 
 ## License
 
