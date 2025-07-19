@@ -8,6 +8,7 @@ import top.fifthlight.blazerod.model.*
 import top.fifthlight.blazerod.model.Primitive.Attributes.MorphTarget
 import top.fifthlight.blazerod.model.pmx.format.*
 import top.fifthlight.blazerod.model.pmx.format.PmxMorphGroup.MorphItem
+import top.fifthlight.blazerod.model.pmx.util.openChannelCaseInsensitive
 import top.fifthlight.blazerod.model.util.readAll
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -170,15 +171,15 @@ class PmxLoader : ModelFileLoader {
         }
 
         private fun loadMorphIndex(buffer: ByteBuffer) = when (globals.morphIndexSize) {
-            1 -> buffer.get().toInt()
-            2 -> buffer.getShort().toInt()
+            1 -> buffer.get().toUByte().toInt()
+            2 -> buffer.getShort().toUShort().toInt()
             4 -> buffer.getInt()
             else -> throw PmxLoadException("Bad morph index size: ${globals.boneIndexSize}")
         }
 
-        private fun loadVertexIndex(buffer: ByteBuffer) = when (globals.vertexIndexSize) {
-            1 -> buffer.get().toInt()
-            2 -> buffer.getShort().toInt()
+        private fun loadVertexIndex(buffer: ByteBuffer): Int = when (globals.vertexIndexSize) {
+            1 -> buffer.get().toUByte().toInt()
+            2 -> buffer.getShort().toUShort().toInt()
             4 -> buffer.getInt()
             else -> throw PmxLoadException("Bad vertex index size: ${globals.boneIndexSize}")
         }
@@ -505,7 +506,7 @@ class PmxLoader : ModelFileLoader {
                     basePath.fileSystem.getPath(pathParts[0], *pathParts.subList(1, pathParts.size).toTypedArray())
                 }
                 val path = basePath.resolve(relativePath)
-                val buffer = FileChannel.open(path, StandardOpenOption.READ).use { channel ->
+                val buffer = path.openChannelCaseInsensitive(StandardOpenOption.READ).use { channel ->
                     val size = channel.size()
                     runCatching {
                         channel.map(FileChannel.MapMode.READ_ONLY, 0, size)
@@ -730,7 +731,7 @@ class PmxLoader : ModelFileLoader {
                     ?: throw PmxLoadException("Unknown panel type")
                 val morphType = buffer.get().toInt()
                     .let { type -> PmxMorphType.entries.firstOrNull { it.value == type } }
-                    ?: throw PmxLoadException("Unknown panel type")
+                    ?: throw PmxLoadException("Unknown morph type")
                 val offsetSize = buffer.getInt()
                 if (offsetSize < 1) {
                     throw PmxLoadException("Bad morph offset size: $offsetSize")
@@ -798,7 +799,7 @@ class PmxLoader : ModelFileLoader {
 
                     PmxMorphType.BONE -> {
                         // Just skip, not really supported
-                        val itemSize = globals.boneIndexSize + 16
+                        val itemSize = globals.boneIndexSize + 28
                         buffer.position(buffer.position() + itemSize * offsetSize)
                     }
 

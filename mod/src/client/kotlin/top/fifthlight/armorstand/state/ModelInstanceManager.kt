@@ -59,17 +59,22 @@ object ModelInstanceManager {
     private fun loadModel(path: Path): ModelCache {
         val (result, duration) = measureTimedValue {
             val modelPath = modelDir.resolve(path).toAbsolutePath()
-            val result = runCatching {
+            val result = try {
                 ModelFileLoaders.probeAndLoad(modelPath)
-            }.let { value ->
-                value.exceptionOrNull()?.let { LOGGER.warn("Model load failed", it) }
-                value.getOrNull()
+            } catch (ex: Exception) {
+                LOGGER.warn("Model load failed", ex)
+                return ModelCache.Failed
             } ?: return ModelCache.Failed
 
             val model = result.model ?: return ModelCache.Failed
             LOGGER.info("Model metadata: ${result.metadata}")
 
-            val scene = ModelLoader().loadModel(model)
+            val scene = try {
+                ModelLoader().loadModel(model)
+            } catch (ex: Exception) {
+                LOGGER.warn("Model scene load failed", ex)
+                return ModelCache.Failed
+            }
             val animations = result.animations?.map { AnimationLoader.load(scene, it) } ?: listOf()
 
             val defaultAnimationSet = AnimationSetLoader.load(scene, defaultAnimationDir)

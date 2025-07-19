@@ -73,7 +73,11 @@ class ModelLoader {
         texture.bufferView?.let { bufferView ->
             textureCache.getOrPut(texture) {
                 val byteBuffer = bufferView.buffer.buffer.slice(bufferView.byteOffset, bufferView.byteLength)
-                val nativeImage = NativeImageExt.read(null, texture.type, byteBuffer)
+                val nativeImage = try {
+                    NativeImageExt.read(null, texture.type, byteBuffer)
+                } catch (ex: Exception) {
+                    throw Exception("Failed to load texture ${texture.name ?: "unnamed"}", ex)
+                }
                 RenderSystem.getDevice().let { device ->
                     val gpuTexture = device.createTexture(
                         texture.name,
