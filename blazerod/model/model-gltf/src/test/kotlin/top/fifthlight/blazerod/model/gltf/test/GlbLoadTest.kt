@@ -20,7 +20,7 @@ class GlbLoadTest {
         }
         val file = uri.toPath()
         measureTime {
-            GltfBinaryLoader.load(file)
+            GltfBinaryLoader().load(file)
         }.let { duration ->
             println("Alicia load time: $duration")
         }
@@ -36,7 +36,7 @@ class GlbLoadTest {
         }
         val file = uri.toPath()
         measureTime {
-            GltfBinaryLoader.load(file)
+            GltfBinaryLoader().load(file)
         }.let { duration ->
             println("armorstand load time: $duration")
         }
@@ -52,7 +52,7 @@ class GlbLoadTest {
         }
         val file = uri.toPath()
         measureTime {
-            val result = GltfBinaryLoader.getThumbnail(file)
+            val result = GltfBinaryLoader().getThumbnail(file)
             assertIs<ModelFileLoader.ThumbnailResult.Embed>(result)
             assertEquals(7739784, result.offset)
             assertEquals(138928, result.length)
@@ -71,7 +71,7 @@ class GlbLoadTest {
         }
         val file = uri.toPath()
         measureTime {
-            GltfBinaryLoader.load(file)
+            GltfBinaryLoader().load(file)
         }.let { duration ->
             println("Interpolation load time: $duration")
         }
