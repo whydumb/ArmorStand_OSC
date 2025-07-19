@@ -3,6 +3,7 @@ package top.fifthlight.fabazel.devlaunchwrapper;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -26,7 +27,7 @@ public class DevLaunchWrapper {
                 var from = Path.of(entry.substring(0, colonIndex));
                 var to = Path.of(entry.substring(colonIndex + 1));
                 Files.createDirectories(to.getParent());
-                Files.copy(from, to);
+                Files.copy(from, to, StandardCopyOption.REPLACE_EXISTING);
             }
         }
 
