@@ -9,7 +9,7 @@ def _remap_jar_impl(ctx):
     classpath_depsets = []
     for item in ctx.attr.classpath:
         if JavaInfo in item:
-            classpath_depsets.append(item[JavaInfo].compile_jars)
+            classpath_depsets.append(item[JavaInfo].full_compile_jars)
         else:
             classpath_depsets.append(item[DefaultInfo].files)
 
@@ -19,7 +19,7 @@ def _remap_jar_impl(ctx):
         input_java_info = input_target[JavaInfo]
         classpath_depsets.append(input_java_info.transitive_compile_time_jars)
         if ctx.attr.remap_transitive_deps:
-            input_jar_depsets.append(input_java_info.compile_jars)
+            input_jar_depsets.append(input_java_info.full_compile_jars)
             input_jar_depsets.append(input_java_info.transitive_compile_time_jars)
         else:
             input_jar_depsets.append(depset(input_java_info.runtime_output_jars))
@@ -28,6 +28,9 @@ def _remap_jar_impl(ctx):
 
     input_jars = depset(transitive = input_jar_depsets)
     for input_jar in input_jars.to_list():
+        if len(input_jar.basename) > 8 and input_jar.basename[-8:] == "ijar.jar":
+            continue
+
         if ctx.attr.remap_transitive_deps:
             # Generate unique output name per input
             output_jar = ctx.actions.declare_file("_remapped/%s_%s" % (ctx.label.name, input_jar.basename))

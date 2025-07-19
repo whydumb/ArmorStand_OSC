@@ -13,8 +13,23 @@ public class DevLaunchWrapper {
     private static final String assetsPath = System.getProperty("dev.launch.assetsPath", null);
     private static final String mainClass = System.getProperty("dev.launch.mainClass", null);
     private static final String glfwLibName = System.getenv("GLFW_LIBNAME");
+    private static final String copyFiles = System.getProperty("dev.launch.copyFiles", null);
 
     public static void main(String[] args) throws ReflectiveOperationException, IOException {
+        if (copyFiles != null) {
+            var copyFileList = copyFiles.split(",");
+            for (var entry : copyFileList) {
+                var colonIndex = entry.indexOf(':');
+                if (colonIndex == -1) {
+                    throw new IllegalArgumentException("Invalid copy file entry: " + entry);
+                }
+                var from = Path.of(entry.substring(0, colonIndex));
+                var to = Path.of(entry.substring(colonIndex + 1));
+                Files.createDirectories(to.getParent());
+                Files.copy(from, to);
+            }
+        }
+
         var argsList = new ArrayList<String>(Arrays.asList(args));
 
         if (glfwLibName != null) {

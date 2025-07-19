@@ -9,6 +9,7 @@ load("//rule:decompile_jar.bzl", "decompile_jar")
 load("//rule:merge_jij.bzl", "merge_jij")
 load("//:properties.bzl", "mod_version", "game_version")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 
 extract_access_widener(
     name = "access_widener_dep_intermediary",
@@ -30,6 +31,39 @@ remap_jar(
     ],
     mixin = True,
     remap_transitive_deps = True,
+    remove_jar_in_jar = True,
+    mapping = "//game:merged_mapping",
+    from_namespace = "intermediary",
+    to_namespace = "named",
+)
+
+remap_jar(
+    name = "remapped_sodium",
+    classpath = [
+        "//game:remapped_client_intermediary",
+    ],
+    inputs = [
+        "@sodium//jar",
+    ],
+    mixin = True,
+    remap_transitive_deps = False,
+    remove_jar_in_jar = True,
+    mapping = "//game:merged_mapping",
+    from_namespace = "intermediary",
+    to_namespace = "named",
+)
+
+remap_jar(
+    name = "remapped_iris",
+    classpath = [
+        "//game:remapped_client_intermediary",
+        "@sodium//jar",
+    ],
+    inputs = [
+        "@iris//jar",
+    ],
+    mixin = True,
+    remap_transitive_deps = False,
     remove_jar_in_jar = True,
     mapping = "//game:merged_mapping",
     from_namespace = "intermediary",
@@ -130,6 +164,8 @@ kt_jvm_library(
         ":mod_main_unmapped",
         ":remapped_client_access_widened_named",
         ":remapped_deps",
+        ":remapped_sodium",
+        ":remapped_iris",
         "@maven//:net_fabricmc_fabric_language_kotlin",
         "@maven//:net_fabricmc_fabric_loader",
         "@maven//:net_fabricmc_sponge_mixin",
@@ -188,6 +224,12 @@ generate_remap_classpath(
     deps = [":remapped_deps", "//game:remapped_client_intermediary"],
 )
 
+copy_file(
+    name = "makeup_ultra_fast",
+    src = "@makeup_ultra_fast//file",
+    out = "MakeUp-UltraFast-9.2.zip",
+)
+
 java_binary(
     name = "client",
     srcs = [],
@@ -195,6 +237,7 @@ java_binary(
         ":remap_classpath",
         "@minecraft_assets//:assets_%s" % game_version,
         "//blazerod/model/model-gltf:test_models",
+        ":makeup_ultra_fast",
     ],
     env = {
         "LANG": "en_US.UTF8",
@@ -205,6 +248,8 @@ java_binary(
         ":mod_unmapped",
         "//game:remapped_client_named",
         ":remapped_deps",
+        ":remapped_sodium",
+        ":remapped_iris",
         "//blazerod:blazerod_without_jij",
         "@maven//:net_fabricmc_fabric_language_kotlin",
         "@maven//:net_fabricmc_fabric_loader",
@@ -212,6 +257,9 @@ java_binary(
         "@maven//:io_github_llamalad7_mixinextras_fabric",
         "@maven//:com_h2database_h2",
         "@maven//:net_fabricmc_yarn_v2",
+        "@maven//:org_antlr_antlr4_runtime",
+        "@maven//:io_github_douira_glsl_transformer",
+        "@maven//:org_anarres_jcpp",
     ],
     main_class = "top.fifthlight.fabazel.devlaunchwrapper.DevLaunchWrapper",
     jvm_flags = [
@@ -222,6 +270,7 @@ java_binary(
         "-Ddev.launch.type=client",
         "-Ddev.launch.assetsPath=../+minecraft+minecraft_assets",
         "-Ddev.launch.mainClass=net.fabricmc.loader.impl.launch.knot.KnotClient",
+        "-Ddev.launch.copyFiles=../../MakeUp-UltraFast-9.2.zip:shaderpacks/MakeUp-UltraFast-9.2.zip",
         "-Dblazerod.debug=true",
         "-Dblazerod.debug.gui=true",
         "-Darmorstand.modelDir=blazerod/model/model-gltf/src/test/resources",
