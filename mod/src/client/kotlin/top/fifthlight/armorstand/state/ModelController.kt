@@ -247,7 +247,7 @@ sealed class ModelController {
         private fun getState(vanillaState: PlayerEntityRenderState): State = when (vanillaState.pose) {
             EntityPose.STANDING -> if (vanillaState.isSprinting) {
                 State.Sprinting
-            } else if (vanillaState.limbAmplitudeInverse.also { println(it) } > 0.2) {
+            } else if (vanillaState.limbAmplitudeInverse > 0.2) {
                 State.Walking
             } else {
                 State.Idle
