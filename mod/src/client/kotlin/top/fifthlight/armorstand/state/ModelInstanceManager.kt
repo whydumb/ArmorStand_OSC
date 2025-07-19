@@ -155,7 +155,7 @@ object ModelInstanceManager {
                         val animationSet = FullAnimationSet.from(cache.animationSet)
                         val animation = cache.animations.firstOrNull()
                         when {
-                            animationSet != null -> ModelController.LiveSwitched(animationSet)
+                            animationSet != null -> ModelController.LiveSwitched(scene, animationSet)
                             animation != null -> ModelController.Predefined(animation)
                             else -> ModelController.LiveUpdated(scene)
                         }

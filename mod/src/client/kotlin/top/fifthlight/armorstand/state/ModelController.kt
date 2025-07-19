@@ -13,7 +13,7 @@ import top.fifthlight.blazerod.model.*
 import top.fifthlight.blazerod.model.resource.RenderExpression
 import top.fifthlight.blazerod.model.resource.RenderExpressionGroup
 import java.util.*
-import kotlin.math.abs
+import kotlin.math.sin
 
 sealed class ModelController {
     open fun update(uuid: UUID, vanillaState: PlayerEntityRenderState) = Unit
@@ -54,6 +54,50 @@ sealed class ModelController {
         }
     }
 
+    companion object {
+        private fun RenderScene.getBone(tag: HumanoidTag) =
+            humanoidTagMap[tag]?.let { node -> JointItem(nodeIndex = node.nodeIndex) }
+
+        private fun RenderScene.getExpression(tag: Expression.Tag) =
+            expressions.firstOrNull { it.tag == tag }?.let { ExpressionItem.Expression(it) }
+                ?: expressionGroups.firstOrNull { it.tag == tag }?.let { ExpressionItem.Group(it) }
+
+        private const val NANOSECONDS_PER_SECOND = 1_000_000_000L
+
+        fun calculateBlinkProgress(
+            playerUuid: UUID,
+            averageBlinkInterval: Long,
+            blinkDuration: Long,
+            currentTime: Long,
+        ): Float {
+            val seed1 = playerUuid.mostSignificantBits
+            val seed2 = playerUuid.leastSignificantBits
+            val seed = seed1 xor seed2
+
+            val offsetMillis = (seed % (averageBlinkInterval * 2)).coerceAtLeast(0)
+            val effectiveTime = currentTime + offsetMillis
+            val cycleProgress = effectiveTime % averageBlinkInterval
+            return if (cycleProgress < blinkDuration) {
+                val phase = (cycleProgress.toFloat() / blinkDuration.toFloat()) * MathHelper.PI
+                sin(phase)
+            } else {
+                0f
+            }
+        }
+
+        fun calculateBlinkProgress(
+            playerUuid: UUID,
+            averageBlinkInterval: Double,
+            blinkDuration: Double,
+            currentTime: Long,
+        ) = calculateBlinkProgress(
+            playerUuid,
+            (averageBlinkInterval * NANOSECONDS_PER_SECOND).toLong(),
+            (blinkDuration * NANOSECONDS_PER_SECOND).toLong(),
+            currentTime,
+        )
+    }
+
     class LiveUpdated private constructor(
         private val center: JointItem?,
         private val head: JointItem?,
@@ -70,20 +114,16 @@ sealed class ModelController {
             blinkExpression = scene.getExpression(Expression.Tag.BLINK),
         )
 
-        companion object {
-            private fun RenderScene.getBone(tag: HumanoidTag) =
-                humanoidTagMap[tag]?.let { node -> JointItem(nodeIndex = node.nodeIndex) }
-
-            private fun RenderScene.getExpression(tag: Expression.Tag) =
-                expressions.firstOrNull { it.tag == tag }?.let { ExpressionItem.Expression(it) }
-                    ?: expressionGroups.firstOrNull { it.tag == tag }?.let { ExpressionItem.Group(it) }
-        }
-
         override fun update(uuid: UUID, vanillaState: PlayerEntityRenderState) {
             bodyYaw = MathHelper.PI - vanillaState.bodyYaw.toRadian()
             headYaw = -vanillaState.relativeHeadYaw.toRadian()
             headPitch = -vanillaState.pitch.toRadian()
-            blinkProgress = abs(System.currentTimeMillis() % 2000 - 1000) / 1000f
+            blinkProgress = calculateBlinkProgress(
+                playerUuid = uuid,
+                averageBlinkInterval = 4.0,
+                blinkDuration = 0.25,
+                currentTime = System.nanoTime(),
+            )
         }
 
         override fun apply(instance: ModelInstance) {
@@ -114,9 +154,20 @@ sealed class ModelController {
         }
     }
 
-    class LiveSwitched(
+    class LiveSwitched private constructor(
         private val animationSet: FullAnimationSet,
+        private val head: JointItem?,
+        private val blinkExpression: ExpressionItem?,
     ) : ModelController() {
+        constructor(
+            scene: RenderScene,
+            animationSet: FullAnimationSet,
+        ) : this(
+            animationSet = animationSet,
+            head = scene.getBone(HumanoidTag.HEAD),
+            blinkExpression = scene.getExpression(Expression.Tag.BLINK),
+        )
+
         sealed class State {
             abstract fun getItem(set: FullAnimationSet): AnimationItem
 
@@ -166,6 +217,9 @@ sealed class ModelController {
         private var timeline: Timeline? = null
         private var reset = false
         private var bodyYaw: Float = 0f
+        private var headYaw: Float = 0f
+        private var headPitch: Float = 0f
+        private var blinkProgress: Float = 0f
 
         companion object {
             private val PlayerEntityRenderState.vehicleType
@@ -208,6 +262,14 @@ sealed class ModelController {
 
         override fun update(uuid: UUID, vanillaState: PlayerEntityRenderState) {
             bodyYaw = MathHelper.PI - vanillaState.bodyYaw.toRadian()
+            headYaw = -vanillaState.relativeHeadYaw.toRadian()
+            headPitch = -vanillaState.pitch.toRadian()
+            blinkProgress = calculateBlinkProgress(
+                playerUuid = uuid,
+                averageBlinkInterval = 4.0,
+                blinkDuration = 0.25,
+                currentTime = System.nanoTime(),
+            )
             val newState = getState(vanillaState)
             if (newState != state) {
                 this.state = newState
@@ -225,9 +287,6 @@ sealed class ModelController {
         }
 
         override fun apply(instance: ModelInstance) {
-            instance.setTransformDecomposed(instance.scene.rootNode.nodeIndex, TransformId.RELATIVE_ANIMATION) {
-                rotation.rotationY(bodyYaw)
-            }
             val timeline = timeline ?: return
             val item = item ?: return
             if (reset) {
@@ -236,6 +295,13 @@ sealed class ModelController {
             }
             val time = timeline.getCurrentTime(System.nanoTime())
             item.apply(instance, time.toFloat())
+            instance.setTransformDecomposed(instance.scene.rootNode.nodeIndex, TransformId.RELATIVE_ANIMATION) {
+                rotation.rotationY(bodyYaw)
+            }
+            head?.update(instance) {
+                rotation.rotationYXZ(headYaw, headPitch, 0f)
+            }
+            blinkExpression?.apply(instance, blinkProgress)
         }
     }
 }
