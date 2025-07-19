@@ -5,6 +5,7 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector3fc
 import top.fifthlight.blazerod.model.*
+import top.fifthlight.blazerod.model.Primitive.Attributes.MorphTarget
 import top.fifthlight.blazerod.model.pmx.format.*
 import top.fifthlight.blazerod.model.pmx.format.PmxMorphGroup.MorphItem
 import top.fifthlight.blazerod.model.util.readAll
@@ -753,7 +754,7 @@ class PmxLoader : ModelFileLoader {
                                 nameLocal = nameLocal.takeIf(String::isNotBlank),
                                 nameUniversal = nameUniversal.takeIf(String::isNotBlank),
                                 tag = expressionTag,
-                                data = Primitive.Attributes.MorphTarget(
+                                data = MorphTarget(
                                     position = Accessor(
                                         name = "Morph #$index vertex buffer",
                                         bufferView = BufferView(
@@ -795,7 +796,29 @@ class PmxLoader : ModelFileLoader {
                         buffer.position(buffer.position() + itemSize * offsetSize)
                     }
 
-                    else -> throw PmxLoadException("Unsupported morph type: $morphType")
+                    PmxMorphType.BONE -> {
+                        // Just skip, not really supported
+                        val itemSize = globals.boneIndexSize + 16
+                        buffer.position(buffer.position() + itemSize * offsetSize)
+                    }
+
+                    PmxMorphType.MATERIAL -> {
+                        // Just skip, not really supported
+                        val itemSize = globals.materialIndexSize + 113
+                        buffer.position(buffer.position() + itemSize * offsetSize)
+                    }
+
+                    PmxMorphType.FLIP -> {
+                        // Just skip, not really supported
+                        val itemSize = globals.morphIndexSize + 4
+                        buffer.position(buffer.position() + itemSize * offsetSize)
+                    }
+
+                    PmxMorphType.IMPULSE -> {
+                        // Just skip, not really supported
+                        val itemSize = globals.rigidBodyIndexSize + 25
+                        buffer.position(buffer.position() + itemSize * offsetSize)
+                    }
                 }
             }
             morphTargets = targets
