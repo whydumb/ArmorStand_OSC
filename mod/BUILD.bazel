@@ -70,6 +70,16 @@ remap_jar(
     to_namespace = "named",
 )
 
+decompile_jar(
+    name = "decompile_remapped_sodium",
+    inputs = [":remapped_sodium"],
+)
+
+decompile_jar(
+    name = "decompile_remapped_iris",
+    inputs = [":remapped_iris"],
+)
+
 extract_access_widener(
     name = "access_widener_dep_named",
     inputs = [":remapped_deps"],
