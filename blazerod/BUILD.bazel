@@ -25,7 +25,10 @@ kt_jvm_library(
     name = "blazerod_without_jij",
     visibility = ["//visibility:public"],
     srcs = glob(["src/main/kotlin/**/*.kt"]),
-    resources = glob(["src/main/resources/**"]),
+    resources = glob(
+        include = ["src/main/resources/**"],
+        exclude = ["src/main/resources/fabric.mod.json"],
+    ),
     resource_strip_prefix = "blazerod/src/main/resources",
     resource_jars = [
         ":fabric_mod_json",

@@ -130,7 +130,7 @@ kt_jvm_library(
     resource_jars = [":fabric_mod_json"],
     resources = glob(
         include = ["src/main/resources/**"],
-        exclude = ["fabric.mod.json"],
+        exclude = ["src/main/resources/fabric.mod.json"],
     ),
     deps = [
         "//:kotlin_serialization",

@@ -11,7 +11,7 @@ def _fabric_mod_json_jar_impl(name, visibility, src, resource_strip_prefix, subs
     java_library(
         name = name,
         visibility = visibility,
-        resources = [":%s_expanded" % name],
+        resources = [name + "_expanded"],
         resource_strip_prefix = resource_strip_prefix,
     )
 
