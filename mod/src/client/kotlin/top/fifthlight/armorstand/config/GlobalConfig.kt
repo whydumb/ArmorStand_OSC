@@ -24,6 +24,7 @@ data class GlobalConfig(
     val hidePlayerShadow: Boolean = false,
     val modelScale: Float = 1f,
     val thirdPersonDistanceScale: Float = 1f,
+    val invertHeadDirection: Boolean = false,
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(GlobalConfig::class.java)

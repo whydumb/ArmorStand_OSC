@@ -204,6 +204,14 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
         )
     }
 
+    private val invertHeadDirectionButton by lazy {
+        checkbox(
+            text = Text.translatable("armorstand.config.invert_head_direction"),
+            value = viewModel.uiState.map { it.invertHeadDirection },
+            onValueChanged = viewModel::updateInvertHeadDirection,
+        )
+    }
+
     private val modelScaleSlider by lazy {
         slider(
             textFactory = { slider, text -> Text.translatable("armorstand.config.model_scale", text) },
@@ -250,6 +258,7 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
                         sendModelDataButton,
                         showOtherPlayersButton,
                         hidePlayerShadowButton,
+                        invertHeadDirectionButton,
                         modelScaleSlider,
                         thirdPersonDistanceScaleSlider,
                     ).forEach {
