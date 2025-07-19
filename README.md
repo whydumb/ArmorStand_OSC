@@ -32,6 +32,22 @@ mod 支持多人游戏同步显示模型。在使用前请确保你的服务端�
 
 mod 采取同步模型哈希值的方式，因此你可以重命名模型，甚至可以放在子目录下，只要模型内容不变，你就可以看到其他玩家的模型。 
 
+## 烈焰棒
+
+烈焰棒是提供盔甲架底层渲染功能的基础库，支持的功能有：
+
+- glTF、VRM、PMX、PMD 模型加载
+- 游戏内模型渲染
+- glTF 和 VMD 动画支持
+
+烈焰棒由 Kotlin 和 Java 编写，不使用原生库，不依赖特定平台，因此可以运行在各种环境上。
+
+烈焰棒目前作为一个 Jar-in-Jar mod 打包在盔甲架中，但可以作为一个单独的库来使用。由于目前没有详细的文档，并且 API
+随时可能发生变化，目前不建议在其他项目使用烈焰棒。
+
+与盔甲架相同，烈焰棒也使用 LGPL 3.0 及上版本授权。还有一个示例模组 `ball_block`，其添加了一个球形方块，作为烈焰棒渲染模型的简单示例。示例模组采用
+Apache 2.0 许可证授权。
+
 ## 鸣谢
 
 感谢 [Saba](https://github.com/benikabocha/saba) 项目为 MMD（PMX/PMD/VMD 格式）的逻辑提供了参考。
@@ -75,6 +91,25 @@ The mod supports multiplayer model synchronization. Before using it, please ensu
 Considering distributing models causes copyright issues, the mod can not and will not support synchronizing model files. You need to ensure that other players will also place your model in the `models` directory, so that they can see your model.
 
 The mod uses the model's hash value to synchronize models, so you can rename the model, even put it in a subdirectory. As long as the model content does not change, you can see other players' models.
+
+## BlazeRod
+
+BlazeRod is the library providing underlying render abilities for ArmorStand, and it supports:
+
+- glTF, VRM, PMX, PMD model loading
+- In-game model rendering
+- glTF and VMD animation support
+
+BlazeRod is written in Kotlin and Java. It doesn't use native library, and don't depend on particular platform, so
+BlazeRod can run in many environment.
+
+BlazeRod is currently packed as a Jar-in-Jar mod in ArmorStand, but it can also be used as a standalone library. Due to
+lack of documentation, and it's API can be changed in any time, it is not encouraged to use BlazeRod in other project
+for now.
+
+Same as ArmorStand, BlazeRod is licensed under the LGPL 3.0 or later versions. There is also a demo mod `ball_block`
+which adds a ball-shaped block, as an example for model rendering of BlazeRod. Demo mods is licensed under the Apache
+2.0 license.
 
 ## Acknowledgments
 
