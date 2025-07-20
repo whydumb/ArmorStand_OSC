@@ -4,20 +4,11 @@ import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.buffers.GpuBufferSlice
 import com.mojang.blaze3d.buffers.GpuFence
 import com.mojang.blaze3d.systems.RenderSystem
+import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap
 import net.minecraft.util.Identifier
 import java.nio.ByteBuffer
 import java.util.TreeSet
-import kotlin.AutoCloseable
-import kotlin.Boolean
-import kotlin.Int
-import kotlin.also
 import kotlin.collections.ArrayDeque
-import kotlin.collections.MutableSet
-import kotlin.collections.forEach
-import kotlin.collections.mutableListOf
-import kotlin.collections.mutableSetOf
-import kotlin.error
-import kotlin.require
 
 sealed class GpuShaderDataPool : AutoCloseable {
     companion object {
@@ -115,19 +106,25 @@ sealed class GpuShaderDataPool : AutoCloseable {
             var bufferSize: Int = -1
                 private set
             var lastUsedFrame: Int = -1
+            var id: Long = -1
+                private set
             private var recycled: Boolean = false
 
             companion object {
+                private var nextId = 0L
+
                 private val POOL = ObjectPool(
                     identifier = Identifier.of("blazerod", "shader_data_buffer_item"),
                     create = ::BufferItem,
                     onAcquired = {
                         recycled = false
+                        id = nextId++
                     },
                     onReleased = {
                         _buffer = null
                         bufferSize = -1
                         lastUsedFrame = -1
+                        id = -1
                     },
                     onClosed = { },
                 )
@@ -157,31 +154,32 @@ sealed class GpuShaderDataPool : AutoCloseable {
             private const val MAX_BUFFER_KEEP_FRAMES = 600
         }
 
-        private val availableBuffers = TreeSet<BufferItem>(compareBy { it.bufferSize })
+        private val availableBuffers =
+            TreeSet<BufferItem>(compareBy<BufferItem> { it.bufferSize }.thenComparator { a, b ->
+                b.id.compareTo(a.id)
+            })
 
         private class FrameData(
             var fence: GpuFence? = null,
-            val buffers: MutableSet<BufferItem> = mutableSetOf(),
+            val buffers: MutableList<BufferItem> = mutableListOf(),
         )
 
-        private val allFrameData = ArrayDeque<FrameData>().also { it.add(FrameData()) }
+        private val allFrameData = Int2ReferenceOpenHashMap<FrameData>().also { it[0] = FrameData() }
         private val waitingFrameData = ArrayDeque<FrameData>()
 
         private var currentFrame: Int = 0
-        private fun getFrameData(frameNumber: Int) =
-            allFrameData.getOrNull(allFrameData.lastIndex - (frameNumber - currentFrame))
 
         override fun allocate(size: Int): GpuBufferSlice {
             require(size > 0) { "Size must be positive" }
             val frameData =
-                getFrameData(currentFrame) ?: error("No frame data of frame $currentFrame, this should not happen!")
+                allFrameData.get(currentFrame) ?: error("No frame data of frame $currentFrame, this should not happen!")
 
             val foundBuffer = BufferItem.acquire(size).use {
                 availableBuffers.ceiling(it)
             }
             val allocatedBuffer = if (foundBuffer != null) {
                 availableBuffers.remove(foundBuffer)
-                val frame = getFrameData(foundBuffer.lastUsedFrame)
+                val frame = allFrameData.get(foundBuffer.lastUsedFrame)
                 frame?.buffers?.remove(foundBuffer)
                 foundBuffer.lastUsedFrame = currentFrame
                 foundBuffer
@@ -202,14 +200,14 @@ sealed class GpuShaderDataPool : AutoCloseable {
 
         override fun rotate() {
             // Insert a fence at current frame
-            allFrameData.lastOrNull()?.let {
+            allFrameData[currentFrame]?.let {
                 it.fence = RenderSystem.getDevice().createCommandEncoder().createFence()
                 waitingFrameData.addLast(it)
             }
 
             // Advance current frame
             currentFrame++
-            FrameData().also { allFrameData.addLast(it) }
+            FrameData().also { allFrameData.put(currentFrame, it) }
 
             // Wait fences and add buffer to available
             while (waitingFrameData.size >= 3) {
@@ -223,16 +221,16 @@ sealed class GpuShaderDataPool : AutoCloseable {
             }
 
             // Clean oldest frame data
-            while (allFrameData.size > MAX_BUFFER_KEEP_FRAMES) {
-                val frameData = allFrameData.removeFirst()
+            allFrameData.remove(currentFrame - MAX_BUFFER_KEEP_FRAMES)?.let { frameData ->
                 frameData.fence?.close()
                 frameData.buffers.forEach { it.close() }
+                availableBuffers.removeAll(frameData.buffers)
                 frameData.buffers.clear()
             }
         }
 
         override fun close() {
-            allFrameData.forEach { frameData ->
+            allFrameData.values.forEach { frameData ->
                 frameData.buffers.forEach { it.close() }
                 frameData.fence?.close()
             }
