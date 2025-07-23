@@ -11,6 +11,7 @@ import top.fifthlight.blazerod.extension.internal.RenderPipelineSnippetExtIntern
 import top.fifthlight.blazerod.model.resource.VertexType;
 
 import java.util.Optional;
+import java.util.Set;
 
 @Mixin(RenderPipeline.Snippet.class)
 public abstract class RenderPipelineSnippetMixin implements RenderPipelineSnippetExtInternal {
@@ -31,5 +32,19 @@ public abstract class RenderPipelineSnippetMixin implements RenderPipelineSnippe
     @NotNull
     public Optional<VertexType> blazerod$getVertexType() {
         return vertexType;
+    }
+
+    @Unique
+    Set<String> storageBuffers;
+
+    @Override
+    public void blazerod$setStorageBuffers(@NotNull Set<String> storageBuffers) {
+        this.storageBuffers = storageBuffers;
+    }
+
+    @Override
+    @NotNull
+    public Set<String> blazerod$getStorageBuffers() {
+        return storageBuffers;
     }
 }

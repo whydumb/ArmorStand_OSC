@@ -6,6 +6,7 @@ accessible method net/minecraft/client/texture/NativeImage$Format fromChannelCou
 mutable field net/minecraft/client/gl/RenderPassImpl IS_DEVELOPMENT Z
 accessible field net/minecraft/client/gl/RenderPassImpl indexBuffer Lcom/mojang/blaze3d/buffers/GpuBuffer;
 accessible field net/minecraft/client/gl/RenderPassImpl vertexBuffers [Lcom/mojang/blaze3d/buffers/GpuBuffer;
+accessible field net/minecraft/client/gl/RenderPassImpl pipeline Lnet/minecraft/client/gl/CompiledShaderPipeline;
 accessible class net/minecraft/client/gl/BufferManager$ARBBufferManager
 accessible class net/minecraft/client/gl/BufferManager$DefaultBufferManager
 accessible method net/minecraft/client/gl/GlCommandEncoder drawBoundObjectWithRenderPass (Lnet/minecraft/client/gl/RenderPassImpl;IIILcom/mojang/blaze3d/vertex/VertexFormat$IndexType;I)V

@@ -8,6 +8,7 @@ import top.fifthlight.blazerod.extension.internal.RenderPipelineExtInternal;
 import top.fifthlight.blazerod.model.resource.VertexType;
 
 import java.util.Optional;
+import java.util.Set;
 
 @Mixin(RenderPipeline.class)
 public abstract class RenderPipelineMixin implements RenderPipelineExtInternal {
@@ -23,5 +24,19 @@ public abstract class RenderPipelineMixin implements RenderPipelineExtInternal {
     @Override
     public void blazerod$setVertexType(@NotNull Optional<VertexType> type) {
         vertexType = type;
+    }
+
+    @Unique
+    private Set<String> storageBuffers;
+
+    @Override
+    @NotNull
+    public Set<String> blazerod$getStorageBuffers() {
+        return storageBuffers;
+    }
+
+    @Override
+    public void blazerod$setStorageBuffers(@NotNull Set<String> storageBuffers) {
+        this.storageBuffers = storageBuffers;
     }
 }

@@ -284,34 +284,53 @@ class ModelLoader {
     @ConsistentCopyVisibility
     private data class BuildingTarget private constructor(
         val buffer: ByteBuffer,
-        val textureFormat: TextureFormat,
+        val itemStride: Int,
         val targetsCount: Int,
     ) {
-        constructor(
-            textureFormat: TextureFormat,
-            itemCount: Int,
-            targetsCount: Int,
-        ) : this(
-            buffer = ByteBuffer.allocateDirect(textureFormat.pixelSize() * itemCount * targetsCount)
-                .order(ByteOrder.nativeOrder()),
-            textureFormat = textureFormat,
-            targetsCount = targetsCount,
-        )
+        companion object {
+            fun of(
+                useSsbo: Boolean,
+                textureFormat: TextureFormat,
+                ssboStride: Int,
+                itemCount: Int,
+                targetsCount: Int,
+            ) = if (useSsbo) {
+                ssboStride
+            } else {
+                textureFormat.pixelSize()
+            }.let { itemStride ->
+                BuildingTarget(
+                    buffer = ByteBuffer.allocateDirect(itemStride * itemCount * targetsCount)
+                        .order(ByteOrder.nativeOrder()),
+                    itemStride = itemStride,
+                    targetsCount = targetsCount,
+                )
+            }
+        }
 
         fun toTarget(): RenderPrimitive.Target {
-            require(!buffer.hasRemaining()) { "Has remaining size for morph targets" }
+            buffer.position(buffer.capacity())
             buffer.flip()
-            val targetBuffer = if (!buffer.hasRemaining()) {
+            val targetBuffer = if (targetsCount == 0) {
                 // No targets, but we can't create an empty buffer, so let's create a dummy one
-                ByteBuffer.allocateDirect(textureFormat.pixelSize()).order(ByteOrder.nativeOrder())
+                ByteBuffer.allocateDirect(itemStride).order(ByteOrder.nativeOrder())
             } else {
                 buffer
             }
             val device = RenderSystem.getDevice()
             val gpuBuffer = device.createBuffer(
-                { "Morph target buffer" },
-                GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER,
-                targetBuffer
+                labelGetter = { "Morph target buffer" },
+                usage = if (device.supportSsbo) {
+                    0
+                } else {
+                    GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER
+                },
+                extraUsage = if (device.supportSsbo) {
+                    GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER
+                } else {
+                    0
+                },
+                data = targetBuffer
             )
             return RenderPrimitive.Target(
                 data = gpuBuffer,
@@ -325,29 +344,39 @@ class ModelLoader {
         targets: List<Primitive.Attributes.MorphTarget>,
         weights: List<Float>?,
     ): Pair<RenderPrimitive.Targets, List<MorphTargetGroup>> {
-        val positionTarget = BuildingTarget(
+        val useSsbo = RenderSystem.getDevice().supportSsbo
+        val positionTarget = BuildingTarget.of(
+            useSsbo = useSsbo,
             textureFormat = TextureFormatExt.RGB32F,
+            ssboStride = 16,
             itemCount = verticesCount,
             targetsCount = targets.count { it.position != null },
         )
-        val colorTarget = BuildingTarget(
+        val colorTarget = BuildingTarget.of(
+            useSsbo = useSsbo,
             textureFormat = TextureFormatExt.RGBA32F,
+            ssboStride = 16,
             itemCount = verticesCount,
             targetsCount = targets.count { it.colors.isNotEmpty() },
         )
-        val texCoordTarget = BuildingTarget(
+        val texCoordTarget = BuildingTarget.of(
+            useSsbo = useSsbo,
             textureFormat = TextureFormatExt.RG32F,
+            ssboStride = 8,
             itemCount = verticesCount,
             targetsCount = targets.count { it.texcoords.isNotEmpty() },
         )
         var posIndex = 0
         var colorIndex = 0
         var texCoordIndex = 0
+        var posElements = 0
         val groups = mutableListOf<MorphTargetGroup>()
         for ((index, target) in targets.withIndex()) {
             val position = target.position?.let { position ->
                 position.read { input ->
+                    positionTarget.buffer.position(posElements * positionTarget.itemStride)
                     positionTarget.buffer.put(input)
+                    posElements++
                 }
                 posIndex++
             }
@@ -361,6 +390,7 @@ class ModelLoader {
                             if (index == 3) {
                                 // For padding
                                 colorTarget.buffer.putFloat(0f)
+                                index = 0
                             }
                         }
                     }

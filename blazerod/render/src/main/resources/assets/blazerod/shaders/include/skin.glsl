@@ -1,12 +1,10 @@
-#version 150
+#blazerod_version version(<4.3) ? 150 : 430
+#blazerod_extension version(<4.3) && defined(SUPPORT_SSBO); ARB_shader_storage_buffer_object : require
 
 #ifdef SKINNED
 #moj_import <blazerod:joint.glsl>
 in ivec4 Joint;
 in vec4 Weight;
-
-// Joint matrix buffer
-uniform samplerBuffer Joints;
 
 #ifndef INSTANCE_SIZE
 #error "INSTANCE_SIZE not defined"
@@ -23,7 +21,7 @@ layout(std140) uniform SkinModelIndices {
 
 #define GET_SKINNED_VERTEX_POSITION(model_view_proj_mat, position) (                  \
     (model_view_proj_mat)                                                             \
-        * getSkinMatrix(Joints, Weight, Joint + ivec4(skinJoints * SKIN_INSTANCE_ID)) \
+        * getSkinMatrix(Weight, Joint + ivec4(skinJoints * SKIN_INSTANCE_ID))         \
         * vec4(position, 1.0)                                                         \
 )
 

@@ -12,14 +12,16 @@ import net.minecraft.client.gl.UniformType
 import net.minecraft.util.Identifier
 import top.fifthlight.blazerod.BlazeRod
 import top.fifthlight.blazerod.extension.TextureFormatExt
-import top.fifthlight.blazerod.util.AbstractRefCount
-import top.fifthlight.blazerod.util.BitmapItem
+import top.fifthlight.blazerod.extension.supportSsbo
+import top.fifthlight.blazerod.extension.withStorageBuffer
 import top.fifthlight.blazerod.extension.withVertexType
-import top.fifthlight.blazerod.model.uniform.UnlitDataUniformBuffer
 import top.fifthlight.blazerod.model.Material.AlphaMode
 import top.fifthlight.blazerod.model.Material.AlphaMode.OPAQUE
 import top.fifthlight.blazerod.model.RgbColor
 import top.fifthlight.blazerod.model.RgbaColor
+import top.fifthlight.blazerod.model.uniform.UnlitDataUniformBuffer
+import top.fifthlight.blazerod.util.AbstractRefCount
+import top.fifthlight.blazerod.util.BitmapItem
 
 abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCount() {
     companion object {
@@ -107,23 +109,43 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         fun pipelineSnippet(): RenderPipeline.Snippet = RenderPipeline.builder().apply {
             withCull(!doubleSided)
             withUniform("Projection", UniformType.UNIFORM_BUFFER)
+            val useSsbo = RenderSystem.getDevice().supportSsbo
+            if (useSsbo) {
+                withShaderDefine("SUPPORT_SSBO")
+            }
             if (morphed) {
                 withShaderDefine("MORPHED")
                 withShaderDefine("MAX_ENABLED_MORPH_TARGETS", BlazeRod.MAX_ENABLED_MORPH_TARGETS)
                 withUniform("MorphData", UniformType.UNIFORM_BUFFER)
-                withUniform("MorphPositionData", UniformType.TEXEL_BUFFER, TextureFormatExt.RGB32F)
-                withUniform("MorphColorData", UniformType.TEXEL_BUFFER, TextureFormatExt.RGBA32F)
-                withUniform("MorphTexCoordData", UniformType.TEXEL_BUFFER, TextureFormatExt.RG32F)
-                withUniform("MorphTargetIndices", UniformType.TEXEL_BUFFER, TextureFormatExt.R32I)
-                withUniform("MorphWeights", UniformType.TEXEL_BUFFER, TextureFormatExt.R32F)
+                if (useSsbo) {
+                    withStorageBuffer("MorphPositionBlock")
+                    withStorageBuffer("MorphColorBlock")
+                    withStorageBuffer("MorphTexCoordBlock")
+                    withStorageBuffer("MorphTargetIndicesData")
+                    withStorageBuffer("MorphWeightsData")
+                } else {
+                    withUniform("MorphPositionData", UniformType.TEXEL_BUFFER, TextureFormatExt.RGB32F)
+                    withUniform("MorphColorData", UniformType.TEXEL_BUFFER, TextureFormatExt.RGBA32F)
+                    withUniform("MorphTexCoordData", UniformType.TEXEL_BUFFER, TextureFormatExt.RG32F)
+                    withUniform("MorphTargetIndices", UniformType.TEXEL_BUFFER, TextureFormatExt.R32I)
+                    withUniform("MorphWeights", UniformType.TEXEL_BUFFER, TextureFormatExt.R32F)
+                }
             }
             if (skinned) {
                 withShaderDefine("SKINNED")
                 withUniform("SkinModelIndices", UniformType.UNIFORM_BUFFER)
-                withUniform("Joints", UniformType.TEXEL_BUFFER, TextureFormatExt.RGBA32F)
+                if (useSsbo) {
+                    withStorageBuffer("JointsData")
+                } else {
+                    withUniform("Joints", UniformType.TEXEL_BUFFER, TextureFormatExt.RGBA32F)
+                }
             }
             withUniform("InstanceData", UniformType.UNIFORM_BUFFER)
-            withUniform("LocalMatrices", UniformType.TEXEL_BUFFER, TextureFormatExt.RGBA32F)
+            if (useSsbo) {
+                withStorageBuffer("LocalMatricesData")
+            } else {
+                withUniform("LocalMatrices", UniformType.TEXEL_BUFFER, TextureFormatExt.RGBA32F)
+            }
             withShaderDefine("INSTANCE_SIZE", BlazeRod.INSTANCE_SIZE)
             if (instanced) {
                 withShaderDefine("INSTANCED")

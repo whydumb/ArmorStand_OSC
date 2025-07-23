@@ -1,7 +1,6 @@
 package top.fifthlight.blazerod.mixin.gl;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -14,7 +13,9 @@ import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.gl.*;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.opengl.ARBShaderStorageBufferObject;
 import org.lwjgl.opengl.ARBTextureBufferRange;
+import org.lwjgl.opengl.GL32;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -23,12 +24,15 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import top.fifthlight.blazerod.extension.GpuDeviceExt;
-import top.fifthlight.blazerod.extension.internal.gl.BufferManagerExtInternal;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.fifthlight.blazerod.extension.CommandEncoderExt;
+import top.fifthlight.blazerod.extension.GpuBufferExt;
+import top.fifthlight.blazerod.extension.GpuDeviceExt;
 import top.fifthlight.blazerod.extension.RenderObjectExt;
 import top.fifthlight.blazerod.extension.internal.RenderObjectExtInternal;
-import top.fifthlight.blazerod.extension.internal.gl.GlRenderPassImplExtInternal;
+import top.fifthlight.blazerod.extension.internal.RenderPassExtInternal;
+import top.fifthlight.blazerod.extension.internal.gl.BufferManagerExtInternal;
+import top.fifthlight.blazerod.extension.internal.gl.ShaderProgramExt;
 import top.fifthlight.blazerod.render.gl.BufferClearer;
 import top.fifthlight.blazerod.render.gl.GlVertexBuffer;
 
@@ -47,7 +51,7 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExt {
 
     @WrapOperation(method = "drawObjectWithRenderPass", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderPipeline;getVertexFormatMode()Lcom/mojang/blaze3d/vertex/VertexFormat$DrawMode;"))
     private VertexFormat.DrawMode onDrawObjectWithRenderPassGetVertexMode(RenderPipeline instance, Operation<VertexFormat.DrawMode> original, RenderPassImpl pass) {
-        var vertexBuffer = ((GlRenderPassImplExtInternal) pass).blazerod$getVertexBuffer();
+        var vertexBuffer = ((RenderPassExtInternal) pass).blazerod$getVertexBuffer();
         if (vertexBuffer != null) {
             return vertexBuffer.getMode();
         } else {
@@ -57,7 +61,7 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExt {
 
     @WrapOperation(method = "drawObjectWithRenderPass", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/VertexBufferManager;setupBuffer(Lcom/mojang/blaze3d/vertex/VertexFormat;Lnet/minecraft/client/gl/GlGpuBuffer;)V"))
     private void onDrawObjectWithRenderPassSetupBuffer(VertexBufferManager instance, VertexFormat vertexFormat, GlGpuBuffer glGpuBuffer, Operation<Void> original, RenderPassImpl pass) {
-        var vertexBuffer = ((GlRenderPassImplExtInternal) pass).blazerod$getVertexBuffer();
+        var vertexBuffer = ((RenderPassExtInternal) pass).blazerod$getVertexBuffer();
         if (vertexBuffer != null) {
             var buffer = (GlVertexBuffer) vertexBuffer;
             GlStateManager._glBindVertexArray(buffer.getVaoId());
@@ -104,7 +108,7 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExt {
         }
 
         var blaze3DVertexBuffer = pass.vertexBuffers[0];
-        var blazeRodVertexBuffer = ((GlRenderPassImplExtInternal) pass).blazerod$getVertexBuffer();
+        var blazeRodVertexBuffer = ((RenderPassExtInternal) pass).blazerod$getVertexBuffer();
 
         if (blaze3DVertexBuffer == null && blazeRodVertexBuffer == null) {
             throw new IllegalStateException("Missing vertex buffer at slot 0");
@@ -159,8 +163,43 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExt {
         ARBTextureBufferRange.glTexBufferRange(target, internalformat, buffer, slice.offset(), slice.length());
     }
 
+    @Inject(method = "setupRenderPass", at = @At(value = "INVOKE", target = "Ljava/util/Set;clear()V"))
+    private void afterClearSimpleUniforms(RenderPassImpl pass, Collection<String> validationSkippedUniforms, CallbackInfoReturnable<Boolean> cir) {
+        var renderPipeline = pass.pipeline.info();
+        var shaderProgram = pass.pipeline.program();
+        var passExt = (RenderPassExtInternal) pass;
+        var shaderProgramExt = (ShaderProgramExt) shaderProgram;
+        var shaderStorageBuffers = shaderProgramExt.blazerod$getStorageBuffers();
+        var passStorageBuffers = passExt.blazerod$getStorageBuffers();
+
+        if (RenderPassImpl.IS_DEVELOPMENT) {
+            for (var name : shaderStorageBuffers.keySet()) {
+                var entry = passStorageBuffers.get(name);
+                if (entry == null) {
+                    throw new IllegalStateException("Missing ssbo " + name);
+                }
+                var glBuffer = entry.buffer();
+                var glBufferExt = (GpuBufferExt) glBuffer;
+                if ((glBufferExt.blazerod$getExtraUsage() & GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER) == 0) {
+                    throw new IllegalStateException("Storage buffer " + name + " must have GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER");
+                }
+            }
+        }
+
+        for (var entry : passStorageBuffers.entrySet()) {
+            var name = entry.getKey();
+            var info = shaderStorageBuffers.get(name);
+            if (info == null) {
+                throw new IllegalStateException("Missing ssbo " + name + " for pipeline" + renderPipeline.toString());
+            }
+            var slice = entry.getValue();
+            var glBuffer = (GlGpuBuffer) slice.buffer();
+            GL32.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, info.binding(), glBuffer.id, slice.offset(), slice.length());
+        }
+    }
+
     @WrapWithCondition(method = "drawObjectsWithRenderPass", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/RenderPassImpl;setVertexBuffer(ILcom/mojang/blaze3d/buffers/GpuBuffer;)V"))
-    private boolean onVertexBufferSetWhenDrawingMultipleObjects(RenderPassImpl pass, int i, GpuBuffer gpuBuffer, @Local(ordinal = 0) RenderPass.RenderObject renderObject) {
+    private boolean onVertexBufferSetWhenDrawingMultipleObjects(RenderPassImpl pass, int i, GpuBuffer gpuBuffer, @Local(ordinal = 0) RenderPass.RenderObject<?> renderObject) {
         var vertexBuffer = ((RenderObjectExt) (Object) renderObject).blazerod$getVertexBuffer();
         if (vertexBuffer == null) {
             return true;

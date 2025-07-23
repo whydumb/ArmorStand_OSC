@@ -4,12 +4,14 @@ import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.buffers.GpuBufferSlice
 import com.mojang.blaze3d.buffers.GpuFence
 import com.mojang.blaze3d.systems.RenderSystem
+import top.fifthlight.blazerod.extension.createBuffer
 import java.lang.AutoCloseable
 import java.util.function.Supplier
 
 class SlicedMappableRingBuffer(
-    nameSupplier: Supplier<String?>,
+    nameSupplier: Supplier<String>? = null,
     usage: Int,
+    extraUsage: Int = 0,
     size: Int,
     alignment: Int,
 ) : AutoCloseable {
@@ -32,7 +34,12 @@ class SlicedMappableRingBuffer(
         }
         require((usage and GpuBuffer.USAGE_MAP_READ) != 0 || (usage and GpuBuffer.USAGE_MAP_WRITE) != 0) { "MappableRingBuffer requires at least one of USAGE_MAP_READ or USAGE_MAP_WRITE" }
         val device = RenderSystem.getDevice()
-        buffer = device.createBuffer(nameSupplier, usage, sliceSize * BUFFER_COUNT)
+        buffer = device.createBuffer(
+            labelGetter = nameSupplier,
+            usage = usage,
+            extraUsage = extraUsage,
+            size = sliceSize * BUFFER_COUNT,
+        )
         slices = Array(BUFFER_COUNT) { i ->
             buffer.slice(i * sliceSize, sliceSize)
         }

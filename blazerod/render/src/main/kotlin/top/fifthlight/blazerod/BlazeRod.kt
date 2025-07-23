@@ -19,11 +19,8 @@ object BlazeRod: ClientModInitializer {
 
     const val INSTANCE_SIZE = 256
     const val MAX_ENABLED_MORPH_TARGETS = 32
-    const val MAX_TRANSFORM_DEPTH = 64
 
     override fun onInitializeClient() {
-        RenderMaterial.initialize()
-
         if (System.getProperty("blazerod.debug") == "true") {
             RenderPassImpl.IS_DEVELOPMENT = true
             if (System.getProperty("blazerod.debug.gui") == "true") {
@@ -41,6 +38,10 @@ object BlazeRod: ClientModInitializer {
                     }
                 }
             }
+        }
+
+        RenderEvents.INITIALIZE_DEVICE.register {
+            RenderMaterial.initialize()
         }
 
         RenderEvents.FLIP_FRAME.register {

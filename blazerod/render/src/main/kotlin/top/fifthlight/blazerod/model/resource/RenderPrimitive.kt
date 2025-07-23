@@ -11,9 +11,7 @@ import net.minecraft.client.render.LightmapTextureManager
 import net.minecraft.util.Identifier
 import org.joml.Matrix4fc
 import org.joml.Vector2i
-import top.fifthlight.blazerod.extension.draw
-import top.fifthlight.blazerod.extension.setVertexBuffer
-import top.fifthlight.blazerod.extension.shaderDataPool
+import top.fifthlight.blazerod.extension.*
 import top.fifthlight.blazerod.model.RenderScene
 import top.fifthlight.blazerod.model.RenderTask
 import top.fifthlight.blazerod.model.data.ModelMatricesBuffer
@@ -59,9 +57,13 @@ class RenderPrimitive(
         val data: GpuBuffer,
         val targetsCount: Int,
     ) : AutoCloseable by data {
+        val slice = data.slice()
+
         init {
-            require(data.usage() and GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER != 0) {
-                "RenderPrimitive's target should have buffer with usage USAGE_UNIFORM_TEXEL_BUFFER"
+            val tbo = data.usage() and GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER != 0
+            val ssbo = data.extraUsage and GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER != 0
+            require(tbo || ssbo) {
+                "RenderPrimitive's target should have buffer with usage USAGE_UNIFORM_TEXEL_BUFFER or EXTRA_USAGE_STORAGE_BUFFER"
             }
         }
     }
@@ -73,9 +75,15 @@ class RenderPrimitive(
     )
 
     private fun RenderPass.bindMorphTargets(targets: Targets) {
-        setUniform("MorphPositionData", targets.position.data)
-        setUniform("MorphColorData", targets.color.data)
-        setUniform("MorphTexCoordData", targets.texCoord.data)
+        if (RenderSystem.getDevice().supportSsbo) {
+            setStorageBuffer("MorphPositionBlock", targets.position.slice)
+            setStorageBuffer("MorphColorBlock", targets.color.slice)
+            setStorageBuffer("MorphTexCoordBlock", targets.texCoord.slice)
+        } else {
+            setUniform("MorphPositionData", targets.position.data)
+            setUniform("MorphColorData", targets.color.data)
+            setUniform("MorphTexCoordData", targets.texCoord.data)
+        }
     }
 
     private val lightVector = Vector2i()
@@ -152,9 +160,17 @@ class RenderPrimitive(
                     }
                 }
                 setUniform("InstanceData", instanceDataUniformBufferSlice)
-                setUniform("LocalMatrices", modelMatricesBufferSlice)
+                if (device.supportSsbo) {
+                    setStorageBuffer("LocalMatricesData", modelMatricesBufferSlice)
+                } else {
+                    setUniform("LocalMatrices", modelMatricesBufferSlice)
+                }
                 skinJointBufferSlice?.let { skinJointBuffer ->
-                    setUniform("Joints", skinJointBuffer)
+                    if (device.supportSsbo) {
+                        setStorageBuffer("JointsData", skinJointBuffer)
+                    } else {
+                        setUniform("Joints", skinJointBuffer)
+                    }
                 }
                 skinModelIndicesBufferSlice?.let { skinModelIndices ->
                     setUniform("SkinModelIndices", skinModelIndices)
@@ -163,10 +179,18 @@ class RenderPrimitive(
                     setUniform("MorphData", morphDataUniformBuffer)
                 }
                 morphWeightsBufferSlice?.let { morphWeightsBuffer ->
-                    setUniform("MorphWeights", morphWeightsBuffer)
+                    if (device.supportSsbo) {
+                        setStorageBuffer("MorphWeightsData", morphWeightsBuffer)
+                    } else {
+                        setUniform("MorphWeights", morphWeightsBuffer)
+                    }
                 }
                 morphTargetIndicesBufferSlice?.let { morphTargetIndicesBuffer ->
-                    setUniform("MorphTargetIndices", morphTargetIndicesBuffer)
+                    if (device.supportSsbo) {
+                        setStorageBuffer("MorphTargetIndicesData", morphTargetIndicesBuffer)
+                    } else {
+                        setUniform("MorphTargetIndices", morphTargetIndicesBuffer)
+                    }
                 }
                 setVertexBuffer(vertexBuffer)
                 targets?.let { targets ->
@@ -226,7 +250,8 @@ class RenderPrimitive(
                 skinModelIndicesBufferSlice = SkinModelIndicesUniformBuffer.write {
                     skinJoints = firstSkinBuffer.jointSize
                 }
-                skinJointBufferSlice = device.shaderDataPool.upload(tasks.map { it.skinBuffer[skinIndex].content.buffer })
+                skinJointBufferSlice =
+                    device.shaderDataPool.upload(tasks.map { it.skinBuffer[skinIndex].content.buffer })
             }
             component.morphedPrimitiveIndex?.let { morphedPrimitiveIndex ->
                 val targets = targets ?: error("Morphed primitive index was set but targets were not")
@@ -238,8 +263,10 @@ class RenderPrimitive(
                     totalTargets =
                         targets.position.targetsCount + targets.color.targetsCount + targets.texCoord.targetsCount
                 }
-                morphWeightsBufferSlice = device.shaderDataPool.upload(tasks.map { it.morphTargetBuffer[morphedPrimitiveIndex].content.weightsBuffer })
-                morphTargetIndicesBufferSlice = device.shaderDataPool.upload(tasks.map { it.morphTargetBuffer[morphedPrimitiveIndex].content.indicesBuffer })
+                morphWeightsBufferSlice =
+                    device.shaderDataPool.upload(tasks.map { it.morphTargetBuffer[morphedPrimitiveIndex].content.weightsBuffer })
+                morphTargetIndicesBufferSlice =
+                    device.shaderDataPool.upload(tasks.map { it.morphTargetBuffer[morphedPrimitiveIndex].content.indicesBuffer })
             }
 
             renderPass = material.setup(true) {
@@ -259,9 +286,17 @@ class RenderPrimitive(
                     }
                 }
                 setUniform("InstanceData", instanceDataUniformBufferSlice)
-                setUniform("LocalMatrices", modelMatricesBufferSlice)
+                if (device.supportSsbo) {
+                    setStorageBuffer("LocalMatricesData", modelMatricesBufferSlice)
+                } else {
+                    setUniform("LocalMatrices", modelMatricesBufferSlice)
+                }
                 skinJointBufferSlice?.let { skinJointBuffer ->
-                    setUniform("Joints", skinJointBuffer)
+                    if (device.supportSsbo) {
+                        setStorageBuffer("JointsData", skinJointBuffer)
+                    } else {
+                        setUniform("Joints", skinJointBuffer)
+                    }
                 }
                 skinModelIndicesBufferSlice?.let { skinModelIndices ->
                     setUniform("SkinModelIndices", skinModelIndices)
@@ -270,10 +305,18 @@ class RenderPrimitive(
                     setUniform("MorphData", morphDataUniformBuffer)
                 }
                 morphWeightsBufferSlice?.let { morphWeightsBuffer ->
-                    setUniform("MorphWeights", morphWeightsBuffer)
+                    if (device.supportSsbo) {
+                        setStorageBuffer("MorphWeightsData", morphWeightsBuffer)
+                    } else {
+                        setUniform("MorphWeights", morphWeightsBuffer)
+                    }
                 }
                 morphTargetIndicesBufferSlice?.let { morphTargetIndicesBuffer ->
-                    setUniform("MorphTargetIndices", morphTargetIndicesBuffer)
+                    if (device.supportSsbo) {
+                        setStorageBuffer("MorphTargetIndicesData", morphTargetIndicesBuffer)
+                    } else {
+                        setUniform("MorphTargetIndices", morphTargetIndicesBuffer)
+                    }
                 }
                 setVertexBuffer(vertexBuffer)
                 targets?.let { targets ->

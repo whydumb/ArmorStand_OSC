@@ -6,17 +6,28 @@ import com.mojang.blaze3d.buffers.GpuFence
 import com.mojang.blaze3d.systems.RenderSystem
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap
 import net.minecraft.util.Identifier
+import top.fifthlight.blazerod.extension.GpuBufferExt
+import top.fifthlight.blazerod.extension.createBuffer
 import java.nio.ByteBuffer
 import java.util.TreeSet
 import kotlin.collections.ArrayDeque
 
-sealed class GpuShaderDataPool : AutoCloseable {
+sealed class GpuShaderDataPool(
+    val useSsbo: Boolean,
+) : AutoCloseable {
     companion object {
         @JvmStatic
-        fun create(alignment: Int, supportSlicing: Boolean) = if (supportSlicing) {
-            Sliced(alignment = alignment)
+        fun create(
+            useSsbo: Boolean,
+            alignment: Int,
+            supportSlicing: Boolean,
+        ) = if (supportSlicing) {
+            Sliced(
+                useSsbo = useSsbo,
+                alignment = alignment,
+            )
         } else {
-            Pooled()
+            Pooled(useSsbo = useSsbo)
         }
     }
 
@@ -26,9 +37,10 @@ sealed class GpuShaderDataPool : AutoCloseable {
     abstract fun rotate()
 
     class Sliced(
+        useSsbo: Boolean,
         initialCapacity: Int = 512 * 1024,
         private val alignment: Int,
-    ) : GpuShaderDataPool() {
+    ) : GpuShaderDataPool(useSsbo) {
         override val supportSlicing: Boolean
             get() = true
 
@@ -41,7 +53,16 @@ sealed class GpuShaderDataPool : AutoCloseable {
             val buffer = buffer ?: error("Gpu shader data pool not initialized")
             val newBuffer = SlicedMappableRingBuffer(
                 nameSupplier = { "Sliced GPU buffer pool" },
-                usage = GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER or GpuBuffer.USAGE_MAP_WRITE,
+                usage = if (useSsbo) {
+                    GpuBuffer.USAGE_MAP_WRITE
+                } else {
+                    GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER or GpuBuffer.USAGE_MAP_WRITE
+                },
+                extraUsage = if (useSsbo) {
+                    GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER
+                } else {
+                    0
+                },
                 size = newCapacity,
                 alignment = alignment,
             )
@@ -58,7 +79,16 @@ sealed class GpuShaderDataPool : AutoCloseable {
                 capacity = maxOf(capacity, size)
                 SlicedMappableRingBuffer(
                     nameSupplier = { "Sliced GPU buffer pool" },
-                    usage = GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER or GpuBuffer.USAGE_MAP_WRITE,
+                    usage = if (useSsbo) {
+                        GpuBuffer.USAGE_MAP_WRITE
+                    } else {
+                        GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER or GpuBuffer.USAGE_MAP_WRITE
+                    },
+                    extraUsage = if (useSsbo) {
+                        GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER
+                    } else {
+                        0
+                    },
                     size = capacity,
                     alignment = alignment,
                 ).also {
@@ -95,7 +125,7 @@ sealed class GpuShaderDataPool : AutoCloseable {
         }
     }
 
-    class Pooled() : GpuShaderDataPool() {
+    class Pooled(useSsbo: Boolean) : GpuShaderDataPool(useSsbo) {
         override val supportSlicing: Boolean
             get() = false
 
@@ -186,9 +216,18 @@ sealed class GpuShaderDataPool : AutoCloseable {
             } else {
                 BufferItem.acquire(
                     buffer = RenderSystem.getDevice().createBuffer(
-                        { "Pooled GPU buffer" },
-                        GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER or GpuBuffer.USAGE_MAP_WRITE,
-                        size
+                        labelGetter = { "Pooled GPU buffer" },
+                        usage = if (useSsbo) {
+                            GpuBuffer.USAGE_MAP_WRITE
+                        } else {
+                            GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER or GpuBuffer.USAGE_MAP_WRITE
+                        },
+                        extraUsage = if (useSsbo) {
+                            GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER
+                        } else {
+                            0
+                        },
+                        size = size,
                     ),
                     lastUsedFrame = currentFrame,
                 )

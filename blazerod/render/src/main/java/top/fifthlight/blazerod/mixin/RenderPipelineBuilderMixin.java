@@ -17,17 +17,14 @@ import top.fifthlight.blazerod.extension.internal.RenderPipelineExtInternal;
 import top.fifthlight.blazerod.extension.internal.RenderPipelineSnippetExtInternal;
 import top.fifthlight.blazerod.model.resource.VertexType;
 
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 @Mixin(RenderPipeline.Builder.class)
 public abstract class RenderPipelineBuilderMixin implements RenderPipelineBuilderExtInternal {
     @Unique
     Optional<VertexType> vertexType;
-
-    @Inject(method = "<init>", at = @At("TAIL"))
-    private void onInit(CallbackInfo ci) {
-        vertexType = Optional.empty();
-    }
 
     @Override
     @Nullable
@@ -40,6 +37,29 @@ public abstract class RenderPipelineBuilderMixin implements RenderPipelineBuilde
         this.vertexType = Optional.of(type);
     }
 
+    // Suppress: the field is actually initialized in the constructor by mixin
+    @SuppressWarnings("NotNullFieldNotInitialized")
+    @Unique
+    @NotNull
+    Set<String> storageBuffers;
+
+    @Override
+    @NotNull
+    public Set<String> blazerod$getStorageBuffers() {
+        return storageBuffers;
+    }
+
+    @Override
+    public void blazerod$withStorageBuffer(@NotNull String name) {
+        storageBuffers.add(name);
+    }
+
+    @Inject(method = "<init>", at = @At("TAIL"))
+    private void onInit(CallbackInfo ci) {
+        vertexType = Optional.empty();
+        storageBuffers = new HashSet<>();
+    }
+
     @Inject(method = "withSnippet", at = @At("HEAD"))
     void withSnippet(@NotNull RenderPipeline.Snippet snippet, CallbackInfo ci) {
         var snippetInternal = ((RenderPipelineSnippetExtInternal) (Object) snippet);
@@ -48,12 +68,14 @@ public abstract class RenderPipelineBuilderMixin implements RenderPipelineBuilde
         if (vertexType.isPresent()) {
             this.vertexType = vertexType;
         }
+        this.storageBuffers.addAll(snippetInternal.blazerod$getStorageBuffers());
     }
 
     @ModifyReturnValue(method = "buildSnippet", at = @At("RETURN"))
     public RenderPipeline.Snippet buildSnippet(@NotNull RenderPipeline.Snippet original) {
         var snippetExt = ((RenderPipelineSnippetExtInternal) (Object) original);
         snippetExt.blazerod$setVertexType(vertexType);
+        snippetExt.blazerod$setStorageBuffers(storageBuffers);
         return original;
     }
 
@@ -94,7 +116,9 @@ public abstract class RenderPipelineBuilderMixin implements RenderPipelineBuilde
 
     @ModifyReturnValue(method = "build", at = @At("RETURN"))
     public RenderPipeline afterBuilt(RenderPipeline original) {
-        ((RenderPipelineExtInternal) original).blazerod$setVertexType(vertexType);
+        var pipelineExt = ((RenderPipelineExtInternal) original);
+        pipelineExt.blazerod$setVertexType(vertexType);
+        pipelineExt.blazerod$setStorageBuffers(storageBuffers);
         return original;
     }
 }

@@ -20,6 +20,8 @@
     "gl.GlBackendMixin",
     "gl.GlCommandEncoderMixin",
     "gl.GlConstMixin",
-    "gl.RenderPassImplMixin"
+    "gl.GlGpuBufferMixin",
+    "gl.RenderPassImplMixin",
+    "gl.ShaderProgramMixin"
   ]
 }

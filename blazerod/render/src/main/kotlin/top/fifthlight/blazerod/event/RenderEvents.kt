@@ -17,4 +17,18 @@ object RenderEvents {
     fun interface FlipFrame {
         fun onFrameFlipped()
     }
+
+    @JvmField
+    val INITIALIZE_DEVICE: Event<InitializeDevice> =
+        EventFactory.createArrayBacked(InitializeDevice::class.java, InitializeDevice {}, { callbacks ->
+            InitializeDevice {
+                for (callback in callbacks) {
+                    callback.onDeviceInitialized()
+                }
+            }
+        })
+
+    fun interface InitializeDevice {
+        fun onDeviceInitialized()
+    }
 }
