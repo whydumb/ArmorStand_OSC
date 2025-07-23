@@ -4,11 +4,12 @@ import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector3fc
+import org.slf4j.LoggerFactory
 import top.fifthlight.blazerod.model.*
 import top.fifthlight.blazerod.model.Primitive.Attributes.MorphTarget
 import top.fifthlight.blazerod.model.pmx.format.*
 import top.fifthlight.blazerod.model.pmx.format.PmxMorphGroup.MorphItem
-import top.fifthlight.blazerod.model.pmx.util.openChannelCaseInsensitive
+import top.fifthlight.blazerod.model.util.openChannelCaseInsensitive
 import top.fifthlight.blazerod.model.util.readAll
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -38,6 +39,7 @@ class PmxLoader : ModelFileLoader {
         //                                           JOINT WEIGHT
         private const val SKIN_VERTEX_ATTRIBUTE_SIZE = (4 + 4) * 4
         private const val VERTEX_ATTRIBUTE_SIZE = BASE_VERTEX_ATTRIBUTE_SIZE + SKIN_VERTEX_ATTRIBUTE_SIZE
+        private val logger = LoggerFactory.getLogger(PmxLoader::class.java)
     }
 
     override val probeLength = PMX_SIGNATURE.size
@@ -65,7 +67,7 @@ class PmxLoader : ModelFileLoader {
         private lateinit var indexBufferType: Accessor.ComponentType
         private var indices: Int = -1
 
-        private lateinit var textures: List<Texture>
+        private lateinit var textures: List<Texture?>
         private lateinit var materials: List<PmxMaterial>
         private lateinit var bones: List<PmxBone>
         private lateinit var ikAffectedBoneIndices: Set<Int>
@@ -497,43 +499,48 @@ class PmxLoader : ModelFileLoader {
                 throw PmxLoadException("Bad texture count: $textureCount, should be at least zero")
             }
             textures = (0 until textureCount).map {
-                val pathString = loadString(buffer)
-                // For Windows & Unix-like path support
-                val pathParts = pathString.split('/', '\\')
-                val relativePath = if (pathParts.size == 1) {
-                    basePath.fileSystem.getPath(pathParts[0])
-                } else {
-                    basePath.fileSystem.getPath(pathParts[0], *pathParts.subList(1, pathParts.size).toTypedArray())
-                }
-                val path = basePath.resolve(relativePath)
-                val buffer = path.openChannelCaseInsensitive(StandardOpenOption.READ).use { channel ->
-                    val size = channel.size()
-                    runCatching {
-                        channel.map(FileChannel.MapMode.READ_ONLY, 0, size)
-                    }.getOrNull() ?: run {
-                        if (size > 256 * 1024 * 1024) {
-                            throw PmxLoadException("Texture too large! Maximum supported is 256M.")
-                        }
-                        val size = size.toInt()
-                        val buffer = ByteBuffer.allocateDirect(size)
-                        channel.readAll(buffer)
-                        buffer.flip()
-                        buffer
+                try {
+                    val pathString = loadString(buffer)
+                    // For Windows & Unix-like path support
+                    val pathParts = pathString.split('/', '\\')
+                    val relativePath = if (pathParts.size == 1) {
+                        basePath.fileSystem.getPath(pathParts[0])
+                    } else {
+                        basePath.fileSystem.getPath(pathParts[0], *pathParts.subList(1, pathParts.size).toTypedArray())
                     }
-                }
-                Texture(
-                    name = pathString,
-                    bufferView = BufferView(
-                        buffer = Buffer(
-                            name = "Texture $pathString",
-                            buffer = buffer,
+                    val path = basePath.resolve(relativePath)
+                    val buffer = path.openChannelCaseInsensitive(StandardOpenOption.READ).use { channel ->
+                        val size = channel.size()
+                        runCatching {
+                            channel.map(FileChannel.MapMode.READ_ONLY, 0, size)
+                        }.getOrNull() ?: run {
+                            if (size > 256 * 1024 * 1024) {
+                                throw PmxLoadException("Texture too large! Maximum supported is 256M.")
+                            }
+                            val size = size.toInt()
+                            val buffer = ByteBuffer.allocateDirect(size)
+                            channel.readAll(buffer)
+                            buffer.flip()
+                            buffer
+                        }
+                    }
+                    Texture(
+                        name = pathString,
+                        bufferView = BufferView(
+                            buffer = Buffer(
+                                name = "Texture $pathString",
+                                buffer = buffer,
+                            ),
+                            byteLength = buffer.remaining(),
+                            byteOffset = 0,
+                            byteStride = 0,
                         ),
-                        byteLength = buffer.remaining(),
-                        byteOffset = 0,
-                        byteStride = 0,
-                    ),
-                    sampler = Texture.Sampler(),
-                )
+                        sampler = Texture.Sampler(),
+                    )
+                } catch (ex: Exception) {
+                    logger.warn("Failed to load PMX texture", ex)
+                    return@map null
+                }
             }
         }
 

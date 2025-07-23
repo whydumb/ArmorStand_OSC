@@ -3,10 +3,12 @@ package top.fifthlight.blazerod.model.pmd
 import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
+import org.slf4j.LoggerFactory
 import top.fifthlight.blazerod.model.*
 import top.fifthlight.blazerod.model.pmd.format.PmdBone
 import top.fifthlight.blazerod.model.pmd.format.PmdHeader
 import top.fifthlight.blazerod.model.pmd.format.PmdMaterial
+import top.fifthlight.blazerod.model.util.openChannelCaseInsensitive
 
 import top.fifthlight.blazerod.model.util.readAll
 
@@ -42,6 +44,7 @@ class PmdLoader : ModelFileLoader {
         //                                           JOINT WEIGHT
         private const val SKIN_VERTEX_ATTRIBUTE_SIZE = (4 + 4) * 4
         private const val VERTEX_ATTRIBUTE_SIZE = BASE_VERTEX_ATTRIBUTE_SIZE + SKIN_VERTEX_ATTRIBUTE_SIZE
+        private val logger = LoggerFactory.getLogger(PmdLoader::class.java)
     }
 
     override val probeLength = PMD_SIGNATURE.size
@@ -227,36 +230,41 @@ class PmdLoader : ModelFileLoader {
             }
         }
 
-        private fun loadTexture(name: String): Texture {
-            val path = basePath.resolve(name)
-            val buffer = FileChannel.open(path, StandardOpenOption.READ).use { channel ->
-                val size = channel.size()
-                runCatching {
-                    channel.map(FileChannel.MapMode.READ_ONLY, 0, size)
-                }.getOrNull() ?: run {
-                    if (size > 256 * 1024 * 1024) {
-                        throw PmdLoadException("Texture too large! Maximum supported is 256M.")
+        private fun loadTexture(name: String): Texture? {
+            try {
+                val path = basePath.resolve(name)
+                val buffer = path.openChannelCaseInsensitive(StandardOpenOption.READ).use { channel ->
+                    val size = channel.size()
+                    runCatching {
+                        channel.map(FileChannel.MapMode.READ_ONLY, 0, size)
+                    }.getOrNull() ?: run {
+                        if (size > 256 * 1024 * 1024) {
+                            throw PmdLoadException("Texture too large! Maximum supported is 256M.")
+                        }
+                        val size = size.toInt()
+                        val buffer = ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder())
+                        channel.readAll(buffer)
+                        buffer.flip()
+                        buffer
                     }
-                    val size = size.toInt()
-                    val buffer = ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder())
-                    channel.readAll(buffer)
-                    buffer.flip()
-                    buffer
                 }
-            }
-            return Texture(
-                name = name,
-                bufferView = BufferView(
-                    buffer = Buffer(
-                        name = "Texture $name",
-                        buffer = buffer,
+                return Texture(
+                    name = name,
+                    bufferView = BufferView(
+                        buffer = Buffer(
+                            name = "Texture $name",
+                            buffer = buffer,
+                        ),
+                        byteLength = buffer.remaining(),
+                        byteOffset = 0,
+                        byteStride = 0,
                     ),
-                    byteLength = buffer.remaining(),
-                    byteOffset = 0,
-                    byteStride = 0,
-                ),
-                sampler = Texture.Sampler(),
-            )
+                    sampler = Texture.Sampler(),
+                )
+            } catch (ex: Exception) {
+                logger.warn("Failed to load PMD texture", ex)
+                return null
+            }
         }
 
         private fun Vector3f.invertZ() = also { z = -z }
@@ -361,7 +369,9 @@ class PmdLoader : ModelFileLoader {
                 val material = Material.Unlit(
                     name = null,
                     baseColor = pmdMaterial.diffuseColor,
-                    baseColorTexture = pmdMaterial.textureFilename?.let { Material.TextureInfo(loadTexture(it)) },
+                    baseColorTexture = pmdMaterial.textureFilename
+                        ?.let(::loadTexture)
+                        ?.let(Material::TextureInfo),
                     doubleSided = true,
                 )
 

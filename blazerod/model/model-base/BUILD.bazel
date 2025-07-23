@@ -19,6 +19,9 @@ kt_jvm_library(
         "@maven//:org_joml_joml",
         "@maven//:it_unimi_dsi_fastutil",
     ],
+    exports = [
+        "@maven//:org_slf4j_slf4j_api",
+    ],
     resource_jars = [
         ":fabric_mod_json",
         "//blazerod:icon",
