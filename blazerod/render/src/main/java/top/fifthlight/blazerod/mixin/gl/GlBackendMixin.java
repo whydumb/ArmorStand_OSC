@@ -88,7 +88,7 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
 
     @Inject(method = "<init>", at = @At("TAIL"))
     private void onInit(long contextId, int debugVerbosity, boolean sync, BiFunction<Identifier, ShaderType, String> shaderSourceGetter, boolean renderDebugLabels, CallbackInfo ci, @Local(ordinal = 0) GLCapabilities glCapabilities) {
-        if (glCapabilities.OpenGL43) {
+        if (glCapabilities.GL_ARB_shader_storage_buffer_object && glCapabilities.GL_ARB_program_interface_query && allowGlShaderStorageBufferObject) {
             usedGlCapabilities.add("ARB_shader_storage_buffer_object");
             usedGlCapabilities.add("ARB_program_interface_query");
             supportSsbo = true;

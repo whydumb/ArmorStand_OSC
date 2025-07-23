@@ -1,5 +1,5 @@
 #blazerod_version version(<4.3) ? 150 : 430
-#blazerod_extension version(<4.3) && defined(SUPPORT_SSBO); ARB_shader_storage_buffer_object : require
+#blazerod_extension version(<4.3) && defined(SUPPORT_SSBO); GL_ARB_shader_storage_buffer_object : require
 
 #ifndef INSTANCE_SIZE
 #error "INSTANCE_SIZE not defined"
