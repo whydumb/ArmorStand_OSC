@@ -2,7 +2,6 @@ package top.fifthlight.armorstand.state
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -24,17 +23,21 @@ object NetworkModelSyncer {
             packetSender.value = null
         }
         ArmorStand.instance.scope.launch {
-            ConfigHolder.config
-                .map { Pair(it.modelPath, it.sendModelData) }
-                .distinctUntilChanged()
-                .combine(packetSender, ::Pair).collectLatest { (config, sender) ->
-                val (modelPath, sendModelData) = config
-                if (sendModelData) {
-                    val hash = modelPath?.let { ModelManager.getModel(it)?.hash }
-                    sender?.sendPacket(ModelUpdateC2SPayload(hash))
-                } else {
-                    sender?.sendPacket(ModelUpdateC2SPayload(null))
-                }
+            packetSender.collectLatest { sender ->
+                var hasSetModel = false
+                ConfigHolder.config
+                    .map { Pair(it.modelPath, it.sendModelData) }
+                    .distinctUntilChanged()
+                    .collect { (modelPath, sendModelData) ->
+                        if (sendModelData) {
+                            val hash = modelPath?.let { ModelManager.getModel(it)?.hash }
+                            sender?.sendPacket(ModelUpdateC2SPayload(hash))
+                            hasSetModel = true
+                        } else if (hasSetModel) {
+                            sender?.sendPacket(ModelUpdateC2SPayload(null))
+                            hasSetModel = false
+                        }
+                    }
             }
         }
     }
