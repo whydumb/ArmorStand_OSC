@@ -9,6 +9,7 @@ import top.fifthlight.blazerod.model.*
 import top.fifthlight.blazerod.model.Primitive.Attributes.MorphTarget
 import top.fifthlight.blazerod.model.pmx.format.*
 import top.fifthlight.blazerod.model.pmx.format.PmxMorphGroup.MorphItem
+import top.fifthlight.blazerod.model.util.MMD_SCALE
 import top.fifthlight.blazerod.model.util.openChannelCaseInsensitive
 import top.fifthlight.blazerod.model.util.readAll
 import java.nio.ByteBuffer
@@ -951,8 +952,10 @@ class PmxLoader : ModelFileLoader {
                 val material = Material.Unlit(
                     name = pmxMaterial.nameLocal,
                     baseColor = pmxMaterial.diffuseColor,
-                    baseColorTexture = pmxMaterial.textureIndex.takeIf { it >= 0 }?.let {
-                        textures.getOrNull(it) ?: throw PmxLoadException("Bad texture index: $it")
+                    baseColorTexture = pmxMaterial.textureIndex.takeIf {
+                        it >= 0 && it in textures.indices
+                    }?.let {
+                        textures.getOrNull(it)
                     }?.let {
                         Material.TextureInfo(it)
                     },
@@ -996,10 +999,23 @@ class PmxLoader : ModelFileLoader {
                 indexOffset += pmxMaterial.surfaceCount
             }
 
+            val cameraNodeIndex = nextNodeIndex++
+            rootNodes.add(
+                Node(
+                    name = "MMD Camera",
+                    id = NodeId(modelId, cameraNodeIndex),
+                    components = listOf(
+                        NodeComponent.CameraComponent(
+                            Camera.MMD(name = "MMD Camera")
+                        )
+                    )
+                )
+            )
+
             val scene = Scene(
                 nodes = rootNodes,
                 initialTransform = NodeTransform.Decomposed(
-                    scale = Vector3f(0.1f),
+                    scale = Vector3f(MMD_SCALE),
                     rotation = Quaternionf().rotateY(PI.toFloat()),
                 ),
             )

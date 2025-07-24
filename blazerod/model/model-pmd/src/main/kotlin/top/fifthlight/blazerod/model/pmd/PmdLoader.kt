@@ -8,6 +8,7 @@ import top.fifthlight.blazerod.model.*
 import top.fifthlight.blazerod.model.pmd.format.PmdBone
 import top.fifthlight.blazerod.model.pmd.format.PmdHeader
 import top.fifthlight.blazerod.model.pmd.format.PmdMaterial
+import top.fifthlight.blazerod.model.util.MMD_SCALE
 import top.fifthlight.blazerod.model.util.openChannelCaseInsensitive
 
 import top.fifthlight.blazerod.model.util.readAll
@@ -456,7 +457,7 @@ class PmdLoader : ModelFileLoader {
             val scene = Scene(
                 nodes = rootNodes,
                 initialTransform = NodeTransform.Decomposed(
-                    scale = Vector3f(0.1f),
+                    scale = Vector3f(MMD_SCALE),
                     rotation = Quaternionf().rotateY(PI.toFloat()),
                 ),
             )

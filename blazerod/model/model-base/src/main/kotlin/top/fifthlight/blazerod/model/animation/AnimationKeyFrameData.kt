@@ -119,3 +119,47 @@ class AccessorAnimationKeyFrameData<T>(
         }
     }
 }
+
+fun <T, R> AnimationKeyFrameData<T>.map(
+    defaultValue: () -> T,
+    transform: (T, R) -> Unit,
+): AnimationKeyFrameData<R> {
+    val original = this
+    return object : AnimationKeyFrameData<R> {
+        override val frames: Int
+            get() = original.frames
+        override val elements: Int
+            get() = original.elements
+
+        private val tempOriginalData = List(original.elements) { defaultValue() }
+
+        override fun get(index: Int, data: List<R>) {
+            original.get(index, tempOriginalData)
+
+            for (i in 0 until elements) {
+                transform(tempOriginalData[i], data[i])
+            }
+        }
+    }
+}
+
+@JvmName("mapVector3fKeyFrameData")
+fun <R> AnimationKeyFrameData<Vector3f>.map(
+    transform: (Vector3f, R) -> Unit,
+): AnimationKeyFrameData<R> {
+    return this.map(defaultValue = { Vector3f() }, transform)
+}
+
+@JvmName("mapQuaternionfKeyFrameData")
+fun <R> AnimationKeyFrameData<Quaternionf>.map(
+    transform: (Quaternionf, R) -> Unit,
+): AnimationKeyFrameData<R> {
+    return this.map(defaultValue = { Quaternionf() }, transform)
+}
+
+@JvmName("mapMutableFloatKeyFrameData")
+fun <R> AnimationKeyFrameData<MutableFloat>.map(
+    transform: (MutableFloat, R) -> Unit,
+): AnimationKeyFrameData<R> {
+    return this.map(defaultValue = { MutableFloat() }, transform)
+}

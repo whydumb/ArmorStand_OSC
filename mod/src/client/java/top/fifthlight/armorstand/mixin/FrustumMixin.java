@@ -6,7 +6,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.fifthlight.armorstand.PlayerRenderer;
-import top.fifthlight.blazerod.model.Camera;
+import top.fifthlight.blazerod.model.resource.CameraTransform;
 
 @Mixin(Frustum.class)
 public abstract class FrustumMixin {
@@ -16,7 +16,7 @@ public abstract class FrustumMixin {
         if (transform == null) {
             return;
         }
-        if (transform.getCamera() instanceof Camera.Orthographic) {
+        if (transform instanceof CameraTransform.Orthographic) {
             cir.setReturnValue((Frustum) (Object) this);
         }
     }
@@ -27,8 +27,7 @@ public abstract class FrustumMixin {
         if (transform == null) {
             return;
         }
-        var camera = transform.getCamera();
-        if (camera instanceof Camera.Orthographic orthographic) {
+        if (transform instanceof CameraTransform.Orthographic orthographic) {
 
         }
     }

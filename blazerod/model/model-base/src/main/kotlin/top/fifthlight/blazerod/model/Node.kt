@@ -1,6 +1,6 @@
 package top.fifthlight.blazerod.model
 
-import java.util.UUID
+import java.util.*
 
 data class NodeId(
     val modelId: UUID,
@@ -12,7 +12,7 @@ data class Node(
     val id: NodeId,
     val transform: NodeTransform? = null,
     val children: List<Node> = listOf(),
-    val components: List<NodeComponent>,
+    val components: List<NodeComponent> = listOf(),
 ) {
     val meshComponent: NodeComponent.MeshComponent?
     val skinComponent: NodeComponent.SkinComponent?

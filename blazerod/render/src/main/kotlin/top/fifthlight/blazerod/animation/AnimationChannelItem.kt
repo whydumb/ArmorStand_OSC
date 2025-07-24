@@ -5,6 +5,7 @@ import org.joml.Vector3f
 import top.fifthlight.blazerod.model.ModelInstance
 import top.fifthlight.blazerod.model.TransformId
 import top.fifthlight.blazerod.model.animation.AnimationChannel
+import top.fifthlight.blazerod.model.resource.CameraTransform
 import top.fifthlight.blazerod.model.resource.RenderExpression
 import top.fifthlight.blazerod.model.resource.RenderExpressionGroup
 import top.fifthlight.blazerod.model.util.MutableFloat
@@ -66,8 +67,8 @@ sealed class AnimationChannelItem<T : Any, D>(
     class MorphItem(
         private val primitiveIndex: Int,
         private val targetGroupIndex: Int,
-        channel: AnimationChannel<MutableFloat, AnimationChannel.Type.Morph.MorphData>,
-    ) : AnimationChannelItem<MutableFloat, AnimationChannel.Type.Morph.MorphData>(channel) {
+        channel: AnimationChannel<MutableFloat, AnimationChannel.Type.MorphData>,
+    ) : AnimationChannelItem<MutableFloat, AnimationChannel.Type.MorphData>(channel) {
         private val data = MutableFloat()
 
         override fun apply(instance: ModelInstance, time: Float) {
@@ -86,8 +87,8 @@ sealed class AnimationChannelItem<T : Any, D>(
 
     class ExpressionItem(
         val expression: RenderExpression,
-        channel: AnimationChannel<MutableFloat, AnimationChannel.Type.Expression.ExpressionData>,
-    ) : AnimationChannelItem<MutableFloat, AnimationChannel.Type.Expression.ExpressionData>(channel) {
+        channel: AnimationChannel<MutableFloat, AnimationChannel.Type.ExpressionData>,
+    ) : AnimationChannelItem<MutableFloat, AnimationChannel.Type.ExpressionData>(channel) {
         private val data = MutableFloat()
 
         override fun apply(instance: ModelInstance, time: Float) {
@@ -98,8 +99,8 @@ sealed class AnimationChannelItem<T : Any, D>(
 
     class ExpressionGroupItem(
         val group: RenderExpressionGroup,
-        channel: AnimationChannel<MutableFloat, AnimationChannel.Type.Expression.ExpressionData>,
-    ) : AnimationChannelItem<MutableFloat, AnimationChannel.Type.Expression.ExpressionData>(channel) {
+        channel: AnimationChannel<MutableFloat, AnimationChannel.Type.ExpressionData>,
+    ) : AnimationChannelItem<MutableFloat, AnimationChannel.Type.ExpressionData>(channel) {
         private val data = MutableFloat()
 
         override fun apply(instance: ModelInstance, time: Float) {
@@ -108,6 +109,56 @@ sealed class AnimationChannelItem<T : Any, D>(
                 val expression = instance.scene.expressions[item.expressionIndex]
                 expression.apply(instance, data.value * item.influence)
             }
+        }
+    }
+
+    class CameraFovItem(
+        val cameraIndex: Int,
+        channel: AnimationChannel<MutableFloat, AnimationChannel.Type.CameraData>,
+    ) : AnimationChannelItem<MutableFloat, AnimationChannel.Type.CameraData>(channel) {
+        private val data = MutableFloat()
+
+        override fun apply(instance: ModelInstance, time: Float) {
+            channel.getKeyFrameData(time, data)
+            val camera = instance.modelData.cameraTransforms[cameraIndex]
+            when (camera) {
+                is CameraTransform.MMD -> camera.fov = data.value
+                is CameraTransform.Perspective -> camera.yfov = data.value
+                else -> Unit
+            }
+        }
+    }
+
+    class MMDCameraDistanceItem(
+        val cameraIndex: Int,
+        channel: AnimationChannel<MutableFloat, AnimationChannel.Type.CameraData>,
+    ) : AnimationChannelItem<MutableFloat, AnimationChannel.Type.CameraData>(channel) {
+        private val data = MutableFloat()
+
+        override fun apply(instance: ModelInstance, time: Float) {
+            channel.getKeyFrameData(time, data)
+            val camera = instance.modelData.cameraTransforms[cameraIndex] as? CameraTransform.MMD ?: return
+            camera.distance = data.value
+        }
+    }
+
+    class MMDCameraTargetItem(
+        val cameraIndex: Int,
+        channel: AnimationChannel<Vector3f, AnimationChannel.Type.CameraData>,
+    ) : AnimationChannelItem<Vector3f, AnimationChannel.Type.CameraData>(channel) {
+        override fun apply(instance: ModelInstance, time: Float) {
+            val camera = instance.modelData.cameraTransforms[cameraIndex] as? CameraTransform.MMD ?: return
+            channel.getKeyFrameData(time, camera.targetPosition)
+        }
+    }
+
+    class MMDCameraRotationItem(
+        val cameraIndex: Int,
+        channel: AnimationChannel<Vector3f, AnimationChannel.Type.CameraData>,
+    ) : AnimationChannelItem<Vector3f, AnimationChannel.Type.CameraData>(channel) {
+        override fun apply(instance: ModelInstance, time: Float) {
+            val camera = instance.modelData.cameraTransforms[cameraIndex] as? CameraTransform.MMD ?: return
+            channel.getKeyFrameData(time, camera.rotationEulerAngles)
         }
     }
 }

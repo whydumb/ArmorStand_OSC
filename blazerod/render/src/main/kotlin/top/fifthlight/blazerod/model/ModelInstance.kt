@@ -62,7 +62,7 @@ class ModelInstance(val scene: RenderScene) : AbstractRefCount() {
             CowBuffer.acquire(targetBuffers).also { it.increaseReferenceCount() }
         }
 
-        val cameraTransforms = scene.cameras.map { CameraTransform(it.camera) }
+        val cameraTransforms = scene.cameras.map { CameraTransform.of(it.camera) }
 
         override fun close() {
             modelMatricesBuffer.decreaseReferenceCount()

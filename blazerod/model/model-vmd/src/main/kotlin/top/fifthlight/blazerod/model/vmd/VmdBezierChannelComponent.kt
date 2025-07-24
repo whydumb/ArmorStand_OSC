@@ -76,10 +76,11 @@ class VmdBezierChannelComponent(
         get() = VmdBezierChannelComponentType
 
     override fun onAttachToChannel(channel: AnimationChannel<*, *>) {
-        when (val interpolator = channel.interpolator) {
-            is VmdBezierVector3fInterpolator -> interpolator.attachComponent(this)
-            is VmdBezierQuaternionfInterpolator -> interpolator.attachComponent(this)
-            else -> error("VMD bezier channel must use VMD bezier interpolation")
+        val interpolator = channel.interpolator
+        if (interpolator is VmdBezierInterpolator) {
+            interpolator.attachComponent(this)
+        } else {
+            error("VMD bezier channel must use VMD bezier interpolation")
         }
     }
 

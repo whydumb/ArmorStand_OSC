@@ -10,8 +10,10 @@ import top.fifthlight.blazerod.model.HumanoidTag
 import top.fifthlight.blazerod.model.ModelFileLoader
 import top.fifthlight.blazerod.model.TransformId
 import top.fifthlight.blazerod.model.animation.*
+import top.fifthlight.blazerod.model.util.MMD_SCALE
 import top.fifthlight.blazerod.model.util.MutableFloat
 import top.fifthlight.blazerod.model.util.readAll
+import top.fifthlight.blazerod.model.util.toRadian
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
@@ -68,7 +70,7 @@ class VmdLoader : ModelFileLoader {
         return decoder.decode(stringBytes).toString()
     }
 
-    private fun loadHeader(buffer: ByteBuffer): String {
+    private fun loadHeader(buffer: ByteBuffer) {
         val signature = ByteArray(30)
         buffer.get(signature)
         fun compareSignature(target: ByteArray, source: ByteArray): Boolean {
@@ -86,10 +88,10 @@ class VmdLoader : ModelFileLoader {
             else -> throw VmdLoadException("Bad VMD file signature")
         }
 
-        return if (isNewFormat) {
-            loadString(buffer, 20)
+        if (isNewFormat) {
+            buffer.position(buffer.position() + 20)
         } else {
-            loadString(buffer, 10)
+            buffer.position(buffer.position() + 10)
         }
     }
 
@@ -259,7 +261,7 @@ class VmdLoader : ModelFileLoader {
             listOf(
                 SimpleAnimationChannel(
                     type = AnimationChannel.Type.Expression,
-                    data = AnimationChannel.Type.Expression.ExpressionData(name = name),
+                    data = AnimationChannel.Type.ExpressionData(name = name),
                     indexer = indexer,
                     keyframeData = data,
                     interpolation = AnimationInterpolation.linear,
@@ -268,11 +270,151 @@ class VmdLoader : ModelFileLoader {
         }
     }
 
+    private fun loadCamera(buffer: ByteBuffer): List<AnimationChannel<*, *>> {
+        val cameraKeyframeCount = buffer.getInt().takeIf { it > 0 } ?: return emptyList()
+        val frameList = IntArrayList()
+        val distanceList = FloatArrayList()
+        val positionList = FloatArrayList()
+        val rotationList = FloatArrayList()
+        val fovList = FloatArrayList()
+        val distanceCurveData = ByteArrayList()
+        val positionCurveData = ByteArrayList()
+        val rotationCurveData = ByteArrayList()
+        val fovCurveData = ByteArrayList()
+
+        repeat(cameraKeyframeCount) {
+            frameList.add(buffer.getInt())
+            distanceList.add(buffer.getFloat() * MMD_SCALE)
+
+            // XYZ, invert Z
+            positionList.add(buffer.getFloat() * MMD_SCALE)
+            positionList.add(buffer.getFloat() * MMD_SCALE)
+            positionList.add(-buffer.getFloat() * MMD_SCALE)
+
+            // Invert X and Y
+            rotationList.add(-buffer.getFloat())
+            rotationList.add(-buffer.getFloat())
+            rotationList.add(buffer.getFloat())
+
+            repeat(4) {
+                distanceCurveData.add(buffer.get())
+            }
+            repeat(12) {
+                positionCurveData.add(buffer.get())
+            }
+            repeat(4) {
+                rotationCurveData.add(buffer.get())
+            }
+            repeat(4) {
+                fovCurveData.add(buffer.get())
+            }
+
+            fovList.add(buffer.getInt().toUInt().toFloat().toRadian())
+
+            // Skip perspective
+            buffer.position(buffer.position() + 1)
+        }
+
+        val indices = IntArrayList(frameList.size)
+        repeat(frameList.size) { indices.add(it) }
+        indices.sort { a, b -> frameList.getInt(a) - frameList.getInt(b) }
+
+        val sortedTimeList = FloatArrayList(frameList.size)
+        val sortedDistanceList = FloatArrayList(distanceList.size)
+        val sortedPositionList = FloatArrayList(positionList.size)
+        val sortedRotationList = FloatArrayList(rotationList.size)
+        val sortedFovList = FloatArrayList(fovList.size)
+        val sortedDistanceCurveData = ByteArrayList(distanceCurveData.size)
+        val sortedPositionCurveData = ByteArrayList(positionCurveData.size)
+        val sortedRotationCurveData = ByteArrayList(rotationCurveData.size)
+        val sortedFovCurveData = ByteArrayList(fovCurveData.size)
+
+        indices.forEachInt { i ->
+            sortedTimeList.add(frameList.getInt(i) * FRAME_TIME_SEC)
+            sortedDistanceList.add(distanceList.getFloat(i))
+            repeat(3) {
+                sortedPositionList.add(positionList.getFloat(i * 3 + it))
+            }
+            repeat(3) {
+                sortedRotationList.add(rotationList.getFloat(i * 3 + it))
+            }
+            sortedFovList.add(fovList.getFloat(i))
+            repeat(4) {
+                sortedDistanceCurveData.add(distanceCurveData.getByte(i * 4 + it))
+            }
+            repeat(12) {
+                sortedPositionCurveData.add(positionCurveData.getByte(i * 12 + it))
+            }
+            repeat(4) {
+                sortedRotationCurveData.add(rotationCurveData.getByte(i * 4 + it))
+            }
+            repeat(4) {
+                sortedFovCurveData.add(fovCurveData.getByte(i * 4 + it))
+            }
+        }
+
+        return listOf(
+            SimpleAnimationChannel(
+                type = AnimationChannel.Type.MMDCameraDistance,
+                data = AnimationChannel.Type.CameraData(cameraName = "MMD Camera"),
+                indexer = ListAnimationKeyFrameIndexer(sortedTimeList),
+                keyframeData = AnimationKeyFrameData.ofFloat(sortedDistanceList, 1),
+                components = listOf(
+                    VmdBezierChannelComponent(sortedDistanceCurveData, sortedTimeList.size, 1),
+                ),
+                interpolation = VmdBezierInterpolation,
+                interpolator = VmdBezierFloatInterpolator(),
+                defaultValue = ::MutableFloat,
+            ),
+            SimpleAnimationChannel(
+                type = AnimationChannel.Type.MMDCameraTarget,
+                data = AnimationChannel.Type.CameraData(cameraName = "MMD Camera"),
+                indexer = ListAnimationKeyFrameIndexer(sortedTimeList),
+                keyframeData = AnimationKeyFrameData.ofVector3f(sortedPositionList, 1),
+                components = listOf(
+                    VmdBezierChannelComponent(sortedPositionCurveData, sortedTimeList.size, 3),
+                ),
+                interpolation = VmdBezierInterpolation,
+                interpolator = VmdBezierVector3fInterpolator(),
+                defaultValue = ::Vector3f,
+            ),
+            SimpleAnimationChannel(
+                type = AnimationChannel.Type.MMDCameraRotation,
+                data = AnimationChannel.Type.CameraData(cameraName = "MMD Camera"),
+                indexer = ListAnimationKeyFrameIndexer(sortedTimeList),
+                keyframeData = AnimationKeyFrameData.ofVector3f(sortedRotationList, 1),
+                components = listOf(
+                    VmdBezierChannelComponent(sortedRotationCurveData, sortedTimeList.size, 1),
+                ),
+                interpolation = VmdBezierInterpolation,
+                interpolator = VmdBezierSimpleVector3fInterpolator(),
+                defaultValue = ::Vector3f,
+            ),
+            SimpleAnimationChannel(
+                type = AnimationChannel.Type.CameraFov,
+                data = AnimationChannel.Type.CameraData(cameraName = "MMD Camera"),
+                indexer = ListAnimationKeyFrameIndexer(sortedTimeList),
+                keyframeData = AnimationKeyFrameData.ofFloat(sortedFovList, 1),
+                components = listOf(
+                    VmdBezierChannelComponent(sortedFovCurveData, sortedTimeList.size, 1),
+                ),
+                interpolation = VmdBezierInterpolation,
+                interpolator = VmdBezierFloatInterpolator(),
+                defaultValue = ::MutableFloat,
+            ),
+        )
+    }
+
     private fun load(buffer: ByteBuffer): ModelFileLoader.LoadResult {
-        val modelName = loadHeader(buffer)
+        loadHeader(buffer)
         val boneChannels = loadBone(buffer)
         val faceChannels = if (buffer.hasRemaining()) {
             loadFace(buffer)
+        } else {
+            listOf()
+        }
+        val cameraChannels = if (buffer.hasRemaining()) {
+            loadCamera(buffer)
         } else {
             listOf()
         }
@@ -280,7 +422,7 @@ class VmdLoader : ModelFileLoader {
         return ModelFileLoader.LoadResult(
             metadata = null,
             model = null,
-            animations = listOf(Animation(channels = boneChannels + faceChannels)),
+            animations = listOf(Animation(channels = boneChannels + faceChannels + cameraChannels)),
         )
     }
 

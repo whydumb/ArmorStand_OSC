@@ -34,15 +34,23 @@ object VmdBezierInterpolation: AnimationInterpolation(1) {
     ) = throw UnsupportedOperationException("VMD doesn't have interpolator")
 }
 
-class VmdBezierVector3fInterpolator() : AnimationInterpolator<Vector3f> {
-    private var _component: VmdBezierChannelComponent? = null
-    private val component
+abstract class VmdBezierInterpolator<T> : AnimationInterpolator<T> {
+    protected var _component: VmdBezierChannelComponent? = null
+    protected val component: VmdBezierChannelComponent
         get() = _component ?: throw IllegalStateException("VmdBezierChannelComponent not attached")
+    protected abstract val expectedChannels: Int
 
     fun attachComponent(component: VmdBezierChannelComponent) {
-        require(component.channels == 3) { "VmdBezierVector3fInterpolator must be attached with 3 channels" }
+        require(component.channels == expectedChannels) {
+            "VmdBezierInterpolator must be attached with $expectedChannels channels for this type."
+        }
         _component = component
     }
+}
+
+class VmdBezierVector3fInterpolator : VmdBezierInterpolator<Vector3f>() {
+    override val expectedChannels
+        get() = 3
 
     override fun set(value: List<Vector3f>, result: Vector3f) {
         result.set(value[0])
@@ -57,7 +65,6 @@ class VmdBezierVector3fInterpolator() : AnimationInterpolator<Vector3f> {
         endValue: List<Vector3f>,
         result: Vector3f,
     ) {
-        val component = component
         val xDelta = component.getDelta(startFrame, 0, delta)
         val yDelta = component.getDelta(startFrame, 1, delta)
         val zDelta = component.getDelta(startFrame, 2, delta)
@@ -71,15 +78,33 @@ class VmdBezierVector3fInterpolator() : AnimationInterpolator<Vector3f> {
     }
 }
 
-class VmdBezierQuaternionfInterpolator() : AnimationInterpolator<Quaternionf> {
-    private var _component: VmdBezierChannelComponent? = null
-    private val component
-        get() = _component ?: throw IllegalStateException("VmdBezierChannelComponent not attached")
+class VmdBezierSimpleVector3fInterpolator : VmdBezierInterpolator<Vector3f>() {
+    override val expectedChannels
+        get() = 1
 
-    fun attachComponent(component: VmdBezierChannelComponent) {
-        require(component.channels == 1) { "VmdBezierVector3fInterpolator must be attached with 1 channels" }
-        _component = component
+    override fun set(value: List<Vector3f>, result: Vector3f) {
+        result.set(value[0])
     }
+
+    override fun interpolate(
+        delta: Float,
+        startFrame: Int,
+        endFrame: Int,
+        type: AnimationInterpolation,
+        startValue: List<Vector3f>,
+        endValue: List<Vector3f>,
+        result: Vector3f,
+    ) {
+        val delta = component.getDelta(startFrame, 0, delta)
+        val start = startValue[0]
+        val end = endValue[0]
+        start.lerp(end, delta)
+    }
+}
+
+class VmdBezierQuaternionfInterpolator : VmdBezierInterpolator<Quaternionf>() {
+    override val expectedChannels
+        get() = 1
 
     override fun set(value: List<Quaternionf>, result: Quaternionf) {
         result.set(value[0])
@@ -96,5 +121,27 @@ class VmdBezierQuaternionfInterpolator() : AnimationInterpolator<Quaternionf> {
     ) {
         val bezierDelta = component.getDelta(startFrame, 0, delta)
         result.set(startValue[0]).slerp(endValue[0], bezierDelta)
+    }
+}
+
+class VmdBezierFloatInterpolator : VmdBezierInterpolator<MutableFloat>() {
+    override val expectedChannels
+        get() = 1
+
+    override fun set(value: List<MutableFloat>, result: MutableFloat) {
+        result.value = value[0].value
+    }
+
+    override fun interpolate(
+        delta: Float,
+        startFrame: Int,
+        endFrame: Int,
+        type: AnimationInterpolation,
+        startValue: List<MutableFloat>,
+        endValue: List<MutableFloat>,
+        result: MutableFloat,
+    ) {
+        val bezierDelta = component.getDelta(startFrame, 0, delta)
+        result.value = Math.lerp(startValue[0].value, endValue[0].value, bezierDelta)
     }
 }

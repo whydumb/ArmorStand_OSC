@@ -10,9 +10,9 @@ import net.minecraft.client.util.math.MatrixStack
 import org.joml.Matrix4f
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.state.ModelInstanceManager
+import top.fifthlight.blazerod.model.TaskMap
 import top.fifthlight.blazerod.model.resource.CameraTransform
 import top.fifthlight.blazerod.model.resource.RenderCamera
-import top.fifthlight.blazerod.model.TaskMap
 import java.lang.ref.WeakReference
 import java.util.*
 
@@ -42,6 +42,7 @@ object PlayerRenderer {
         }
         val selectedIndex = selectedCameraIndex.value ?: return null
         val instance = entry.instance
+        entry.controller.apply(instance)
         instance.updateCamera()
 
         return instance.modelData.cameraTransforms.getOrNull(selectedIndex).also {

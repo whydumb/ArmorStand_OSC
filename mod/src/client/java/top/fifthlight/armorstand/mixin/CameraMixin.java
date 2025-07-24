@@ -31,7 +31,7 @@ public class CameraMixin {
     public void wrapGetPitch(CallbackInfoReturnable<Float> cir) {
         var transform = PlayerRenderer.getCurrentCameraTransform();
         if (transform != null) {
-            cir.setReturnValue(transform.getRotationEuler().x);
+            cir.setReturnValue(transform.getRotationEulerAngles().x);
         }
     }
 
@@ -39,7 +39,7 @@ public class CameraMixin {
     public void wrapGetYaw(CallbackInfoReturnable<Float> cir) {
         var transform = PlayerRenderer.getCurrentCameraTransform();
         if (transform != null) {
-            cir.setReturnValue(transform.getRotationEuler().y);
+            cir.setReturnValue(transform.getRotationEulerAngles().y);
         }
     }
 

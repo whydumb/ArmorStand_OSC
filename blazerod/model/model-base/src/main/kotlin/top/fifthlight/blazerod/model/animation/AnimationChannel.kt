@@ -24,23 +24,32 @@ interface AnimationChannel<T : Any, D> : AnimationChannelComponentContainer {
             val transformId: TransformId,
         )
 
-        data object Expression : Type<MutableFloat, Expression.ExpressionData>() {
-            data class ExpressionData(
-                val name: String? = null,
-                val tag: top.fifthlight.blazerod.model.Expression.Tag? = null,
-            )
-        }
+        data class ExpressionData(
+            val name: String? = null,
+            val tag: top.fifthlight.blazerod.model.Expression.Tag? = null,
+        )
+
+        data class MorphData(
+            val nodeData: NodeData,
+            val targetMorphGroupIndex: Int,
+        )
+
+        data class CameraData(
+            val cameraName: String,
+        )
+
+        data object Expression : Type<MutableFloat, ExpressionData>()
 
         data object Translation : Type<Vector3f, TransformData>()
         data object Scale : Type<Vector3f, TransformData>()
         data object Rotation : Type<Quaternionf, TransformData>()
 
-        data object Morph : Type<MutableFloat, Morph.MorphData>() {
-            data class MorphData(
-                val nodeData: NodeData,
-                val targetMorphGroupIndex: Int,
-            )
-        }
+        data object Morph : Type<MutableFloat, MorphData>()
+
+        data object CameraFov : Type<MutableFloat, CameraData>()
+        data object MMDCameraDistance : Type<MutableFloat, CameraData>()
+        data object MMDCameraTarget : Type<Vector3f, CameraData>()
+        data object MMDCameraRotation : Type<Vector3f, CameraData>()
     }
 
     val type: Type<T, D>
