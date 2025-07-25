@@ -160,7 +160,7 @@ class ModelSwitchScreen(parent: Screen? = null) : ArmorStandScreen<ModelSwitchSc
     }
 
     private fun switchModel(next: Boolean) {
-        currentClient.soundManager.play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+        currentClient.soundManager.play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F))
         viewModel.switchModel(next)
     }
 
