@@ -2,10 +2,7 @@ package top.fifthlight.armorstand.manage
 
 import com.mojang.logging.LogUtils
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
@@ -38,7 +35,7 @@ object ModelManager {
     private const val DEFAULT_MODEL_NAME = "armorstand.vrm"
     private const val DATABASE_NAME = ".cache"
     private val databaseFile = modelDir.resolve("$DATABASE_NAME.mv.db").toAbsolutePath()
-    private const val DATABASE_VERSION = 2
+    private const val DATABASE_VERSION = 3
     var connectionPool: Pool<Connection>? = null
         private set
 
@@ -47,25 +44,44 @@ object ModelManager {
         return connectionPool.transaction(block)
     }
 
-    private fun Connection.checkVersionMatches(): Boolean {
+    private fun Connection.checkVersion(): Int? {
         query("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE LOWER(TABLE_NAME) = 'version';").use { result ->
             result.skipToInitialRow()
             if (result.getInt(1) < 1) {
                 LOGGER.info("No version item in database, create new tables")
-                return false
+                return null
             }
         }
-        query("SELECT version FROM version;").use { result ->
+        return query("SELECT version FROM version;").use { result ->
             result.skipToInitialRow()
             val version = result.getInt(1)
-            if (version != DATABASE_VERSION) {
-                LOGGER.info("Version not match, recreate tables")
-                return false
-            }
             LOGGER.info("Database version {}", version)
+            version
         }
-        return true
     }
+
+    private val upgradeStatements = mapOf(
+        2 to listOf(
+            """
+            CREATE TABLE IF NOT EXISTS favorite(
+                path VARCHAR PRIMARY KEY,
+                favorite_at BIGINT NOT NULL
+            );
+            """,
+            """
+            ALTER TABLE favorite
+            ADD CONSTRAINT fk_favorite_model_path
+            FOREIGN KEY (path)
+            REFERENCES model (path)
+            ON DELETE CASCADE;
+            """,
+            """
+            CREATE INDEX idx_model_name ON model (name);
+            CREATE INDEX idx_model_lastChanged ON model (lastChanged);
+            CREATE INDEX idx_favorite_favorite_at ON favorite (favorite_at DESC);
+            """
+        )
+    )
 
     private suspend fun waitUntilFirstScan(): Instant {
         if (_lastScanTime.value == null) {
@@ -104,6 +120,7 @@ object ModelManager {
         name = getString(2),
         lastChanged = getLong(3),
         hash = ModelHash(getBytes(4)),
+        favorite = getBoolean(5),
     )
 
     suspend fun getModel(
@@ -116,25 +133,36 @@ object ModelManager {
         waitUntilFirstScan()
         return withContext(Dispatchers.IO) {
             transaction {
-                val order = when (order) {
-                    Order.NAME -> "name"
-                    Order.LAST_CHANGED -> "lastChanged"
+                val orderColumn = when (order) {
+                    Order.NAME -> "m.name"
+                    Order.LAST_CHANGED -> "m.lastChanged"
                 }
-                val sort = when (ascend) {
-                    true -> "ASC"
-                    false -> "DESC"
-                }
-                if (searchString == null) {
-                    prepareQuery("SELECT path, name, lastChanged, sha256 FROM model ORDER BY $order $sort LIMIT ? OFFSET ?") {
-                        setInt(1, length)
-                        setInt(2, offset)
-                    }
+                val sortDirection = if (ascend) {
+                    "ASC"
                 } else {
-                    prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE LOCATE(LOWER(?), LOWER(name)) > 0 ORDER BY $order $sort LIMIT ? OFFSET ?") {
-                        setString(1, searchString)
-                        setInt(2, length)
-                        setInt(3, offset)
-                    }
+                    "DESC"
+                }
+                val searchQueryClause = searchString?.let { "WHERE LOCATE(LOWER(?), LOWER(m.name)) > 0" } ?: ""
+                prepareQuery(
+                    """
+                    SELECT
+                        m.path, m.name, m.lastChanged, m.sha256, f.path IS NOT NULL AS isFavorite
+                    FROM
+                        model m
+                    LEFT JOIN
+                        favorite f ON m.path = f.path
+                    $searchQueryClause
+                    ORDER BY
+                        CASE WHEN f.path IS NOT NULL THEN 0 ELSE 1 END,
+                        CASE WHEN f.path IS NOT NULL THEN f.favorite_at END DESC,
+                        $orderColumn $sortDirection
+                    LIMIT ? OFFSET ?
+                    """
+                ) {
+                    var nextParam = 1
+                    searchString?.let { setString(nextParam++, it) }
+                    setInt(nextParam++, length)
+                    setInt(nextParam++, offset)
                 }.use { result ->
                     buildList {
                         while (result.next()) {
@@ -150,7 +178,16 @@ object ModelManager {
         waitUntilFirstScan()
         return withContext(Dispatchers.IO) {
             transaction {
-                prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE path = ?") {
+                prepareQuery(
+                    """
+                    SELECT
+                        m.path, m.name, m.lastChanged, m.sha256, f.path IS NOT NULL AS isFavorite
+                    FROM
+                        model m
+                    LEFT JOIN favorite f ON m.path = f.path
+                    WHERE m.path = ?
+                    """
+                ) {
                     setString(1, path.normalize().toString())
                 }.use { result ->
                     if (result.next()) {
@@ -167,7 +204,16 @@ object ModelManager {
         waitUntilFirstScan()
         return withContext(Dispatchers.IO) {
             transaction {
-                prepareQuery("SELECT path, name, lastChanged, sha256 FROM model WHERE sha256 = ?") {
+                prepareQuery(
+                    """
+                    SELECT
+                        m.path, m.name, m.lastChanged, m.sha256, f.path IS NOT NULL AS isFavorite
+                    FROM
+                        model m
+                    LEFT JOIN favorite f ON m.path = f.path
+                    WHERE sha256 = ?
+                    """
+                ) {
                     setBytes(1, modelHash.hash)
                 }.use { result ->
                     if (result.next()) {
@@ -230,6 +276,22 @@ object ModelManager {
                     )
                 }
             }
+        }
+    }
+
+    suspend fun setFavoriteModel(path: Path, favorite: Boolean) = withContext(Dispatchers.IO) {
+        transaction {
+            if (favorite) {
+                prepare("MERGE INTO favorite (path, favorite_at) KEY (path) VALUES (?, ?)") {
+                    setString(1, path.normalize().toString())
+                    setLong(2, System.currentTimeMillis())
+                }
+            } else {
+                prepare("DELETE FROM favorite WHERE path = ?") {
+                    setString(1, path.normalize().toString())
+                }
+            }
+            _lastScanTime.getAndUpdate { it?.let { Clock.System.now() } }
         }
     }
 
@@ -560,56 +622,98 @@ object ModelManager {
 
     private fun Connection.createTables() {
         transaction {
-            if (checkVersionMatches()) {
-                return@transaction
+            val version = checkVersion()
+            when (version) {
+                null, !in 2..DATABASE_VERSION -> {
+                    execute("DROP TABLE IF EXISTS version;")
+                    execute("DROP TABLE IF EXISTS file;")
+                    execute("DROP TABLE IF EXISTS model;")
+                    execute("DROP TABLE IF EXISTS animation;")
+                    execute("DROP TABLE IF EXISTS embed_thumbnails;")
+                    execute("DROP TABLE IF EXISTS favorite;")
+                    execute("CREATE TABLE version (version INTEGER);")
+                    prepare("INSERT INTO version (version) VALUES (?);") { setInt(1, DATABASE_VERSION) }
+                    execute(
+                        """
+                                CREATE TABLE file(
+                                    path VARCHAR PRIMARY KEY,
+                                    lastChanged BIGINT NOT NULL,
+                                    sha256 BINARY(32) NOT NULL
+                                );
+                                """
+                    )
+                    execute(
+                        """
+                                CREATE TABLE model(
+                                    path VARCHAR PRIMARY KEY,
+                                    name VARCHAR NOT NULL,
+                                    lastChanged BIGINT NOT NULL,
+                                    sha256 BINARY(32) NOT NULL
+                                );                    
+                                """
+                    )
+                    execute(
+                        """
+                                CREATE TABLE animation(
+                                    path VARCHAR PRIMARY KEY,
+                                    name VARCHAR NOT NULL,
+                                    lastChanged BIGINT NOT NULL,
+                                    sha256 BINARY(32) NOT NULL
+                                );
+                                """
+                    )
+                    execute(
+                        """
+                                CREATE TABLE embed_thumbnails(
+                                    sha256 BINARY(32) PRIMARY KEY,
+                                    fileOffset BIGINT NOT NULL,
+                                    fileLength BIGINT NOT NULL,
+                                    mimeType VARCHAR
+                                );
+                                """
+                    )
+                    execute(
+                        """
+                                CREATE TABLE favorite(
+                                    path VARCHAR PRIMARY KEY,
+                                    favorite_at BIGINT NOT NULL
+                                );
+                                """
+                    )
+                    execute(
+                        """
+                        ALTER TABLE favorite
+                        ADD CONSTRAINT fk_favorite_model_path
+                        FOREIGN KEY (path)
+                        REFERENCES model (path)
+                        ON DELETE CASCADE;
+                        """
+                    )
+                    execute("CREATE INDEX idx_model_name ON model (name);")
+                    execute("CREATE INDEX idx_model_lastChanged ON model (lastChanged);")
+                    execute("CREATE INDEX idx_favorite_favorite_at ON favorite (favorite_at DESC);")
+                    LOGGER.info("Recreated tables")
+                }
+
+                DATABASE_VERSION -> {
+                    LOGGER.info("Version match, not upgrade needed")
+                }
+
+                else -> {
+                    (2 until DATABASE_VERSION)
+                        .asSequence()
+                        .map { upgradeStatements[it] ?: error("No upgrade statement for version $it") }
+                        .forEach { statements ->
+                            statements.forEach { statement ->
+                                execute(statement)
+                            }
+                        }
+                    execute("DROP TABLE IF EXISTS version;")
+                    execute("CREATE TABLE version (version INTEGER);")
+                    prepare("INSERT INTO version (version) VALUES (?);") { setInt(1, DATABASE_VERSION) }
+                    LOGGER.info("Upgraded from version $version to version $DATABASE_VERSION")
+                }
             }
-            execute("DROP TABLE IF EXISTS version;")
-            execute("DROP TABLE IF EXISTS file;")
-            execute("DROP TABLE IF EXISTS model;")
-            execute("DROP TABLE IF EXISTS animation;")
-            execute("DROP TABLE IF EXISTS embed_thumbnails;")
-            execute("CREATE TABLE version (version INTEGER);")
-            prepare("INSERT INTO version (version) VALUES (?);") { setInt(1, DATABASE_VERSION) }
-            execute(
-                """
-                CREATE TABLE file(
-                    path VARCHAR PRIMARY KEY,
-                    lastChanged BIGINT NOT NULL,
-                    sha256 BINARY(32) NOT NULL
-                );
-                """
-            )
-            execute(
-                """
-                CREATE TABLE model(
-                    path VARCHAR PRIMARY KEY,
-                    name VARCHAR NOT NULL,
-                    lastChanged BIGINT NOT NULL,
-                    sha256 BINARY(32) NOT NULL
-                );                    
-                """
-            )
-            execute(
-                """
-                CREATE TABLE animation(
-                    path VARCHAR PRIMARY KEY,
-                    name VARCHAR NOT NULL,
-                    lastChanged BIGINT NOT NULL,
-                    sha256 BINARY(32) NOT NULL
-                );
-                """
-            )
-            execute(
-                """
-                CREATE TABLE embed_thumbnails(
-                    sha256 BINARY(32) PRIMARY KEY,
-                    fileOffset BIGINT NOT NULL,
-                    fileLength BIGINT NOT NULL,
-                    mimeType VARCHAR
-                );
-                """
-            )
-            LOGGER.info("Created tables")
         }
     }
 

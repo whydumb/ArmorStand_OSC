@@ -12,11 +12,13 @@ fun <T : BaseArmorStandScreen<T>> BaseArmorStandScreen<T>.textField(
     width: Int = this.width,
     height: Int = 20,
     text: Flow<String>,
+    maxChars: Int? = null,
     onChanged: (String) -> Unit,
 ) = TextFieldWidget(textRenderer, width, height, Text.empty()).apply {
     placeHolder?.let {
         setPlaceholder(placeHolder)
     }
+    setMaxLength(maxChars ?: Int.MAX_VALUE)
     setChangedListener {
         onChanged(it)
     }

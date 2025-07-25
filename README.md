@@ -54,6 +54,8 @@ Apache 2.0 许可证授权。
 
 项目使用了 [KaiMyEntity-C](https://github.com/Gengorou-C/KAIMyEntity-C) 项目的动画作为默认动画，在此感谢。
 
+使用了来自 [Cherished Worlds](https://github.com/illusivesoulworks/cherishedworlds) 的贴图作为收藏图标，在此感谢。
+
 ## 许可证
 
 本 mod 以 LGPL 3.0 及以上版本授权，在发布和修改时请遵守许可证要求。
@@ -115,8 +117,10 @@ which adds a ball-shaped block, as an example for model rendering of BlazeRod. D
 
 Thanks for [Saba](https://github.com/benikabocha/saba) project for providing reference for MMD (PMX/PMD/VMD format).
 
-This project used animations from [KaiMyEntity-C](https://github.com/Gengorou-C/KAIMyEntity-C) as default animation.
-Thanks to them.
+This project used animations from [KaiMyEntity-C](https://github.com/Gengorou-C/KAIMyEntity-C) as default animation,
+thanks to them.
+
+The favorite icon is from [Cherished Worlds](https://github.com/illusivesoulworks/cherishedworlds), thanks to them.
 
 ## License
 

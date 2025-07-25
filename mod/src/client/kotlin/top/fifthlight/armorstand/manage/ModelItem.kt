@@ -10,6 +10,7 @@ data class ModelItem(
     val name: String,
     val lastChanged: Long,
     val hash: ModelHash,
+    var favorite: Boolean = false,
 ) {
     val type by lazy {
         val extension = path.extension.lowercase()

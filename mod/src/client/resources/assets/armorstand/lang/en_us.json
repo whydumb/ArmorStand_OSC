@@ -15,6 +15,7 @@
   "armorstand.config.clear": "Clear model",
   "armorstand.config.search_placeholder": "Search…",
   "armorstand.config.tab.preview": "Preview",
+  "armorstand.config.tab.settings": "Settings",
   "armorstand.config.tab.metadata": "Metadata",
   "armorstand.debug_screen": "ArmorStand debug screen",
   "armorstand.debug_screen.tip": "Functions below are for debugging only.",

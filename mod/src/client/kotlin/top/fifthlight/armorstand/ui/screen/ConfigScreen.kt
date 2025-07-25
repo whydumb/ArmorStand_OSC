@@ -157,9 +157,13 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
                                 modelItem = item,
                                 textRenderer = textRenderer,
                                 padding = Insets(8),
-                            ) {
-                                viewModel.selectModel(item.path)
-                            }
+                                onPressAction = {
+                                    viewModel.selectModel(it.path)
+                                },
+                                onFavoriteAction = {
+                                    viewModel.setFavoriteModel(it.path, !it.favorite)
+                                },
+                            )
                             grid.add(button)
                         }
                         grid.refreshPositions()
@@ -255,12 +259,8 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
                     gap = gap,
                 ).apply {
                     listOf(
-                        sendModelDataButton,
-                        showOtherPlayersButton,
-                        hidePlayerShadowButton,
                         invertHeadDirectionButton,
                         modelScaleSlider,
-                        thirdPersonDistanceScaleSlider,
                     ).forEach {
                         add(
                             it,
@@ -268,6 +268,34 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
                         )
                     }
                     pack()
+                }
+            )
+        }
+    }
+
+    private val settingsTab = LayoutScreenTab(
+        title = Text.translatable("armorstand.config.tab.settings"),
+        padding = Insets(8),
+    ) {
+        BorderLayout(
+            direction = BorderLayout.Direction.VERTICAL,
+        ).apply {
+            setCenterElement(
+                LinearLayout(
+                    direction = LinearLayout.Direction.VERTICAL,
+                    padding = Insets(top = 8),
+                    gap = 8,
+                ).apply {
+                    listOf(
+                        sendModelDataButton,
+                        showOtherPlayersButton,
+                        thirdPersonDistanceScaleSlider,
+                    ).forEach {
+                        add(
+                            it,
+                            expand = true
+                        )
+                    }
                 }
             )
         }
@@ -298,7 +326,7 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
     )
 
     private var tabNavigationWidget = TabNavigationWidget.builder(tabManager, width)
-        .tabs(previewTab, metadataTab)
+        .tabs(previewTab, settingsTab, metadataTab)
         .build()
 
     private var initialized = false

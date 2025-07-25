@@ -30,23 +30,30 @@ class ModelButton(
     private val modelItem: ModelItem,
     private val textRenderer: TextRenderer,
     private val padding: Insets = Insets(),
-    onPressAction: () -> Unit,
+    onPressAction: (ModelItem) -> Unit,
+    private val onFavoriteAction: (ModelItem) -> Unit,
 ) : ButtonWidget(
     x,
     y,
     width,
     height,
     Text.literal(modelItem.name),
-    { onPressAction.invoke() },
+    { onPressAction.invoke(modelItem) },
     DEFAULT_NARRATION_SUPPLIER,
 ), AutoCloseable {
     companion object {
         private val LOGGER = LoggerFactory.getLogger(ModelButton::class.java)
         private val LOADING_ICON: Identifier = Identifier.of("armorstand", "loading")
+        private val STAR_ICON: Identifier = Identifier.of("armorstand", "star")
+        private val STAR_EMPTY_ICON: Identifier = Identifier.of("armorstand", "star_empty")
+        private val STAR_HOVERED_ICON: Identifier = Identifier.of("armorstand", "star_hovered")
+        private val STAR_EMPTY_HOVERED_ICON: Identifier = Identifier.of("armorstand", "star_empty_hovered")
         private const val ICON_WIDTH = 32
         private const val ICON_HEIGHT = 32
         private const val SMALL_ICON_WIDTH = 16
         private const val SMALL_ICON_HEIGHT = 16
+        private const val STAR_ICON_SIZE = 9
+        private const val STAR_ICON_PADDING = 4
     }
 
     private var closed = false
@@ -152,6 +159,21 @@ class ModelButton(
         }
     }
 
+    private val favoriteButtonXRange
+        get() = x + width - STAR_ICON_SIZE - STAR_ICON_PADDING until x + width - STAR_ICON_PADDING
+    private val favoriteButtonYRange
+        get() = y + STAR_ICON_PADDING until y + STAR_ICON_SIZE + STAR_ICON_PADDING
+
+    override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
+        val clickedFavoriteButton = mouseX.toInt() in favoriteButtonXRange && mouseY.toInt() in favoriteButtonYRange
+        if (active && visible && isValidClickButton(button) && clickedFavoriteButton) {
+            playDownSound(MinecraftClient.getInstance().getSoundManager())
+            onFavoriteAction.invoke(modelItem)
+            return true
+        }
+        return super.mouseClicked(mouseX, mouseY, button)
+    }
+
     override fun renderWidget(
         context: DrawContext,
         mouseX: Int,
@@ -183,6 +205,34 @@ class ModelButton(
                 width,
                 height,
                 0x44000000u.toInt(),
+            )
+        }
+        val mouseInFavoriteIcon = mouseX in favoriteButtonXRange && mouseY in favoriteButtonYRange
+        if (modelItem.favorite) {
+            context.drawGuiTexture(
+                RenderPipelines.GUI_TEXTURED,
+                if (mouseInFavoriteIcon) {
+                    STAR_HOVERED_ICON
+                } else {
+                    STAR_ICON
+                },
+                favoriteButtonXRange.first,
+                favoriteButtonYRange.first,
+                STAR_ICON_SIZE,
+                STAR_ICON_SIZE,
+            )
+        } else if (hovered) {
+            context.drawGuiTexture(
+                RenderPipelines.GUI_TEXTURED,
+                if (mouseInFavoriteIcon) {
+                    STAR_EMPTY_HOVERED_ICON
+                } else {
+                    STAR_EMPTY_ICON
+                },
+                favoriteButtonXRange.first,
+                favoriteButtonYRange.first,
+                STAR_ICON_SIZE,
+                STAR_ICON_SIZE,
             )
         }
         val top = y + padding.top

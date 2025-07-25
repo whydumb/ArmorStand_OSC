@@ -61,11 +61,12 @@ class ResultTable(
                 table: ResultTable,
                 context: DrawContext,
             ) {
-                context.drawText(
+                context.drawWrappedText(
                     table.textRenderer,
                     message ?: Text.translatable("armorstand.debug_database.query_failed"),
                     table.x,
                     table.y,
+                    table.width,
                     Colors.WHITE,
                     false,
                 )

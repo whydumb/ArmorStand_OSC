@@ -120,6 +120,12 @@ class ConfigViewModel(scope: CoroutineScope) : ViewModel(scope) {
         }
     }
 
+    fun setFavoriteModel(path: Path, favorite: Boolean) {
+        scope.launch {
+            ModelManager.setFavoriteModel(path, favorite)
+        }
+    }
+
     fun updatePageSize(pageSize: Int?) {
         pageSize?.let {
             check(pageSize > 0) { "Invalid page size: $pageSize" }
