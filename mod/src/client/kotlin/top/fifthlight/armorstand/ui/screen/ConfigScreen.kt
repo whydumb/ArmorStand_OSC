@@ -289,6 +289,7 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
                     listOf(
                         sendModelDataButton,
                         showOtherPlayersButton,
+                        hidePlayerShadowButton,
                         thirdPersonDistanceScaleSlider,
                     ).forEach {
                         add(

@@ -30,6 +30,7 @@
   "armorstand.name": "盔甲架",
   "armorstand.keybinding.config": "打开配置",
   "armorstand.keybinding.animation": "设置动画",
+  "armorstand.keybinding.model_switch": "切换模型",
   "armorstand.page.switcher": "%d / %d",
   "armorstand.animation": "动画",
   "armorstand.animation.title": "动画",
@@ -75,5 +76,7 @@
   "armorstand.metadata.modification_permission.prohibited": "修改：禁止",
   "armorstand.metadata.modification_permission.allow_modification": "修改：允许",
   "armorstand.metadata.modification_permission.allow_modification_redistribution": "修改：允许，并且可以再分发",
-  "armorstand.metadata.permission_url": "权限声明链接：%s"
+  "armorstand.metadata.permission_url": "权限声明链接：%s",
+  "armorstand.model_switch.empty": "没有收藏的模型。",
+  "armorstand.model_switch.no_selection": "没有选中模型"
 }

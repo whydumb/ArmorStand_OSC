@@ -13,6 +13,7 @@ import net.minecraft.client.option.KeyBinding
 import org.lwjgl.glfw.GLFW
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.debug.ModelManagerDebugFrame
+import top.fifthlight.armorstand.event.ScreenEvents
 import top.fifthlight.armorstand.manage.ModelManager
 import top.fifthlight.armorstand.network.PlayerModelUpdateS2CPayload
 import top.fifthlight.armorstand.state.ClientModelPathManager
@@ -21,6 +22,7 @@ import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.armorstand.state.NetworkModelSyncer
 import top.fifthlight.armorstand.ui.screen.AnimationScreen
 import top.fifthlight.armorstand.ui.screen.ConfigScreen
+import top.fifthlight.armorstand.ui.screen.ModelSwitchScreen
 import top.fifthlight.armorstand.util.ThreadExecutorDispatcher
 import javax.swing.SwingUtilities
 
@@ -34,6 +36,11 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
     private val animationKeyBinding = KeyBinding(
         "armorstand.keybinding.animation",
         GLFW.GLFW_KEY_K,
+        "armorstand.name"
+    )
+    val modelSwitchKeyBinding = KeyBinding(
+        "armorstand.keybinding.model_switch",
+        GLFW.GLFW_KEY_U,
         "armorstand.name"
     )
     var debug: Boolean = false
@@ -75,6 +82,18 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
             PlayerRenderer.endFrame()
         }
 
+        ScreenEvents.UNLOCK_CURSOR.register { screen ->
+            when (screen) {
+                is ModelSwitchScreen -> false
+                else -> true
+            }
+        }
+        ScreenEvents.MOVE_VIEW.register { screen ->
+            when (screen) {
+                is ModelSwitchScreen -> false
+                else -> true
+            }
+        }
 
         ClientLifecycleEvents.CLIENT_STARTED.register { client ->
             scope = CoroutineScope(SupervisorJob() + ThreadExecutorDispatcher(client))
@@ -98,6 +117,7 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
         }
         KeyBindingHelper.registerKeyBinding(configKeyBinding)
         KeyBindingHelper.registerKeyBinding(animationKeyBinding)
+        KeyBindingHelper.registerKeyBinding(modelSwitchKeyBinding)
         ClientTickEvents.START_CLIENT_TICK.register { client ->
             if (client.player == null) {
                 return@register
@@ -110,6 +130,9 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
             }
             if (animationKeyBinding.isPressed) {
                 client.setScreen(AnimationScreen(null))
+            }
+            if (modelSwitchKeyBinding.isPressed) {
+                client.setScreen(ModelSwitchScreen(null))
             }
         }
     }

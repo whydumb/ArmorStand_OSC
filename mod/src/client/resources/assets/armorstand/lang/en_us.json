@@ -30,6 +30,7 @@
   "armorstand.name": "ArmorStand",
   "armorstand.keybinding.config": "Open config",
   "armorstand.keybinding.animation": "Setup animation",
+  "armorstand.keybinding.model_switch": "Switch model",
   "armorstand.page.switcher": "%d / %d",
   "armorstand.animation": "Animation",
   "armorstand.animation.title": "Animations",
@@ -75,5 +76,7 @@
   "armorstand.metadata.modification_permission.prohibited": "Modification Permission: Prohibited",
   "armorstand.metadata.modification_permission.allow_modification": "Modification Permission: Allow modification",
   "armorstand.metadata.modification_permission.allow_modification_redistribution": "Modification Permission: Allow modification & redistribution",
-  "armorstand.metadata.permission_url": "Permission URL: %s"
+  "armorstand.metadata.permission_url": "Permission URL: %s",
+  "armorstand.model_switch.empty": "No favorite model.",
+  "armorstand.model_switch.no_selection": "No model selected"
 }

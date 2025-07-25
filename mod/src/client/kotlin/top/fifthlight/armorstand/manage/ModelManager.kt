@@ -295,6 +295,83 @@ object ModelManager {
         }
     }
 
+    suspend fun getFavoriteModels(): List<ModelItem> {
+        waitUntilFirstScan()
+        return withContext(Dispatchers.IO) {
+            transaction {
+                query(
+                    """
+                    SELECT
+                        m.path, m.name, m.lastChanged, m.sha256, TRUE AS isFavorite
+                    FROM
+                        model m
+                    INNER JOIN
+                        favorite f ON m.path = f.path
+                    ORDER BY f.favorite_at DESC
+                    """
+                ).use { result ->
+                    buildList {
+                        while (result.next()) {
+                            add(result.readModelItem())
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    suspend fun getTotalFavoriteModels(): Int {
+        waitUntilFirstScan()
+        return withContext(Dispatchers.IO) {
+            transaction {
+                query(
+                    """
+                    SELECT
+                        COUNT(*)
+                    FROM
+                        model m
+                    INNER JOIN
+                        favorite f ON m.path = f.path
+                    """
+                ).use { result ->
+                    result.skipToInitialRow()
+                    result.getInt(1)
+                }
+            }
+        }
+    }
+
+    suspend fun getFavoriteModelIndex(path: Path): Int? {
+        waitUntilFirstScan()
+        return withContext(Dispatchers.IO) {
+            transaction {
+                prepareQuery(
+                    """
+                    SELECT ranked.rank_num
+                    FROM (
+                        SELECT
+                            m.path,
+                            ROW_NUMBER() OVER (ORDER BY f.favorite_at DESC) AS rank_num
+                        FROM
+                            model m
+                        INNER JOIN
+                            favorite f ON m.path = f.path
+                    ) AS ranked
+                    WHERE ranked.path = ?;
+                    """
+                ) {
+                    setString(1, path.normalize().toString())
+                }.use { result ->
+                    if (result.next()) {
+                        result.getInt(1) - 1
+                    } else {
+                        null
+                    }
+                }
+            }
+        }
+    }
+
     private fun calculateSha256(path: Path): ByteArray {
         val digest = MessageDigest.getInstance("SHA-256")
         FileChannel.open(path).use { channel ->
