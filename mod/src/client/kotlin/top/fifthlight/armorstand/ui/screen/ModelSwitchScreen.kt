@@ -14,6 +14,7 @@ import net.minecraft.util.Identifier
 import top.fifthlight.armorstand.ArmorStandClient
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.manage.ModelItem
+import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.armorstand.ui.component.ModelIcon
 import top.fifthlight.armorstand.ui.component.Surface
 import top.fifthlight.armorstand.ui.model.ModelSwitchViewModel
@@ -114,6 +115,7 @@ class ModelSwitchScreen(parent: Screen? = null) : ArmorStandScreen<ModelSwitchSc
             val currentModel = modelIcons.getOrNull(TOTAL_ITEMS / 2)
             if (currentModel != null) {
                 val (_, item) = currentModel
+                ModelInstanceManager.addFavoriteModelPath(item.path)
                 ConfigHolder.update {
                     copy(model = item.path.toString())
                 }

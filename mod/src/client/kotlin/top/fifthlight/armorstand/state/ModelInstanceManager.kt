@@ -27,6 +27,18 @@ object ModelInstanceManager {
     val modelCaches = mutableMapOf<Path, ModelCache>()
     val modelInstanceItems = mutableMapOf<UUID, ModelInstanceItem>()
     val defaultAnimationDir: Path = modelDir.resolve("animations")
+    private const val MAX_CACHE_FAVORITE_MODEL_ITEMS = 5
+    val favoriteModelPaths = ArrayDeque<Path>()
+
+    fun addFavoriteModelPath(path: Path) {
+        if (path in favoriteModelPaths) {
+            return
+        }
+        favoriteModelPaths.addFirst(path)
+        while (favoriteModelPaths.size > MAX_CACHE_FAVORITE_MODEL_ITEMS) {
+            favoriteModelPaths.removeLast()
+        }
+    }
 
     sealed class ModelCache {
         data object Failed : ModelCache()
@@ -213,6 +225,9 @@ object ModelInstanceManager {
         // cleaned unused model caches
         modelCaches.entries.removeIf { (path, item) ->
             if (path == ClientModelPathManager.selfPath) {
+                return@removeIf false
+            }
+            if (path in favoriteModelPaths) {
                 return@removeIf false
             }
             val remove = path !in usedPaths

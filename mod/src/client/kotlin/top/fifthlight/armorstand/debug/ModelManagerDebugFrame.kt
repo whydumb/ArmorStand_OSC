@@ -14,7 +14,7 @@ class ModelManagerDebugFrame : JFrame("Model Manager Status") {
         arrayOf("UUID", "Status", "Last Access", "Time Left"), 0
     )
     private val modelTableItem = DefaultTableModel(
-        arrayOf("Path", "Status"), 0
+        arrayOf("Path", "Status", "Is favorited"), 0
     )
     private val itemTable = JTable(itemTableItem)
     private val modelTable = JTable(modelTableItem)
@@ -93,7 +93,8 @@ class ModelManagerDebugFrame : JFrame("Model Manager Status") {
                 when (item) {
                     ModelInstanceManager.ModelCache.Failed -> "Failed"
                     is ModelInstanceManager.ModelCache.Loaded -> "Loaded"
-                }
+                },
+                (path in ModelInstanceManager.favoriteModelPaths).toString(),
             ))
         }
     }
