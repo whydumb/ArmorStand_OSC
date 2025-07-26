@@ -45,6 +45,8 @@ class ModelSwitchScreen(parent: Screen? = null) : ArmorStandScreen<ModelSwitchSc
         private const val MODEL_NAME_LABEL_WIDTH = 320
         private const val MODEL_NAME_LABEL_HEIGHT = 32
         private const val MODEL_ICON_CACHE_SIZE = 32
+        private val EMPTY_MESSAGE = Text.translatable("armorstand.model_switch.empty")
+        private val NO_SELECTION_MESSAGE = Text.translatable("armorstand.model_switch.no_selection")
     }
 
     override fun shouldPause() = false
@@ -102,7 +104,13 @@ class ModelSwitchScreen(parent: Screen? = null) : ArmorStandScreen<ModelSwitchSc
 
     override fun tick() {
         viewModel.clientTick()
-        if (viewModel.uiState.value.needToBeClosed) {
+        val uiState = viewModel.uiState.value
+        if (uiState.content == ModelSwitchScreenState.Content.Empty) {
+            currentClient.player?.sendMessage(EMPTY_MESSAGE, true)
+            close()
+            return
+        }
+        if (uiState.needToBeClosed) {
             val currentModel = modelIcons.getOrNull(TOTAL_ITEMS / 2)
             if (currentModel != null) {
                 val (_, item) = currentModel
@@ -112,9 +120,6 @@ class ModelSwitchScreen(parent: Screen? = null) : ArmorStandScreen<ModelSwitchSc
             }
             close()
             return
-        }
-        if (ArmorStandClient.modelSwitchKeyBinding.isPressed) {
-            switchModel(true)
         }
     }
 
@@ -159,6 +164,14 @@ class ModelSwitchScreen(parent: Screen? = null) : ArmorStandScreen<ModelSwitchSc
         }
     }
 
+    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
+        if (ArmorStandClient.modelSwitchKeyBinding.matchesKey(keyCode, scanCode)) {
+            switchModel(true)
+            return true
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers)
+    }
+
     private fun switchModel(next: Boolean) {
         currentClient.soundManager.play(PositionedSoundInstance.master(SoundEvents.UI_BUTTON_CLICK, 1.0F))
         viewModel.switchModel(next)
@@ -178,18 +191,7 @@ class ModelSwitchScreen(parent: Screen? = null) : ArmorStandScreen<ModelSwitchSc
                 )
             }
 
-            ModelSwitchScreenState.Content.Empty -> {
-                val textRenderer = currentClient.textRenderer
-                val text = Text.translatable("armorstand.model_switch.empty")
-                val textWidth = textRenderer.getWidth(text)
-                context.drawTextWithShadow(
-                    textRenderer,
-                    text,
-                    (width - textWidth) / 2,
-                    (height - textRenderer.fontHeight) / 2,
-                    Colors.RED,
-                )
-            }
+            ModelSwitchScreenState.Content.Empty -> {}
 
             is ModelSwitchScreenState.Content.Loaded -> {
                 val left = (width - TOTAL_WIDTH) / 2
@@ -237,7 +239,7 @@ class ModelSwitchScreen(parent: Screen? = null) : ArmorStandScreen<ModelSwitchSc
                         textTextTop += textRenderer.fontHeight
                     }
                 } else {
-                    val text = Text.translatable("armorstand.model_switch.no_selection")
+                    val text = NO_SELECTION_MESSAGE
                     val textWidth = textRenderer.getWidth(text)
                     val textTextTop = labelTop + (MODEL_NAME_LABEL_HEIGHT - textRenderer.fontHeight) / 2
                     context.drawTextWithShadow(
