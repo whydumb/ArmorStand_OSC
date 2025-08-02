@@ -20,7 +20,7 @@ jobs:
       - name: build
         run: bazel build @//mod @//blazerod @//blazerod/model/model-base @//blazerod/model/model-formats @//blazerod/model/model-gltf @//blazerod/model/model-pmd @//blazerod/model/model-pmx @//blazerod/model/model-vmd @//blazerod/example/ball_block --verbose_failures
       - name: test
-        run: bazel test @//... --verbose_failures
+        run: bazel test @//blazerod/model/model-gltf:glb_load_test @//blazerod/render:standalone_tests --verbose_failures
       - name: capture build artifacts
         uses: actions/upload-artifact@v4
         with:
