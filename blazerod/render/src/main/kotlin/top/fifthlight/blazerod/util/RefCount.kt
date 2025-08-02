@@ -6,7 +6,7 @@ import top.fifthlight.blazerod.debug.ResourceCountTracker
 
 class InvalidReferenceCountException(
     obj: Any,
-    count: Int
+    count: Int,
 ) : Exception("Bad reference count $count for object $obj")
 
 interface RefCount {
@@ -19,10 +19,10 @@ interface RefCount {
 abstract class AbstractRefCount : RefCount {
     final override var closed: Boolean = false
         private set
-    
+
     private val initializedAtomic = atomic(false)
     private var initialized by initializedAtomic
-        
+
     private val referenceCountAtomic = atomic(0)
     final override var referenceCount by referenceCountAtomic
 
@@ -78,3 +78,5 @@ inline fun <R> RefCount.use(crossinline block: () -> R): R {
         decreaseReferenceCount()
     }
 }
+
+fun RefCount.checkInUse() = require(referenceCount > 0) { "Object $this is not in use." }

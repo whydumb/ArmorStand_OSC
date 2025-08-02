@@ -2,10 +2,10 @@ package top.fifthlight.blazerod.extension
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice
 import com.mojang.blaze3d.systems.RenderPass
-import top.fifthlight.blazerod.render.VertexBuffer
+import com.mojang.blaze3d.vertex.VertexFormat
 
-fun RenderPass.setVertexBuffer(vertexBuffer: VertexBuffer) =
-    (this as RenderPassExt).`blazerod$setVertexBuffer`(vertexBuffer)
+fun RenderPass.setVertexFormatMode(mode: VertexFormat.DrawMode) =
+    (this as RenderPassExt).`blazerod$setVertexFormatMode`(mode)
 
 fun RenderPass.setStorageBuffer(name: String, buffer: GpuBufferSlice) =
     (this as RenderPassExt).`blazerod$setStorageBuffer`(name, buffer)

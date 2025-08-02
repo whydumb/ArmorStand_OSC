@@ -5,6 +5,7 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice
 import com.mojang.blaze3d.systems.RenderPass
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.textures.GpuTextureView
+import com.mojang.blaze3d.vertex.VertexFormat
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gl.RenderPassImpl
 import net.minecraft.client.render.LightmapTextureManager
@@ -21,16 +22,18 @@ import top.fifthlight.blazerod.model.node.RenderNodeComponent
 import top.fifthlight.blazerod.model.uniform.InstanceDataUniformBuffer
 import top.fifthlight.blazerod.model.uniform.MorphDataUniformBuffer
 import top.fifthlight.blazerod.model.uniform.SkinModelIndicesUniformBuffer
-import top.fifthlight.blazerod.render.IndexBuffer
-import top.fifthlight.blazerod.render.VertexBuffer
+import top.fifthlight.blazerod.render.GpuIndexBuffer
+import top.fifthlight.blazerod.render.RefCountedGpuBuffer
 import top.fifthlight.blazerod.render.setIndexBuffer
 import top.fifthlight.blazerod.util.AbstractRefCount
 import top.fifthlight.blazerod.util.upload
 import java.util.*
 
 class RenderPrimitive(
-    val vertexBuffer: VertexBuffer,
-    val indexBuffer: IndexBuffer?,
+    val vertices: Int,
+    val vertexFormatMode: VertexFormat.DrawMode,
+    val vertexBuffer: RefCountedGpuBuffer,
+    val indexBuffer: GpuIndexBuffer?,
     val material: RenderMaterial<*>,
     val targets: Targets?,
     val targetGroups: List<MorphTargetGroup>,
@@ -131,7 +134,7 @@ class RenderPrimitive(
             targetBuffer?.let { targetBuffer ->
                 targets?.let { targets ->
                     morphDataUniformBufferSlice = MorphDataUniformBuffer.write {
-                        totalVertices = vertexBuffer.verticesCount
+                        totalVertices = vertices
                         posTargets = targets.position.targetsCount
                         colorTargets = targets.color.targetsCount
                         texCoordTargets = targets.texCoord.targetsCount
@@ -192,7 +195,8 @@ class RenderPrimitive(
                         setUniform("MorphTargetIndices", morphTargetIndicesBuffer)
                     }
                 }
-                setVertexBuffer(vertexBuffer)
+                setVertexFormatMode(vertexFormatMode)
+                setVertexBuffer(0, vertexBuffer.inner)
                 targets?.let { targets ->
                     bindMorphTargets(targets)
                 }
@@ -200,7 +204,7 @@ class RenderPrimitive(
                     setIndexBuffer(indices)
                     drawIndexed(0, 0, indices.length, 1)
                 } ?: run {
-                    draw(0, vertexBuffer.verticesCount)
+                    draw(0, vertices)
                 }
             }
         } finally {
@@ -256,7 +260,7 @@ class RenderPrimitive(
             component.morphedPrimitiveIndex?.let { morphedPrimitiveIndex ->
                 val targets = targets ?: error("Morphed primitive index was set but targets were not")
                 morphDataUniformBufferSlice = MorphDataUniformBuffer.write {
-                    totalVertices = vertexBuffer.verticesCount
+                    totalVertices = vertices
                     posTargets = targets.position.targetsCount
                     colorTargets = targets.color.targetsCount
                     texCoordTargets = targets.texCoord.targetsCount
@@ -318,7 +322,8 @@ class RenderPrimitive(
                         setUniform("MorphTargetIndices", morphTargetIndicesBuffer)
                     }
                 }
-                setVertexBuffer(vertexBuffer)
+                setVertexFormatMode(vertexFormatMode)
+                setVertexBuffer(0, vertexBuffer.inner)
                 targets?.let { targets ->
                     bindMorphTargets(targets)
                 }
@@ -326,7 +331,7 @@ class RenderPrimitive(
                     setIndexBuffer(indices)
                     drawIndexed(0, 0, indices.length, tasks.size)
                 } ?: run {
-                    draw(0, 0, vertexBuffer.verticesCount, tasks.size)
+                    draw(0, 0, vertices, tasks.size)
                 }
             }
         } finally {

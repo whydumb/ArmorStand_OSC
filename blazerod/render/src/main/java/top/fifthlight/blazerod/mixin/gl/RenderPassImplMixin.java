@@ -1,6 +1,5 @@
 package top.fifthlight.blazerod.mixin.gl;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.gl.GlCommandEncoder;
@@ -15,17 +14,12 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.fifthlight.blazerod.extension.internal.RenderPassExtInternal;
-import top.fifthlight.blazerod.render.VertexBuffer;
 
 import java.util.HashMap;
 import java.util.Map;
 
 @Mixin(RenderPassImpl.class)
 public abstract class RenderPassImplMixin implements RenderPassExtInternal {
-    @Shadow
-    @Final
-    public GpuBuffer[] vertexBuffers;
-
     @Shadow
     private boolean closed;
 
@@ -34,31 +28,21 @@ public abstract class RenderPassImplMixin implements RenderPassExtInternal {
     private GlCommandEncoder resourceManager;
 
     @Unique
-    VertexBuffer vertexBuffer;
+    private HashMap<String, GpuBufferSlice> storageBuffers;
+
+    @Unique
+    private VertexFormat.DrawMode vertexFormatMode;
+
+    @Override
+    public void blazerod$setVertexFormatMode(VertexFormat.DrawMode vertexFormatMode) {
+        this.vertexFormatMode = vertexFormatMode;
+    }
 
     @Override
     @Nullable
-    public VertexBuffer blazerod$getVertexBuffer() {
-        return vertexBuffer;
+    public VertexFormat.DrawMode blazerod$getVertexFormatMode() {
+        return vertexFormatMode;
     }
-
-    @Override
-    public void blazerod$setVertexBuffer(@NotNull VertexBuffer vertexBuffer) {
-        if (this.vertexBuffers[0] != null) {
-            throw new IllegalStateException("Can't set BlazeRod VertexBuffer to a RenderPass already having a Blaze3D vertex buffer");
-        }
-        this.vertexBuffer = vertexBuffer;
-    }
-
-    @Inject(method = "setVertexBuffer", at = @At("HEAD"))
-    public void onSetVertexBuffer(int i, GpuBuffer gpuBuffer, CallbackInfo ci) {
-        if (this.vertexBuffer != null) {
-            throw new IllegalStateException("Can't set Blaze3d VertexBuffer to a RenderPass already having an BlazeRod vertex buffer");
-        }
-    }
-
-    @Unique
-    private HashMap<String, GpuBufferSlice> storageBuffers;
 
     @Inject(method = "<init>", at = @At("TAIL"))
     private void afterInit(GlCommandEncoder resourceManager, boolean hasDepth, CallbackInfo ci) {

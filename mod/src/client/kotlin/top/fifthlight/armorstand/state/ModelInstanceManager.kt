@@ -1,13 +1,19 @@
 package top.fifthlight.armorstand.state
 
 import com.mojang.logging.LogUtils
+import kotlinx.coroutines.*
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.MinecraftClient
+import top.fifthlight.armorstand.ArmorStand
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.blazerod.animation.AnimationItem
 import top.fifthlight.blazerod.animation.AnimationLoader
-import top.fifthlight.blazerod.model.*
+import top.fifthlight.blazerod.model.Metadata
+import top.fifthlight.blazerod.model.ModelFileLoaders
+import top.fifthlight.blazerod.model.ModelInstance
+import top.fifthlight.blazerod.model.RenderScene
+import top.fifthlight.blazerod.model.load.ModelLoader
 import top.fifthlight.blazerod.util.RefCount
 import top.fifthlight.blazerod.util.TimeUtil
 import java.nio.file.Path
@@ -24,9 +30,12 @@ object ModelInstanceManager {
     val modelDir: Path = System.getProperty("armorstand.modelDir")?.let {
         Path.of(it).toAbsolutePath()
     } ?: FabricLoader.getInstance().gameDir.resolve("models")
-    val modelCaches = mutableMapOf<Path, ModelCache>()
+    val modelCaches = mutableMapOf<Path, Deferred<ModelCache>>()
     val modelInstanceItems = mutableMapOf<UUID, ModelInstanceItem>()
     val defaultAnimationDir: Path = modelDir.resolve("animations")
+    private val scope
+        get() = ArmorStand.instance.scope
+
     private const val MAX_CACHE_FAVORITE_MODEL_ITEMS = 5
     val favoriteModelPaths = ArrayDeque<Path>()
 
@@ -68,24 +77,27 @@ object ModelInstanceManager {
         ) : RefCount by instance, ModelInstanceItem
     }
 
-    private fun loadModel(path: Path): ModelCache {
+    private suspend fun loadModel(path: Path): ModelCache = withContext(Dispatchers.Default) {
         val (result, duration) = measureTimedValue {
             val modelPath = modelDir.resolve(path).toAbsolutePath()
             val result = try {
                 ModelFileLoaders.probeAndLoad(modelPath)
             } catch (ex: Exception) {
                 LOGGER.warn("Model load failed", ex)
-                return ModelCache.Failed
-            } ?: return ModelCache.Failed
+                return@withContext ModelCache.Failed
+            } ?: return@withContext ModelCache.Failed
 
-            val model = result.model ?: return ModelCache.Failed
+            val model = result.model ?: return@withContext ModelCache.Failed
             LOGGER.info("Model metadata: ${result.metadata}")
 
             val scene = try {
-                ModelLoader().loadModel(model)
+                ModelLoader.loadModel(model) ?: run {
+                    LOGGER.warn("Model contains no scene")
+                    return@withContext ModelCache.Failed
+                }
             } catch (ex: Exception) {
                 LOGGER.warn("Model scene load failed", ex)
-                return ModelCache.Failed
+                return@withContext ModelCache.Failed
             }
             val animations = result.animations?.map { AnimationLoader.load(scene, it) } ?: listOf()
 
@@ -109,17 +121,20 @@ object ModelInstanceManager {
             )
         }
         LOGGER.info("Model $path loaded, duration: $duration")
-        return result
+        result
     }
 
-    private fun loadCache(path: Path): ModelCache = modelCaches.getOrPut(path) {
-        val item = loadModel(path)
-        (item as? ModelCache.Loaded)?.increaseReferenceCount()
-        item
+    private fun loadCache(path: Path): Deferred<ModelCache> = modelCaches.getOrPut(path) {
+        scope.async {
+            val item = loadModel(path)
+            (item as? ModelCache.Loaded)?.increaseReferenceCount()
+            item
+        }
     }
 
     fun getSelfItem(load: Boolean) = selfUuid?.let { get(it, time = null, load = load) }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun get(uuid: UUID, time: Long?, load: Boolean = true): ModelInstanceItem? {
         val isSelf = uuid == selfUuid
         if (isSelf && !ConfigHolder.config.value.showOtherPlayerModel) {
@@ -158,7 +173,11 @@ object ModelInstanceManager {
             return null
         }
 
-        val newItem = when (val cache = loadCache(path)) {
+        val cacheDeferred = loadCache(path)
+        if (!cacheDeferred.isCompleted) {
+            return null
+        }
+        val newItem = when (val cache = cacheDeferred.getCompleted()) {
             ModelCache.Failed -> ModelInstanceItem.Failed(path = path)
             is ModelCache.Loaded -> {
                 val scene = cache.scene
@@ -189,6 +208,7 @@ object ModelInstanceManager {
         return newItem
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun cleanup(time: Long) {
         val usedPaths = mutableSetOf<Path>()
 
@@ -231,8 +251,9 @@ object ModelInstanceManager {
                 return@removeIf false
             }
             val remove = path !in usedPaths
-            if (remove && item is ModelCache.Loaded) {
-                item.scene.decreaseReferenceCount()
+            if (remove && item.isCompleted) {
+                val item = item.getCompleted() as? ModelCache.Loaded
+                item?.scene?.decreaseReferenceCount()
             }
             remove
         }

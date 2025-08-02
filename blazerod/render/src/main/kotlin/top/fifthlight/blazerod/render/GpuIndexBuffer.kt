@@ -5,7 +5,7 @@ import com.mojang.blaze3d.vertex.VertexFormat
 import net.minecraft.util.Identifier
 import top.fifthlight.blazerod.util.AbstractRefCount
 
-class IndexBuffer(
+class GpuIndexBuffer(
     val type: VertexFormat.IndexType,
     val length: Int,
     val buffer: RefCountedGpuBuffer,
@@ -27,4 +27,4 @@ class IndexBuffer(
     }
 }
 
-fun RenderPass.setIndexBuffer(indexBuffer: IndexBuffer) = setIndexBuffer(indexBuffer.buffer.inner, indexBuffer.type)
+fun RenderPass.setIndexBuffer(indexBuffer: GpuIndexBuffer) = setIndexBuffer(indexBuffer.buffer.inner, indexBuffer.type)

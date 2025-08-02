@@ -6,8 +6,10 @@ import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.shaders.ShaderType;
-import com.mojang.blaze3d.vertex.VertexFormat;
-import net.minecraft.client.gl.*;
+import net.minecraft.client.gl.CompiledShaderPipeline;
+import net.minecraft.client.gl.Defines;
+import net.minecraft.client.gl.GlBackend;
+import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -21,18 +23,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.fifthlight.blazerod.extension.GpuDeviceExt;
-import top.fifthlight.blazerod.extension.RenderPipelineExt;
 import top.fifthlight.blazerod.extension.internal.GpuBufferExtInternal;
 import top.fifthlight.blazerod.extension.internal.RenderPipelineExtInternal;
 import top.fifthlight.blazerod.extension.internal.gl.ShaderProgramExt;
-import top.fifthlight.blazerod.helper.ShaderProgramHelper;
-import top.fifthlight.blazerod.render.VertexBuffer;
-import top.fifthlight.blazerod.render.gl.GlVertexBuffer;
 import top.fifthlight.blazerod.util.GlslExtensionProcessor;
 import top.fifthlight.blazerod.util.GpuShaderDataPool;
 
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -141,16 +138,6 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
         gpuShaderDataPool.close();
     }
 
-    @WrapOperation(method = "compileRenderPipeline", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/ShaderProgram;create(Lnet/minecraft/client/gl/CompiledShader;Lnet/minecraft/client/gl/CompiledShader;Lcom/mojang/blaze3d/vertex/VertexFormat;Ljava/lang/String;)Lnet/minecraft/client/gl/ShaderProgram;"))
-    private ShaderProgram onCompileShaderProgram(CompiledShader vertexShader, CompiledShader fragmentShader, VertexFormat format, String name, Operation<ShaderProgram> original, RenderPipeline pipeline) throws ShaderLoader.LoadException {
-        var vertexType = ((RenderPipelineExt) pipeline).blazerod$getVertexType();
-        if (vertexType.isPresent()) {
-            return ShaderProgramHelper.create(vertexShader, fragmentShader, vertexType.get(), pipeline.getLocation().toString());
-        } else {
-            return original.call(vertexShader, fragmentShader, format, name);
-        }
-    }
-
     @Inject(method = "compileRenderPipeline", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/ShaderProgram;set(Ljava/util/List;Ljava/util/List;)V"))
     private void onSetShaderProgram(RenderPipeline pipeline, BiFunction<Identifier, ShaderType, String> sourceRetriever, CallbackInfoReturnable<CompiledShaderPipeline> cir, @Local ShaderProgram shaderProgram) {
         var shaderProgramExt = (ShaderProgramExt) shaderProgram;
@@ -163,12 +150,6 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
         var context = new GlslExtensionProcessor.Context(glMajorVersion, glMinorVersion, defines);
         var processedShader = GlslExtensionProcessor.process(context, source);
         return original.call(processedShader, defines);
-    }
-
-    @Override
-    @NotNull
-    public VertexBuffer blazerod$createVertexBuffer(VertexFormat.DrawMode mode, List<VertexBuffer.VertexElement> elements, int verticesCount) {
-        return new GlVertexBuffer(mode, elements, verticesCount);
     }
 
     @NotNull
