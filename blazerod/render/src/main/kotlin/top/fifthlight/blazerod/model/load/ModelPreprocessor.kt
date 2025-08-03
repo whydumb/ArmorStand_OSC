@@ -1,11 +1,18 @@
 package top.fifthlight.blazerod.model.load
 
+import com.mojang.blaze3d.systems.RenderSystem
+import com.mojang.blaze3d.textures.TextureFormat
 import com.mojang.blaze3d.vertex.VertexFormat
 import com.mojang.blaze3d.vertex.VertexFormatElement
 import kotlinx.coroutines.*
 import org.lwjgl.system.MemoryUtil
 import top.fifthlight.blazerod.extension.NativeImageExt
+import top.fifthlight.blazerod.extension.TextureFormatExt
+import top.fifthlight.blazerod.extension.supportSsbo
 import top.fifthlight.blazerod.model.*
+import top.fifthlight.blazerod.model.resource.MorphTargetGroup
+import top.fifthlight.blazerod.model.resource.RenderExpression
+import top.fifthlight.blazerod.model.resource.RenderExpressionGroup
 import top.fifthlight.blazerod.model.resource.RenderSkin
 import top.fifthlight.blazerod.render.BlazerodVertexFormatElements
 import top.fifthlight.blazerod.render.BlazerodVertexFormats
@@ -95,7 +102,7 @@ class ModelPreprocessor private constructor(
             alphaCutoff = material.alphaCutoff,
             doubleSided = material.doubleSided,
             skinned = skinned,
-            morphed = false,
+            morphed = morphed,
         )
 
         is Material.Unlit -> MaterialLoadInfo.Unlit(
@@ -106,7 +113,7 @@ class ModelPreprocessor private constructor(
             alphaCutoff = material.alphaCutoff,
             doubleSided = material.doubleSided,
             skinned = skinned,
-            morphed = false,
+            morphed = morphed,
         )
     }
 
@@ -273,12 +280,147 @@ class ModelPreprocessor private constructor(
         return index
     }
 
+    private var morphTargetInfos = mutableListOf<Deferred<MorphTargetsLoadData<MorphTargetsLoadData.TargetInfo>>>()
+
+    @ConsistentCopyVisibility
+    private data class BuildingTarget private constructor(
+        val buffer: ByteBuffer,
+        val itemStride: Int,
+        val targetsCount: Int,
+    ) {
+        companion object {
+            fun of(
+                useSsbo: Boolean,
+                textureFormat: TextureFormat,
+                ssboStride: Int,
+                itemCount: Int,
+                targetsCount: Int,
+            ) = if (useSsbo) {
+                ssboStride
+            } else {
+                textureFormat.pixelSize()
+            }.let { itemStride ->
+                BuildingTarget(
+                    buffer = ByteBuffer.allocateDirect(itemStride * itemCount * targetsCount)
+                        .order(ByteOrder.nativeOrder()),
+                    itemStride = itemStride,
+                    targetsCount = targetsCount,
+                )
+            }
+        }
+
+        fun toLoadData(): MorphTargetsLoadData.TargetInfo {
+            buffer.position(buffer.capacity())
+            buffer.flip()
+            return MorphTargetsLoadData.TargetInfo(
+                buffer = buffer,
+                itemStride = itemStride,
+                targetsCount = targetsCount,
+            )
+        }
+    }
+
+    private fun loadMorphTargets(
+        primitive: Primitive,
+        weights: List<Float>? = null,
+    ): Int {
+        val verticesCount = primitive.attributes.position.count
+        val targets = primitive.targets
+        val loadedTargets = coroutineScope.async(dispatcher) {
+            val useSsbo = RenderSystem.getDevice().supportSsbo
+            val positionTarget = BuildingTarget.of(
+                useSsbo = useSsbo,
+                textureFormat = TextureFormatExt.RGB32F,
+                ssboStride = 16,
+                itemCount = verticesCount,
+                targetsCount = targets.count { it.position != null },
+            )
+            val colorTarget = BuildingTarget.of(
+                useSsbo = useSsbo,
+                textureFormat = TextureFormatExt.RGBA32F,
+                ssboStride = 16,
+                itemCount = verticesCount,
+                targetsCount = targets.count { it.colors.isNotEmpty() },
+            )
+            val texCoordTarget = BuildingTarget.of(
+                useSsbo = useSsbo,
+                textureFormat = TextureFormatExt.RG32F,
+                ssboStride = 8,
+                itemCount = verticesCount,
+                targetsCount = targets.count { it.texcoords.isNotEmpty() },
+            )
+            var posIndex = 0
+            var colorIndex = 0
+            var texCoordIndex = 0
+            var posElements = 0
+            val groups = mutableListOf<MorphTargetGroup>()
+            for ((index, target) in targets.withIndex()) {
+                val position = target.position?.let { position ->
+                    position.read { input ->
+                        positionTarget.buffer.position(posElements * positionTarget.itemStride)
+                        positionTarget.buffer.put(input)
+                        posElements++
+                    }
+                    posIndex++
+                }
+                val color = target.colors.firstOrNull()?.let { color ->
+                    when (color.type) {
+                        Accessor.AccessorType.VEC3 -> {
+                            var index = 0
+                            color.readNormalized { input ->
+                                colorTarget.buffer.putFloat(input)
+                                index++
+                                if (index == 3) {
+                                    // For padding
+                                    colorTarget.buffer.putFloat(0f)
+                                    index = 0
+                                }
+                            }
+                        }
+
+                        Accessor.AccessorType.VEC4 -> color.readNormalized {
+                            colorTarget.buffer.putFloat(it)
+                        }
+
+                        else -> throw AssertionError("Bad morph target: accessor type of color is ${color.type}")
+                    }
+                    colorIndex++
+                }
+                val texCoord = target.texcoords.firstOrNull()?.let { texCoord ->
+                    texCoord.readNormalized {
+                        texCoordTarget.buffer.putFloat(it)
+                    }
+                    texCoordIndex++
+                }
+                groups.add(
+                    MorphTargetGroup(
+                        position = position,
+                        color = color,
+                        texCoord = texCoord,
+                        weight = weights?.getOrNull(index) ?: 0f,
+                    )
+                )
+            }
+            MorphTargetsLoadData(
+                targetGroups = groups,
+                position = positionTarget.toLoadData(),
+                color = colorTarget.toLoadData(),
+                texCoord = texCoordTarget.toLoadData(),
+            )
+        }
+        val targetIndex = morphTargetInfos.size
+        morphTargetInfos.add(loadedTargets)
+        return targetIndex
+    }
+
+    private val nodeToMorphedPrimitiveMap = mutableMapOf<NodeId, MutableList<Int>>()
+    private val meshToMorphedPrimitiveMap = mutableMapOf<MeshId, MutableList<Int>>()
     private fun loadPrimitive(
+        node: Node,
+        mesh: Mesh,
         skinIndex: Int?,
         primitive: Primitive,
     ): PrimitiveLoadInfo? {
-        val skinned =
-            skinIndex != null && primitive.attributes.joints.isNotEmpty() && primitive.attributes.weights.isNotEmpty()
         val vertexFormatMode = when (primitive.mode) {
             Primitive.Mode.POINTS -> return null
             Primitive.Mode.LINE_STRIP -> VertexFormat.DrawMode.LINE_STRIP
@@ -288,12 +430,25 @@ class ModelPreprocessor private constructor(
             Primitive.Mode.TRIANGLE_STRIP -> VertexFormat.DrawMode.TRIANGLE_STRIP
             Primitive.Mode.TRIANGLE_FAN -> VertexFormat.DrawMode.TRIANGLE_FAN
         }
+        val skinned =
+            skinIndex != null && primitive.attributes.joints.isNotEmpty() && primitive.attributes.weights.isNotEmpty()
+        val morphed = primitive.targets.isNotEmpty()
         val material = primitive.material?.let {
             loadMaterial(
                 material = it,
                 skinned = skinned,
-                morphed = false,
+                morphed = morphed,
             )
+        }
+        val morphedPrimitiveIndex = if (material?.morphed == true) {
+            loadMorphTargets(primitive, mesh.weights)
+        } else {
+            null
+        }
+        if (morphedPrimitiveIndex != null) {
+            meshToMorphedPrimitiveMap.getOrPut(mesh.id) { mutableListOf() }.add(morphedPrimitiveIndex)
+            nodeToMorphedPrimitiveMap.getOrPut(node.id) { mutableListOf() }.add(morphedPrimitiveIndex)
+            morphedPrimitiveIndex
         }
         return PrimitiveLoadInfo(
             vertices = primitive.attributes.position.count,
@@ -306,15 +461,19 @@ class ModelPreprocessor private constructor(
                 attributes = primitive.attributes,
             ),
             skinIndex = skinIndex.takeIf { skinned },
+            morphedPrimitiveIndex = morphedPrimitiveIndex,
         )
     }
 
     private val primitiveInfos = mutableListOf<PrimitiveLoadInfo>()
     private fun loadMesh(
+        node: Node,
         mesh: Mesh,
         skinIndex: Int?,
     ) = mesh.primitives.mapNotNull { primitive ->
         val primitiveInfo = loadPrimitive(
+            node = node,
+            mesh = mesh,
             skinIndex = skinIndex,
             primitive = primitive,
         ) ?: return@mapNotNull null
@@ -346,8 +505,35 @@ class ModelPreprocessor private constructor(
                             val skinIndex = model.skins.indexOf(node.skinComponent?.skin).takeIf { it >= 0 }
                             addAll(
                                 loadMesh(
+                                    node = node,
                                     mesh = component.mesh,
                                     skinIndex = skinIndex,
+                                )
+                            )
+                        }
+
+                        is NodeComponent.CameraComponent -> {
+                            add(
+                                NodeLoadInfo.Component.Camera(
+                                    camera = component.camera,
+                                )
+                            )
+                        }
+
+                        is NodeComponent.IkTargetComponent -> {
+                            add(
+                                NodeLoadInfo.Component.IkTarget(
+                                    ikTarget = component.ikTarget,
+                                    transformId = component.transformId,
+                                )
+                            )
+                        }
+
+                        is NodeComponent.InfluenceTargetComponent -> {
+                            add(
+                                NodeLoadInfo.Component.InfluenceTarget(
+                                    influence = component.influence,
+                                    transformId = component.transformId,
                                 )
                             )
                         }
@@ -363,7 +549,69 @@ class ModelPreprocessor private constructor(
         return nodeIndex
     }
 
-    private fun loadScene(scene: Scene): PreProcessModelLoadInfo? {
+    private fun loadExpressions(modelExpressions: List<Expression>): Pair<List<RenderExpression>, List<RenderExpressionGroup>> {
+        val expressionTargetMap = mutableMapOf<Int, Int>()
+        val expressions = buildList {
+            for ((expressionIndex, expression) in modelExpressions.withIndex()) {
+                if (expression !is Expression.Target) {
+                    continue
+                }
+                val expression = RenderExpression(
+                    name = expression.name,
+                    tag = expression.tag,
+                    isBinary = expression.isBinary,
+                    bindings = expression.bindings.flatMap {
+                        when (it) {
+                            is Expression.Target.Binding.MeshMorphTarget -> {
+                                meshToMorphedPrimitiveMap[it.meshId]?.map { index ->
+                                    RenderExpression.Binding.MorphTarget(
+                                        morphedPrimitiveIndex = index,
+                                        groupIndex = it.index,
+                                        weight = it.weight,
+                                    )
+                                } ?: listOf()
+                            }
+
+                            is Expression.Target.Binding.NodeMorphTarget -> {
+                                nodeToMorphedPrimitiveMap[it.nodeId]?.map { index ->
+                                    RenderExpression.Binding.MorphTarget(
+                                        morphedPrimitiveIndex = index,
+                                        groupIndex = it.index,
+                                        weight = it.weight,
+                                    )
+                                } ?: listOf()
+                            }
+                        }
+                    }
+                )
+                if (expression.bindings.isEmpty()) {
+                    continue
+                }
+                expressionTargetMap[expressionIndex] = this.size
+                add(expression)
+            }
+        }
+        val expressionGroups = modelExpressions.mapNotNull { expression ->
+            if (expression !is Expression.Group) {
+                return@mapNotNull null
+            }
+            RenderExpressionGroup(
+                name = expression.name,
+                tag = expression.tag,
+                items = expression.targets.mapNotNull {
+                    val targetIndex =
+                        modelExpressions.indexOf(it.target).takeIf { index -> index != -1 } ?: return@mapNotNull null
+                    RenderExpressionGroup.Item(
+                        expressionIndex = expressionTargetMap[targetIndex] ?: return@mapNotNull null,
+                        influence = it.influence,
+                    )
+                }
+            )
+        }
+        return Pair(expressions, expressionGroups)
+    }
+
+    private fun loadScene(scene: Scene, expressions: List<Expression>): PreProcessModelLoadInfo? {
         val rootNode = NodeLoadInfo(
             nodeId = null,
             nodeName = "Root node",
@@ -374,6 +622,7 @@ class ModelPreprocessor private constructor(
         )
         val rootNodeIndex = nodes.size
         nodes.add(rootNode)
+        val (expressions, expressionGroups) = loadExpressions(expressions)
         return PreProcessModelLoadInfo(
             textures = textures,
             indexBuffers = indexBuffers,
@@ -382,13 +631,16 @@ class ModelPreprocessor private constructor(
             nodes = nodes,
             rootNodeIndex = rootNodeIndex,
             skins = skinsList,
+            morphTargetInfos = morphTargetInfos,
+            expressions = expressions,
+            expressionGroups = expressionGroups,
         )
     }
 
     private fun loadModel(): PreProcessModelLoadInfo? {
         loadSkins()
         val scene = model.defaultScene ?: model.scenes.firstOrNull() ?: return null
-        return loadScene(scene)
+        return loadScene(scene, model.expressions)
     }
 
     companion object {

@@ -4,8 +4,10 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.minecraft.client.gl.RenderPassImpl
 import top.fifthlight.blazerod.model.RenderScene
+import top.fifthlight.blazerod.model.TransformId
 import top.fifthlight.blazerod.model.node.RenderNode
-import top.fifthlight.blazerod.model.node.RenderNodeComponent
+import top.fifthlight.blazerod.model.node.RenderNodeComponent.*
+import top.fifthlight.blazerod.model.resource.RenderCamera
 import top.fifthlight.blazerod.model.resource.RenderMaterial
 import top.fifthlight.blazerod.model.resource.RenderPrimitive
 import top.fifthlight.blazerod.model.resource.RenderTexture
@@ -51,6 +53,7 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
         )
     }
 
+    private val cameras = mutableListOf<RenderCamera>()
     private suspend fun loadNode(
         index: Int,
         node: NodeLoadInfo,
@@ -60,37 +63,70 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
         humanoidTags = node.humanoidTags,
         nodeIndex = index,
         absoluteTransform = node.transform,
-        components = node.components.map {
-            when (it) {
+        components = node.components.mapNotNull { component ->
+            when (component) {
                 is NodeLoadInfo.Component.Primitive -> {
-                    val primitiveInfo = info.primitiveInfos[it.infoIndex]
+                    val primitiveInfo = info.primitiveInfos[component.infoIndex]
                     val vertexBuffer = info.vertexBuffers[primitiveInfo.vertexBufferIndex].await()
                     val indexBuffer = primitiveInfo.indexBufferIndex?.let { index -> info.indexBuffers[index].await() }
                     val material = primitiveInfo.materialInfo?.let { materialLoadInfo ->
                         loadMaterial(materialLoadInfo)
                     } ?: RenderMaterial.defaultMaterial
-                    RenderNodeComponent.Primitive(
-                        primitiveIndex = it.infoIndex,
+                    val targets =
+                        primitiveInfo.morphedPrimitiveIndex?.let { index -> info.morphTargetInfos[index].await() }
+                    Primitive(
+                        primitiveIndex = component.infoIndex,
                         primitive = RenderPrimitive(
                             vertices = primitiveInfo.vertices,
                             vertexFormatMode = primitiveInfo.vertexFormatMode,
                             vertexBuffer = vertexBuffer,
                             indexBuffer = indexBuffer,
                             material = material,
-                            targets = null,
-                            targetGroups = listOf(),
+                            targets = targets?.let {
+                                RenderPrimitive.Targets(
+                                    position = it.position,
+                                    color = it.color,
+                                    texCoord = it.texCoord,
+                                )
+                            },
+                            targetGroups = targets?.targetGroups ?: listOf(),
                         ),
                         skinIndex = primitiveInfo.skinIndex,
-                        morphedPrimitiveIndex = null,
+                        morphedPrimitiveIndex = primitiveInfo.morphedPrimitiveIndex,
                     )
                 }
 
                 is NodeLoadInfo.Component.Joint -> {
-                    RenderNodeComponent.Joint(
-                        skinIndex = it.skinIndex,
-                        jointIndex = it.jointIndex,
+                    Joint(
+                        skinIndex = component.skinIndex,
+                        jointIndex = component.jointIndex,
                     )
                 }
+
+                is NodeLoadInfo.Component.Camera -> {
+                    val cameraIndex = cameras.size
+                    cameras.add(
+                        RenderCamera(
+                            cameraIndex = cameraIndex,
+                            camera = component.camera,
+                        )
+                    )
+                    Camera(cameraIndex)
+                }
+
+                is NodeLoadInfo.Component.InfluenceTarget -> {
+                    val influence = component.influence
+                    InfluenceTarget(
+                        sourceNodeIndex = info.nodes.indexOfFirst { it.nodeId == influence.source }.takeIf { it >= 0 }
+                            ?: return@mapNotNull null,
+                        influence = influence.influence,
+                        influenceRotation = influence.influenceRotation,
+                        influenceTranslation = influence.influenceTranslation,
+                        target = TransformId.INFLUENCE,
+                    )
+                }
+
+                else -> null
             }
         },
     )
@@ -105,9 +141,9 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
             rootNode = nodes[info.rootNodeIndex],
             nodes = nodes,
             skins = info.skins,
-            expressions = listOf(),
-            expressionGroups = listOf(),
-            cameras = listOf(),
+            expressions = info.expressions,
+            expressionGroups = info.expressionGroups,
+            cameras = cameras,
         )
     }
 

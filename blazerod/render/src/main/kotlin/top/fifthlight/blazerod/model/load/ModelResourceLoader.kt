@@ -10,11 +10,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import org.lwjgl.opengl.GL11C
+import top.fifthlight.blazerod.extension.GpuBufferExt
+import top.fifthlight.blazerod.extension.createBuffer
+import top.fifthlight.blazerod.extension.supportSsbo
+import top.fifthlight.blazerod.model.resource.RenderPrimitive
 import top.fifthlight.blazerod.model.resource.RenderTexture
 import top.fifthlight.blazerod.render.GpuIndexBuffer
 import top.fifthlight.blazerod.render.RefCountedGpuBuffer
 import top.fifthlight.blazerod.util.blaze3d
 import top.fifthlight.blazerod.util.useMipmap
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 
@@ -88,8 +94,45 @@ object ModelResourceLoader {
                 RefCountedGpuBuffer(RenderSystem.getDevice().createBuffer(null, GpuBuffer.USAGE_VERTEX, it))
             },
             primitiveInfos = info.primitiveInfos,
+            morphTargetInfos = info.morphTargetInfos.mapAll(scope, dispatcher) {
+                fun loadTarget(target: MorphTargetsLoadData.TargetInfo): RenderPrimitive.Target {
+                    val targetBuffer = if (target.targetsCount == 0) {
+                        // No targets, but we can't create an empty buffer, so let's create a dummy one
+                        ByteBuffer.allocateDirect(target.itemStride).order(ByteOrder.nativeOrder())
+                    } else {
+                        target.buffer
+                    }
+                    val device = RenderSystem.getDevice()
+                    val gpuBuffer = device.createBuffer(
+                        labelGetter = { "Morph target buffer" },
+                        usage = if (device.supportSsbo) {
+                            0
+                        } else {
+                            GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER
+                        },
+                        extraUsage = if (device.supportSsbo) {
+                            GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER
+                        } else {
+                            0
+                        },
+                        data = targetBuffer
+                    )
+                    return RenderPrimitive.Target(
+                        data = gpuBuffer,
+                        targetsCount = target.targetsCount,
+                    )
+                }
+                MorphTargetsLoadData(
+                    targetGroups = it.targetGroups,
+                    position = loadTarget(it.position),
+                    color = loadTarget(it.color),
+                    texCoord = loadTarget(it.texCoord),
+                )
+            },
             rootNodeIndex = info.rootNodeIndex,
             nodes = info.nodes,
             skins = info.skins,
+            expressions = info.expressions,
+            expressionGroups = info.expressionGroups,
         )
 }

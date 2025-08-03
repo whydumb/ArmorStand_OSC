@@ -4,12 +4,13 @@ import com.mojang.blaze3d.vertex.VertexFormat
 import kotlinx.coroutines.Deferred
 import net.minecraft.client.texture.NativeImage
 import top.fifthlight.blazerod.model.*
-import top.fifthlight.blazerod.model.resource.RenderSkin
-import top.fifthlight.blazerod.model.resource.RenderTexture
+import top.fifthlight.blazerod.model.resource.*
 import top.fifthlight.blazerod.render.BlazerodVertexFormats
 import top.fifthlight.blazerod.render.GpuIndexBuffer
 import top.fifthlight.blazerod.render.RefCountedGpuBuffer
 import java.nio.ByteBuffer
+import top.fifthlight.blazerod.model.Camera as ModelCamera
+import top.fifthlight.blazerod.model.IkTarget as ModelIkTarget
 
 data class TextureLoadData(
     val name: String?,
@@ -74,6 +75,19 @@ sealed class MaterialLoadInfo {
     ) : MaterialLoadInfo()
 }
 
+data class MorphTargetsLoadData<Info : Any>(
+    val targetGroups: List<MorphTargetGroup>,
+    val position: Info,
+    val color: Info,
+    val texCoord: Info,
+) {
+    data class TargetInfo(
+        val buffer: ByteBuffer,
+        val itemStride: Int,
+        val targetsCount: Int,
+    )
+}
+
 data class PrimitiveLoadInfo(
     val vertices: Int,
     val vertexFormatMode: VertexFormat.DrawMode,
@@ -81,6 +95,7 @@ data class PrimitiveLoadInfo(
     val indexBufferIndex: Int?,
     val vertexBufferIndex: Int,
     val skinIndex: Int?,
+    val morphedPrimitiveIndex: Int?,
 )
 
 data class NodeLoadInfo(
@@ -100,18 +115,35 @@ data class NodeLoadInfo(
             val skinIndex: Int,
             val jointIndex: Int,
         ) : Component()
+
+        data class Camera(
+            val camera: ModelCamera,
+        ) : Component()
+
+        data class IkTarget(
+            val ikTarget: ModelIkTarget,
+            val transformId: TransformId,
+        ) : Component()
+
+        data class InfluenceTarget(
+            val influence: Influence,
+            val transformId: TransformId,
+        ) : Component()
     }
 }
 
-data class ModelLoadInfo<Texture : Any?, Index : Any, Vertex : Any>(
+data class ModelLoadInfo<Texture : Any?, Index : Any, Vertex : Any, Morph : Any>(
     val textures: List<Deferred<Texture>>,
     val indexBuffers: List<Deferred<Index>>,
     val vertexBuffers: List<Deferred<Vertex>>,
     val primitiveInfos: List<PrimitiveLoadInfo>,
+    val morphTargetInfos: List<Deferred<Morph>>,
     val nodes: List<NodeLoadInfo>,
     val rootNodeIndex: Int,
     val skins: List<RenderSkin>,
+    val expressions: List<RenderExpression>,
+    val expressionGroups: List<RenderExpressionGroup>,
 )
 
-typealias PreProcessModelLoadInfo = ModelLoadInfo<TextureLoadData?, IndexBufferLoadData, ByteBuffer>
-typealias GpuLoadModelLoadInfo = ModelLoadInfo<RenderTexture?, GpuIndexBuffer, RefCountedGpuBuffer>
+typealias PreProcessModelLoadInfo = ModelLoadInfo<TextureLoadData?, IndexBufferLoadData, ByteBuffer, MorphTargetsLoadData<MorphTargetsLoadData.TargetInfo>>
+typealias GpuLoadModelLoadInfo = ModelLoadInfo<RenderTexture?, GpuIndexBuffer, RefCountedGpuBuffer, MorphTargetsLoadData<RenderPrimitive.Target>>
