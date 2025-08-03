@@ -3,8 +3,11 @@ package top.fifthlight.blazerod.example.ballblock;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactories;
-import top.fifthlight.blazerod.model.*;
-import top.fifthlight.blazerod.model.node.RenderNode;
+import top.fifthlight.blazerod.model.ModelFileLoaders;
+import top.fifthlight.blazerod.model.ModelInstance;
+import top.fifthlight.blazerod.model.RenderScene;
+import top.fifthlight.blazerod.model.TransformId;
+import top.fifthlight.blazerod.model.load.ModelLoader;
 
 import java.io.IOException;
 import java.net.URI;
@@ -49,18 +52,22 @@ public class BallBlockMod implements ClientModInitializer {
         if (model == null) {
             throw new IllegalStateException("Ball model don't contain model");
         }
-        var loader = new ModelLoader();
-        BALL_SCENE = loader.loadModel(model);
-        BALL_SCENE.increaseReferenceCount();
-        BALL_INSTANCE = new ModelInstance(BALL_SCENE);
-        BALL_INSTANCE.increaseReferenceCount();
-        var rootTransformNodeIndex = BALL_SCENE.getRootNode().getNodeIndex();
-        // Move and scale
-         BALL_INSTANCE.setTransformDecomposed(rootTransformNodeIndex, TransformId.ABSOLUTE, matrix -> {
-            matrix.getScale().mul(0.5f);
-            matrix.getTranslation().add(0.5f, 0.5f, 0.5f);
+        ModelLoader.loadModelAsFuture(model).thenAccept(scene -> {
+            if (scene == null) {
+                throw new IllegalStateException("Ball model load failed");
+            }
+            BALL_SCENE = scene;
+            BALL_SCENE.increaseReferenceCount();
+            BALL_INSTANCE = new ModelInstance(BALL_SCENE);
+            BALL_INSTANCE.increaseReferenceCount();
+            var rootTransformNodeIndex = BALL_SCENE.getRootNode().getNodeIndex();
+            // Move and scale
+            BALL_INSTANCE.setTransformDecomposed(rootTransformNodeIndex, TransformId.ABSOLUTE, matrix -> {
+                matrix.getScale().mul(0.5f);
+                matrix.getTranslation().add(0.5f, 0.5f, 0.5f);
+            });
+            BALL_INSTANCE.updateRenderData();
         });
-        BALL_INSTANCE.updateRenderData();
     }
 
     public static ModelInstance getBallInstance() {

@@ -8,7 +8,6 @@
   "client": [
     "AddressModeMixin",
     "GpuBufferSliceMixin",
-    "RenderObjectMixin",
     "RenderPipelineBuilderMixin",
     "RenderPipelineMixin",
     "RenderPipelineSnippetMixin",
@@ -21,6 +20,7 @@
     "gl.GlCommandEncoderMixin",
     "gl.GlConstMixin",
     "gl.GlGpuBufferMixin",
+    "gl.GlStateManagerMixin",
     "gl.RenderPassImplMixin",
     "gl.ShaderProgramMixin"
   ]

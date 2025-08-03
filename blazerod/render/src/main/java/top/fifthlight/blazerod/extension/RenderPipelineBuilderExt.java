@@ -1,10 +1,10 @@
 package top.fifthlight.blazerod.extension;
 
+import com.mojang.blaze3d.vertex.VertexFormat;
 import org.jetbrains.annotations.NotNull;
-import top.fifthlight.blazerod.model.resource.VertexType;
 
 public interface RenderPipelineBuilderExt {
-    void blazerod$withVertexType(@NotNull VertexType type);
+    void blazerod$withVertexFormat(@NotNull VertexFormat format);
 
     void blazerod$withStorageBuffer(@NotNull String name);
 }

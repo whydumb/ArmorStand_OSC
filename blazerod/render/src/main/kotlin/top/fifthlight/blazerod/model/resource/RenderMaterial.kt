@@ -6,6 +6,7 @@ import com.mojang.blaze3d.pipeline.BlendFunction
 import com.mojang.blaze3d.pipeline.RenderPipeline
 import com.mojang.blaze3d.systems.RenderPass
 import com.mojang.blaze3d.systems.RenderSystem
+import com.mojang.blaze3d.vertex.VertexFormat
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gl.RenderPipelines
 import net.minecraft.client.gl.UniformType
@@ -14,12 +15,13 @@ import top.fifthlight.blazerod.BlazeRod
 import top.fifthlight.blazerod.extension.TextureFormatExt
 import top.fifthlight.blazerod.extension.supportSsbo
 import top.fifthlight.blazerod.extension.withStorageBuffer
-import top.fifthlight.blazerod.extension.withVertexType
+import top.fifthlight.blazerod.extension.withVertexFormat
 import top.fifthlight.blazerod.model.Material.AlphaMode
 import top.fifthlight.blazerod.model.Material.AlphaMode.OPAQUE
 import top.fifthlight.blazerod.model.RgbColor
 import top.fifthlight.blazerod.model.RgbaColor
 import top.fifthlight.blazerod.model.uniform.UnlitDataUniformBuffer
+import top.fifthlight.blazerod.render.BlazerodVertexFormats
 import top.fifthlight.blazerod.util.AbstractRefCount
 import top.fifthlight.blazerod.util.BitmapItem
 
@@ -216,7 +218,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         }
     }
 
-    abstract val vertexType: VertexType
+    abstract val vertexFormat: VertexFormat
 
     fun getPipeline(instanced: Boolean): RenderPipeline {
         val info = PipelineInfo(
@@ -254,6 +256,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         override val alphaCutoff: Float = .5f,
         override val doubleSided: Boolean,
         override val skinned: Boolean,
+        override val morphed: Boolean,
     ) : RenderMaterial<Pbr.Descriptor>() {
         init {
             baseColorTexture.increaseReferenceCount()
@@ -266,11 +269,8 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         override val descriptor
             get() = Descriptor
 
-        override val vertexType: VertexType
+        override val vertexFormat: VertexFormat
             get() = TODO("Not yet implemented")
-
-        override val morphed: Boolean
-            get() = false
 
         override fun setup(
             instanced: Boolean,
@@ -324,11 +324,11 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         override val descriptor
             get() = Descriptor
 
-        override val vertexType: VertexType
+        override val vertexFormat: VertexFormat
             get() = if (skinned) {
-                VertexType.Companion.POSITION_TEXTURE_COLOR_JOINT_WEIGHT
+                BlazerodVertexFormats.POSITION_TEXTURE_COLOR_JOINT_WEIGHT
             } else {
-                VertexType.Companion.POSITION_TEXTURE_COLOR
+                BlazerodVertexFormats.POSITION_TEXTURE_COLOR
             }
 
         override fun setup(instanced: Boolean, renderPassCreator: () -> RenderPass): RenderPass {
@@ -381,9 +381,9 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
                     withSampler("SamplerBaseColor")
                     withSampler("SamplerLightMap")
                     if (info.skinned) {
-                        withVertexType(VertexType.Companion.POSITION_TEXTURE_COLOR_JOINT_WEIGHT)
+                        withVertexFormat(BlazerodVertexFormats.POSITION_TEXTURE_COLOR_JOINT_WEIGHT)
                     } else {
-                        withVertexType(VertexType.Companion.POSITION_TEXTURE_COLOR)
+                        withVertexFormat(BlazerodVertexFormats.POSITION_TEXTURE_COLOR)
                     }
                     withUniform("UnlitData", UniformType.UNIFORM_BUFFER)
                 }.build()

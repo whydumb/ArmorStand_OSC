@@ -1,5 +1,6 @@
 package top.fifthlight.armorstand.debug
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.blazerod.util.TimeUtil
 import java.awt.BorderLayout
@@ -56,6 +57,7 @@ class ModelManagerDebugFrame : JFrame("Model Manager Status") {
         updateTimer.start()
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun updateData() {
         val now = System.nanoTime()
         itemTableItem.rowCount = 0
@@ -90,9 +92,13 @@ class ModelManagerDebugFrame : JFrame("Model Manager Status") {
         ModelInstanceManager.modelCaches.forEach { (path, item) ->
             modelTableItem.addRow(arrayOf(
                 path,
-                when (item) {
-                    ModelInstanceManager.ModelCache.Failed -> "Failed"
-                    is ModelInstanceManager.ModelCache.Loaded -> "Loaded"
+                if (item.isCompleted) {
+                    when (item.getCompleted()) {
+                        ModelInstanceManager.ModelCache.Failed -> "Failed"
+                        is ModelInstanceManager.ModelCache.Loaded -> "Loaded"
+                    }
+                } else {
+                    "Loading"
                 },
                 (path in ModelInstanceManager.favoriteModelPaths).toString(),
             ))

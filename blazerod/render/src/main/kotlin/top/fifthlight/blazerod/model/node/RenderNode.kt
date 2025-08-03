@@ -1,24 +1,32 @@
 package top.fifthlight.blazerod.model.node
 
 import net.minecraft.util.Identifier
-import org.joml.Matrix4f
-import top.fifthlight.blazerod.model.HumanoidTag
-import top.fifthlight.blazerod.model.ModelInstance
-import top.fifthlight.blazerod.model.NodeId
-import top.fifthlight.blazerod.model.NodeTransform
-import top.fifthlight.blazerod.model.TransformId
+import top.fifthlight.blazerod.model.*
 import top.fifthlight.blazerod.util.AbstractRefCount
 
 class RenderNode(
     val nodeIndex: Int,
     val absoluteTransform: NodeTransform?,
-    val children: List<RenderNode>,
     val components: List<RenderNodeComponent<*>>,
     // Just for animation
     val nodeId: NodeId? = null,
     val nodeName: String? = null,
     val humanoidTags: List<HumanoidTag> = listOf(),
 ) : AbstractRefCount() {
+    // Defined as lateinit to avoid cyclic dependency
+    private var _children: List<RenderNode>? = null
+    val children: List<RenderNode>
+        get() = _children ?: error("Children not initialized")
+
+    fun initializeChildren(children: List<RenderNode>) {
+        require(_children == null) { "Children already initialized" }
+        _children = children
+        for (child in children) {
+            child.increaseReferenceCount()
+            child.parent = this
+        }
+    }
+
     companion object {
         private val TYPE_ID = Identifier.of("blazerod", "node")
     }
@@ -32,10 +40,6 @@ class RenderNode(
     init {
         for (component in components) {
             component.increaseReferenceCount()
-        }
-        for (child in children) {
-            child.increaseReferenceCount()
-            child.parent = this
         }
     }
 

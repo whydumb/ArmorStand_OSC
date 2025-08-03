@@ -2,15 +2,20 @@ package top.fifthlight.blazerod
 
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.logging.LogUtils
+import kotlinx.coroutines.CoroutineDispatcher
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents
+import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gl.RenderPassImpl
 import top.fifthlight.armorstand.debug.ResourceCountTrackerFrame
 import top.fifthlight.blazerod.debug.*
 import top.fifthlight.blazerod.event.RenderEvents
 import top.fifthlight.blazerod.extension.shaderDataPool
 import top.fifthlight.blazerod.model.resource.RenderMaterial
+import top.fifthlight.blazerod.model.resource.RenderTexture
 import top.fifthlight.blazerod.model.uniform.UniformBuffer
+import top.fifthlight.blazerod.util.ResourceLoader
+import top.fifthlight.blazerod.util.ThreadExecutorDispatcher
 import top.fifthlight.blazerod.util.cleanupPools
 import javax.swing.SwingUtilities
 
@@ -20,8 +25,14 @@ object BlazeRod: ClientModInitializer {
     const val INSTANCE_SIZE = 256
     const val MAX_ENABLED_MORPH_TARGETS = 32
 
+    lateinit var mainDispatcher: CoroutineDispatcher
+    var debug = false
+
     override fun onInitializeClient() {
+        mainDispatcher = ThreadExecutorDispatcher(MinecraftClient.getInstance())
+
         if (System.getProperty("blazerod.debug") == "true") {
+            debug = true
             RenderPassImpl.IS_DEVELOPMENT = true
             if (System.getProperty("blazerod.debug.gui") == "true") {
                 ResourceCountTracker.initialize()
@@ -41,7 +52,10 @@ object BlazeRod: ClientModInitializer {
         }
 
         RenderEvents.INITIALIZE_DEVICE.register {
+            ResourceLoader.initialize()
             RenderMaterial.initialize()
+            // Trigger its loading in render thread
+            RenderTexture.WHITE_RGBA_TEXTURE
         }
 
         RenderEvents.FLIP_FRAME.register {
@@ -52,6 +66,7 @@ object BlazeRod: ClientModInitializer {
         ClientLifecycleEvents.CLIENT_STOPPING.register { client ->
             cleanupPools()
             UniformBuffer.close()
+            ResourceLoader.close()
         }
     }
 }

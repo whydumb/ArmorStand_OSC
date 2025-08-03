@@ -5,6 +5,8 @@ import java.nio.BufferOverflowException
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.channels.ReadableByteChannel
+import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 fun ReadableByteChannel.readAll(buffer: ByteBuffer): Int {
     var length = 0
@@ -87,3 +89,9 @@ fun ByteBuffer.getSShortNormalized() = (getShort().toFloat() / 32767f).coerceAtL
 
 @Suppress("FloatingPointLiteralPrecision")
 fun ByteBuffer.getUIntNormalized() = (getInt().toFloat() / 4294967295f).coerceAtLeast(-1f)
+
+fun Float.toNormalizedUByte(): Byte = (this * 255.0f).roundToInt().toByte()
+fun Float.toNormalizedSByte(): Byte = (this * 127.0f).roundToInt().toByte()
+fun Float.toNormalizedUShort(): Short = (this * 65535.0f).roundToInt().toShort()
+fun Float.toNormalizedSShort(): Short = (this * 32767.0f).roundToInt().toShort()
+fun Float.toNormalizedUInt(): Int = (this * 4294967295.0).roundToLong().toInt()

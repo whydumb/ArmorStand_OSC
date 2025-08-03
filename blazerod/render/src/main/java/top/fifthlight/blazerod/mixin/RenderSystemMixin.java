@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.fifthlight.blazerod.event.RenderEvents;
+import top.fifthlight.blazerod.util.ResourceLoader;
 
 import java.util.function.BiFunction;
 
@@ -22,5 +23,12 @@ public abstract class RenderSystemMixin {
     @Inject(method = "initRenderer", at = @At("TAIL"))
     private static void afterInitRenderer(long contextId, int debugVerbosity, boolean sync, BiFunction<Identifier, ShaderType, String> shaderSourceGetter, boolean renderDebugLabels, CallbackInfo ci) {
         RenderEvents.INITIALIZE_DEVICE.invoker().onDeviceInitialized();
+    }
+
+    @Inject(method = "assertOnRenderThread", at = @At("HEAD"), cancellable = true)
+    private static void onAssertOnRenderThread(CallbackInfo ci) {
+        if (ResourceLoader.isOnResourceLoadingThread()) {
+            ci.cancel();
+        }
     }
 }
