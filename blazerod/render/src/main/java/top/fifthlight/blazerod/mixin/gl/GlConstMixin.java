@@ -1,16 +1,19 @@
 package top.fifthlight.blazerod.mixin.gl;
 
+import com.mojang.blaze3d.opengl.GlConst;
+import com.mojang.blaze3d.shaders.ShaderType;
 import com.mojang.blaze3d.textures.AddressMode;
+import com.mojang.blaze3d.textures.TextureFormat;
 import org.lwjgl.opengl.GL11C;
 import org.lwjgl.opengl.GL30C;
-import top.fifthlight.blazerod.extension.AddressModeExt;
-import top.fifthlight.blazerod.extension.TextureFormatExt;
-import com.mojang.blaze3d.opengl.GlConst;
-import com.mojang.blaze3d.textures.TextureFormat;
+import org.lwjgl.opengl.GL43C;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import top.fifthlight.blazerod.extension.AddressModeExt;
+import top.fifthlight.blazerod.extension.ShaderTypeExt;
+import top.fifthlight.blazerod.extension.TextureFormatExt;
 
 @Mixin(GlConst.class)
 public class GlConstMixin {
@@ -45,7 +48,7 @@ public class GlConstMixin {
     }
 
     @Inject(method = "toGlType(Lcom/mojang/blaze3d/textures/TextureFormat;)I", at = @At("HEAD"), cancellable = true)
-    private static void onToGlType(TextureFormat textureFormat, CallbackInfoReturnable<Integer> cir) {
+    private static void onToGlTextureFormat(TextureFormat textureFormat, CallbackInfoReturnable<Integer> cir) {
         if (textureFormat == TextureFormatExt.RGBA32F) {
             cir.setReturnValue(GL11C.GL_FLOAT);
         } else if (textureFormat == TextureFormatExt.RGB32F) {
@@ -60,9 +63,16 @@ public class GlConstMixin {
     }
 
     @Inject(method = "toGl(Lcom/mojang/blaze3d/textures/AddressMode;)I", at = @At("HEAD"), cancellable = true)
-    private static void onToGl(AddressMode addressMode, CallbackInfoReturnable<Integer> cir) {
+    private static void onToGlAddressMode(AddressMode addressMode, CallbackInfoReturnable<Integer> cir) {
         if (addressMode == AddressModeExt.MIRRORED_REPEAT) {
             cir.setReturnValue(GL30C.GL_MIRRORED_REPEAT);
+        }
+    }
+
+    @Inject(method = "toGl(Lcom/mojang/blaze3d/shaders/ShaderType;)I", at = @At("HEAD"), cancellable = true)
+    private static void onToGlShaderType(ShaderType shaderType, CallbackInfoReturnable<Integer> cir) {
+        if (shaderType == ShaderTypeExt.COMPUTE) {
+            cir.setReturnValue(GL43C.GL_COMPUTE_SHADER);
         }
     }
 }

@@ -11,3 +11,4 @@ accessible method net/minecraft/client/gl/GlCommandEncoder drawBoundObjectWithRe
 accessible class com/mojang/blaze3d/opengl/GlStateManager$Texture2DState
 accessible method com/mojang/blaze3d/opengl/GlStateManager$Texture2DState <init> ()V
 accessible field com/mojang/blaze3d/vertex/VertexFormatElement ELEMENTS Ljava/util/List;
+accessible class net/minecraft/client/gl/GlBackend$ShaderKey

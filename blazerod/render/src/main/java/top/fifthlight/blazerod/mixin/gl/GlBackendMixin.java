@@ -6,14 +6,12 @@ import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.shaders.ShaderType;
-import net.minecraft.client.gl.CompiledShaderPipeline;
-import net.minecraft.client.gl.Defines;
-import net.minecraft.client.gl.GlBackend;
-import net.minecraft.client.gl.ShaderProgram;
+import net.minecraft.client.gl.*;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.opengl.*;
+import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -22,25 +20,34 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import top.fifthlight.blazerod.extension.GpuDeviceExt;
+import top.fifthlight.blazerod.extension.ShaderTypeExt;
 import top.fifthlight.blazerod.extension.internal.GpuBufferExtInternal;
 import top.fifthlight.blazerod.extension.internal.RenderPipelineExtInternal;
-import top.fifthlight.blazerod.extension.internal.gl.ShaderProgramExt;
+import top.fifthlight.blazerod.extension.internal.gl.GpuDeviceExtInternal;
+import top.fifthlight.blazerod.extension.internal.gl.ShaderProgramExtInternal;
+import top.fifthlight.blazerod.gl.CompiledComputePipeline;
+import top.fifthlight.blazerod.pipeline.ComputePipeline;
+import top.fifthlight.blazerod.render.gl.ShaderProgramExt;
 import top.fifthlight.blazerod.util.GlslExtensionProcessor;
 import top.fifthlight.blazerod.util.GpuShaderDataPool;
 
 import java.nio.ByteBuffer;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 @Mixin(GlBackend.class)
-public abstract class GlBackendMixin implements GpuDeviceExt {
+public abstract class GlBackendMixin implements GpuDeviceExtInternal {
     @Unique
     private static final boolean allowGlTextureBufferRange = true;
 
     @Unique
     private static final boolean allowGlShaderStorageBufferObject = true;
+
+    @Unique
+    private static final boolean allowGlComputeShader = true;
 
     @Shadow
     @Final
@@ -49,22 +56,55 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
     @Shadow
     @Final
     private int uniformOffsetAlignment;
+
     @Unique
     private int glMajorVersion;
     @Unique
     private int glMinorVersion;
+    @Shadow
+    @Final
+    private static Logger LOGGER;
 
     @Unique
     private GpuShaderDataPool gpuShaderDataPool;
 
     @Unique
     private boolean supportSsbo;
+    @Unique
+    private final Map<ComputePipeline, CompiledComputePipeline> computePipelineCompileCache = new IdentityHashMap<>();
+    @Unique
+    private boolean supportComputeShader;
+    @Shadow
+    @Final
+    private BiFunction<Identifier, ShaderType, String> defaultShaderSourceGetter;
+    @Shadow
+    @Final
+    private DebugLabelManager debugLabelManager;
 
     @Shadow
     public abstract GpuBuffer createBuffer(@Nullable Supplier<String> labelSupplier, int usage, int size);
 
     @Shadow
     public abstract GpuBuffer createBuffer(@Nullable Supplier<String> labelSupplier, int usage, ByteBuffer data);
+
+    @NotNull
+    @Override
+    public GpuShaderDataPool blazerod$getShaderDataPool() {
+        return gpuShaderDataPool;
+    }
+
+    @Override
+    public boolean blazerod$supportSsbo() {
+        return supportSsbo;
+    }
+
+    @Override
+    public boolean blazerod$supportComputeShader() {
+        return supportComputeShader;
+    }
+
+    @Shadow
+    protected abstract CompiledShader compileShader(Identifier id, ShaderType type, Defines defines, BiFunction<Identifier, ShaderType, String> sourceRetriever);
 
     @Unique
     private int gcd(int a, int b) {
@@ -106,6 +146,13 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
             supportSsbo = false;
         }
 
+        if (allowGlComputeShader && glCapabilities.GL_ARB_compute_shader) {
+            usedGlCapabilities.add("ARB_compute_shader");
+            supportComputeShader = true;
+        } else {
+            supportComputeShader = false;
+        }
+
         glMajorVersion = GL11.glGetInteger(GL30C.GL_MAJOR_VERSION);
         glMinorVersion = GL11.glGetInteger(GL30C.GL_MINOR_VERSION);
 
@@ -140,7 +187,7 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
 
     @Inject(method = "compileRenderPipeline", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gl/ShaderProgram;set(Ljava/util/List;Ljava/util/List;)V"))
     private void onSetShaderProgram(RenderPipeline pipeline, BiFunction<Identifier, ShaderType, String> sourceRetriever, CallbackInfoReturnable<CompiledShaderPipeline> cir, @Local ShaderProgram shaderProgram) {
-        var shaderProgramExt = (ShaderProgramExt) shaderProgram;
+        var shaderProgramExt = (ShaderProgramExtInternal) shaderProgram;
         var pipelineExt = (RenderPipelineExtInternal) pipeline;
         shaderProgramExt.blazerod$setStorageBuffers(pipelineExt.blazerod$getStorageBuffers());
     }
@@ -168,14 +215,29 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
         return buffer;
     }
 
-    @NotNull
     @Override
-    public GpuShaderDataPool blazerod$getShaderDataPool() {
-        return gpuShaderDataPool;
+    public CompiledComputePipeline blazerod$compilePipelineCached(ComputePipeline pipeline) {
+        return this.computePipelineCompileCache.computeIfAbsent(pipeline, p -> this.compileRenderPipeline(pipeline, defaultShaderSourceGetter));
     }
 
-    @Override
-    public boolean blazerod$supportSsbo() {
-        return supportSsbo;
+    @Unique
+    private CompiledComputePipeline compileRenderPipeline(ComputePipeline pipeline, BiFunction<Identifier, ShaderType, String> sourceRetriever) {
+        var compiledShader = compileShader(pipeline.getComputeShader(), ShaderTypeExt.COMPUTE, pipeline.getShaderDefines(), sourceRetriever);
+        if (compiledShader == CompiledShader.INVALID_SHADER) {
+            LOGGER.error("Couldn't compile pipeline {}: compute shader {} was invalid", pipeline.getLocation(), pipeline.getComputeShader());
+            return new CompiledComputePipeline(pipeline, ShaderProgram.INVALID);
+        } else {
+            ShaderProgram shaderProgram;
+            try {
+                shaderProgram = ShaderProgramExt.create(compiledShader, pipeline.getLocation().toString());
+            } catch (ShaderLoader.LoadException ex) {
+                LOGGER.error("Couldn't compile program for pipeline {}: {}", pipeline.getLocation(), ex);
+                return new CompiledComputePipeline(pipeline, ShaderProgram.INVALID);
+            }
+
+            shaderProgram.set(pipeline.getUniforms(), pipeline.getSamplers());
+            debugLabelManager.labelShaderProgram(shaderProgram);
+            return new CompiledComputePipeline(pipeline, shaderProgram);
+        }
     }
 }
