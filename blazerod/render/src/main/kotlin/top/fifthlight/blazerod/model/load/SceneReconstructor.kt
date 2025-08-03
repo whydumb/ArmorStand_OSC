@@ -55,6 +55,9 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
         index: Int,
         node: NodeLoadInfo,
     ) = RenderNode(
+        nodeId = node.nodeId,
+        nodeName = node.nodeName,
+        humanoidTags = node.humanoidTags,
         nodeIndex = index,
         absoluteTransform = node.transform,
         components = node.components.map {
@@ -77,8 +80,15 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
                             targets = null,
                             targetGroups = listOf(),
                         ),
-                        skinIndex = null,
+                        skinIndex = primitiveInfo.skinIndex,
                         morphedPrimitiveIndex = null,
+                    )
+                }
+
+                is NodeLoadInfo.Component.Joint -> {
+                    RenderNodeComponent.Joint(
+                        skinIndex = it.skinIndex,
+                        jointIndex = it.jointIndex,
                     )
                 }
             }
@@ -94,7 +104,7 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
         return RenderScene(
             rootNode = nodes[info.rootNodeIndex],
             nodes = nodes,
-            skins = listOf(),
+            skins = info.skins,
             expressions = listOf(),
             expressionGroups = listOf(),
             cameras = listOf(),

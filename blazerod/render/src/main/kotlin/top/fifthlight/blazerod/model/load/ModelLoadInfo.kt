@@ -4,7 +4,9 @@ import com.mojang.blaze3d.vertex.VertexFormat
 import kotlinx.coroutines.Deferred
 import net.minecraft.client.texture.NativeImage
 import top.fifthlight.blazerod.model.*
+import top.fifthlight.blazerod.model.resource.RenderSkin
 import top.fifthlight.blazerod.model.resource.RenderTexture
+import top.fifthlight.blazerod.render.BlazerodVertexFormats
 import top.fifthlight.blazerod.render.GpuIndexBuffer
 import top.fifthlight.blazerod.render.RefCountedGpuBuffer
 import java.nio.ByteBuffer
@@ -30,6 +32,12 @@ sealed class MaterialLoadInfo {
     abstract val doubleSided: Boolean
     abstract val skinned: Boolean
     abstract val morphed: Boolean
+
+    open fun getVertexFormat(skinned: Boolean): VertexFormat = if (skinned) {
+        BlazerodVertexFormats.POSITION_TEXTURE_COLOR_JOINT_WEIGHT
+    } else {
+        BlazerodVertexFormats.POSITION_TEXTURE_COLOR
+    }
 
     data class TextureInfo(
         val textureIndex: Int,
@@ -72,16 +80,25 @@ data class PrimitiveLoadInfo(
     val materialInfo: MaterialLoadInfo?,
     val indexBufferIndex: Int?,
     val vertexBufferIndex: Int,
+    val skinIndex: Int?,
 )
 
 data class NodeLoadInfo(
-    val transform: NodeTransform? = null,
-    val components: List<Component> = listOf(),
-    val childrenIndices: List<Int> = listOf(),
+    val nodeId: NodeId?,
+    val nodeName: String?,
+    val humanoidTags: List<HumanoidTag>,
+    val transform: NodeTransform?,
+    val components: List<Component>,
+    val childrenIndices: List<Int>,
 ) {
     sealed class Component {
         data class Primitive(
             val infoIndex: Int,
+        ) : Component()
+
+        data class Joint(
+            val skinIndex: Int,
+            val jointIndex: Int,
         ) : Component()
     }
 }
@@ -93,6 +110,7 @@ data class ModelLoadInfo<Texture : Any?, Index : Any, Vertex : Any>(
     val primitiveInfos: List<PrimitiveLoadInfo>,
     val nodes: List<NodeLoadInfo>,
     val rootNodeIndex: Int,
+    val skins: List<RenderSkin>,
 )
 
 typealias PreProcessModelLoadInfo = ModelLoadInfo<TextureLoadData?, IndexBufferLoadData, ByteBuffer>

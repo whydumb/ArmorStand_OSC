@@ -90,5 +90,6 @@ object ModelResourceLoader {
             primitiveInfos = info.primitiveInfos,
             rootNodeIndex = info.rootNodeIndex,
             nodes = info.nodes,
+            skins = info.skins,
         )
 }

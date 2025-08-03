@@ -3,11 +3,12 @@ package top.fifthlight.blazerod.model.load
 import com.mojang.blaze3d.vertex.VertexFormat
 import com.mojang.blaze3d.vertex.VertexFormatElement
 import kotlinx.coroutines.*
-import net.minecraft.client.render.VertexFormats
 import org.lwjgl.system.MemoryUtil
 import top.fifthlight.blazerod.extension.NativeImageExt
 import top.fifthlight.blazerod.model.*
-import top.fifthlight.blazerod.model.util.*
+import top.fifthlight.blazerod.model.resource.RenderSkin
+import top.fifthlight.blazerod.render.BlazerodVertexFormatElements
+import top.fifthlight.blazerod.render.BlazerodVertexFormats
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -16,6 +17,39 @@ class ModelPreprocessor private constructor(
     private val dispatcher: CoroutineDispatcher,
     private val model: Model,
 ) {
+    data class SkinJointData(
+        val skinIndex: Int,
+        val jointIndex: Int,
+        val humanoidTag: HumanoidTag?,
+    )
+
+    private lateinit var skinsList: List<RenderSkin>
+    private lateinit var skinJointsData: Map<NodeId, List<SkinJointData>>
+
+    private fun loadSkins() {
+        val skinJointMap = mutableMapOf<NodeId, MutableList<SkinJointData>>()
+        val skinsList = mutableListOf<RenderSkin>()
+        for ((index, skin) in model.skins.withIndex()) {
+            val renderSkin = RenderSkin(
+                name = skin.name,
+                inverseBindMatrices = skin.inverseBindMatrices,
+                jointSize = skin.joints.size,
+            )
+            for ((jointIndex, joint) in skin.joints.withIndex()) {
+                skinJointMap.getOrPut(joint) { mutableListOf() }.add(
+                    SkinJointData(
+                        skinIndex = index,
+                        jointIndex = jointIndex,
+                        humanoidTag = skin.jointHumanoidTags[jointIndex],
+                    )
+                )
+            }
+            skinsList.add(renderSkin)
+        }
+        this.skinsList = skinsList
+        this.skinJointsData = skinJointMap
+    }
+
     private val textures = mutableListOf<Deferred<TextureLoadData?>>()
     private val textureIndexMap = mutableMapOf<Texture, Int>()
     private fun loadTextureIndex(texture: Texture) = textureIndexMap.getOrPut(texture) {
@@ -60,7 +94,7 @@ class ModelPreprocessor private constructor(
             alphaMode = material.alphaMode,
             alphaCutoff = material.alphaCutoff,
             doubleSided = material.doubleSided,
-            skinned = false,
+            skinned = skinned,
             morphed = false,
         )
 
@@ -71,7 +105,7 @@ class ModelPreprocessor private constructor(
             alphaMode = material.alphaMode,
             alphaCutoff = material.alphaCutoff,
             doubleSided = material.doubleSided,
-            skinned = false,
+            skinned = skinned,
             morphed = false,
         )
     }
@@ -142,12 +176,10 @@ class ModelPreprocessor private constructor(
     private val vertexBuffers = mutableListOf<Deferred<ByteBuffer>>()
     private fun loadVertexBuffer(
         material: MaterialLoadInfo?,
+        skinned: Boolean,
         attributes: Primitive.Attributes.Primitive,
     ): Int {
-        val vertexFormat = when (material) {
-            is MaterialLoadInfo.Pbr -> VertexFormats.POSITION_TEXTURE_COLOR_NORMAL
-            is MaterialLoadInfo.Unlit, null -> VertexFormats.POSITION_TEXTURE_COLOR
-        }
+        val vertexFormat = material?.getVertexFormat(skinned) ?: BlazerodVertexFormats.POSITION_TEXTURE_COLOR
         val vertexBuffer = coroutineScope.async(dispatcher) {
             val vertices = attributes.position.count
             val stride = vertexFormat.vertexSize
@@ -158,176 +190,14 @@ class ModelPreprocessor private constructor(
                 val dstOffset = vertexFormat.getOffset(element)
                 val currentDstStartAddress = pointer + dstOffset
 
-                fun copyRawData(
-                    srcAttribute: Accessor,
-                    dstAddress: Long,
-                    dstLength: Long,
-                ) {
-                    require(srcAttribute.elementLength.toLong() == dstLength) { "Raw copy failed: Source element length (${srcAttribute.elementLength}) does not match destination element length ($dstLength)" }
-                    val srcByteBufferView = srcAttribute.bufferView ?: return
-                    val srcByteOffset = srcAttribute.byteOffset + srcByteBufferView.byteOffset
-                    var currentSrcAddress = MemoryUtil.memAddress(srcByteBufferView.buffer.buffer) + srcByteOffset
-                    var currentDstAddress = dstAddress
-                    val srcStride =
-                        srcByteBufferView.byteStride.toLong().takeIf { it != 0L } ?: srcAttribute.elementLength.toLong()
-
-                    repeat(vertices) {
-                        MemoryUtil.memCopy(currentSrcAddress, currentDstAddress, dstLength)
-                        currentSrcAddress += srcStride
-                        currentDstAddress += stride
-                    }
-                }
-
-                fun copyNormalizedData(
-                    srcAttribute: Accessor,
-                    dstAddress: Long,
-                    targetElementType: VertexFormatElement.Type,
-                    componentsToWrite: Int,
-                    fillAlphaValue: Float? = null,
-                ) {
-                    if (fillAlphaValue != null) {
-                        require(srcAttribute.type == Accessor.AccessorType.VEC3 && componentsToWrite == 4) {
-                            "Fill alpha value is only supported for vec3 input attributes with 4 output components"
-                        }
-                    }
-                    if (srcAttribute.bufferView == null) {
-                        return
-                    }
-
-                    var currentDstAddress = dstAddress
-                    var dstComponentIndex = 0
-                    val byteSizePerComponent = targetElementType.size()
-
-                    srcAttribute.readNormalized { value ->
-                        when (targetElementType) {
-                            VertexFormatElement.Type.FLOAT -> MemoryUtil.memPutFloat(
-                                currentDstAddress + dstComponentIndex * byteSizePerComponent,
-                                value
-                            )
-
-                            VertexFormatElement.Type.UBYTE -> MemoryUtil.memPutByte(
-                                currentDstAddress + dstComponentIndex * byteSizePerComponent,
-                                value.toNormalizedUByte()
-                            )
-
-                            VertexFormatElement.Type.BYTE -> MemoryUtil.memPutByte(
-                                currentDstAddress + dstComponentIndex * byteSizePerComponent,
-                                value.toNormalizedSByte()
-                            )
-
-                            VertexFormatElement.Type.USHORT -> MemoryUtil.memPutShort(
-                                currentDstAddress + dstComponentIndex * byteSizePerComponent,
-                                value.toNormalizedUShort()
-                            )
-
-                            VertexFormatElement.Type.SHORT -> MemoryUtil.memPutShort(
-                                currentDstAddress + dstComponentIndex * byteSizePerComponent,
-                                value.toNormalizedSShort()
-                            )
-
-                            VertexFormatElement.Type.UINT -> MemoryUtil.memPutInt(
-                                currentDstAddress + dstComponentIndex * byteSizePerComponent,
-                                value.toNormalizedUInt()
-                            )
-
-                            VertexFormatElement.Type.INT -> MemoryUtil.memPutInt(
-                                currentDstAddress + dstComponentIndex * byteSizePerComponent,
-                                value.toNormalizedUInt()
-                            )
-                        }
-                        dstComponentIndex++
-
-                        if (dstComponentIndex == 3 && fillAlphaValue != null) {
-                            when (targetElementType) {
-                                VertexFormatElement.Type.FLOAT -> MemoryUtil.memPutFloat(
-                                    currentDstAddress + 3 * byteSizePerComponent,
-                                    fillAlphaValue
-                                )
-
-                                VertexFormatElement.Type.UBYTE -> MemoryUtil.memPutByte(
-                                    currentDstAddress + 3 * byteSizePerComponent,
-                                    fillAlphaValue.toNormalizedUByte()
-                                )
-
-                                VertexFormatElement.Type.BYTE -> MemoryUtil.memPutByte(
-                                    currentDstAddress + 3 * byteSizePerComponent,
-                                    fillAlphaValue.toNormalizedSByte()
-                                )
-
-                                VertexFormatElement.Type.USHORT -> MemoryUtil.memPutShort(
-                                    currentDstAddress + 3 * byteSizePerComponent,
-                                    fillAlphaValue.toNormalizedUShort()
-                                )
-
-                                VertexFormatElement.Type.SHORT -> MemoryUtil.memPutShort(
-                                    currentDstAddress + 3 * byteSizePerComponent,
-                                    fillAlphaValue.toNormalizedSShort()
-                                )
-
-                                VertexFormatElement.Type.UINT -> MemoryUtil.memPutInt(
-                                    currentDstAddress + 3 * byteSizePerComponent,
-                                    fillAlphaValue.toNormalizedUInt()
-                                )
-
-                                VertexFormatElement.Type.INT -> MemoryUtil.memPutInt(
-                                    currentDstAddress + 3 * byteSizePerComponent,
-                                    fillAlphaValue.toNormalizedUInt()
-                                )
-                            }
-                            dstComponentIndex++
-                        }
-
-                        if (dstComponentIndex == componentsToWrite) {
-                            dstComponentIndex = 0
-                            currentDstAddress += stride
-                        }
-                    }
-                }
-
-                fun copyAttributeData(
-                    element: VertexFormatElement,
-                    srcAttribute: Accessor,
-                    dstAddress: Long,
-                ) {
-                    val dstLength = element.byteSize().toLong()
-                    if (srcAttribute.bufferView == null) {
-                        return
-                    }
-
-                    val canCopyRaw = srcAttribute.componentType == Accessor.ComponentType.FLOAT &&
-                            !srcAttribute.normalized &&
-                            srcAttribute.elementLength.toLong() == dstLength &&
-                            element.type == VertexFormatElement.Type.FLOAT
-
-                    if (canCopyRaw) {
-                        copyRawData(
-                            srcAttribute = srcAttribute,
-                            dstAddress = dstAddress,
-                            dstLength = dstLength,
-                        )
-                    } else {
-                        val fillAlpha =
-                            if (element == VertexFormatElement.COLOR && srcAttribute.type.components == 3 && element.count() == 4) {
-                                1f
-                            } else {
-                                null
-                            }
-
-                        copyNormalizedData(
-                            srcAttribute = srcAttribute,
-                            dstAddress = dstAddress,
-                            targetElementType = element.type,
-                            componentsToWrite = element.count(),
-                            fillAlphaValue = fillAlpha,
-                        )
-                    }
-                }
-
                 when (element) {
                     VertexFormatElement.POSITION -> {
                         val srcAttribute = attributes.position
-                        copyAttributeData(
+                        VertexLoadUtil.copyAttributeData(
+                            vertices = vertices,
+                            stride = stride,
                             element = element,
+                            normalized = false,
                             srcAttribute = srcAttribute,
                             dstAddress = currentDstStartAddress,
                         )
@@ -335,8 +205,11 @@ class ModelPreprocessor private constructor(
 
                     VertexFormatElement.UV0 -> {
                         val srcAttribute = attributes.texcoords.firstOrNull() ?: continue
-                        copyAttributeData(
+                        VertexLoadUtil.copyAttributeData(
+                            vertices = vertices,
+                            stride = stride,
                             element = element,
+                            normalized = false,
                             srcAttribute = srcAttribute,
                             dstAddress = currentDstStartAddress,
                         )
@@ -345,8 +218,11 @@ class ModelPreprocessor private constructor(
                     VertexFormatElement.COLOR -> {
                         val srcAttribute = attributes.colors.firstOrNull()
                         if (srcAttribute != null) {
-                            copyAttributeData(
+                            VertexLoadUtil.copyAttributeData(
+                                vertices = vertices,
+                                stride = stride,
                                 element = element,
+                                normalized = true,
                                 srcAttribute = srcAttribute,
                                 dstAddress = currentDstStartAddress,
                             )
@@ -362,6 +238,30 @@ class ModelPreprocessor private constructor(
                         }
                     }
 
+                    BlazerodVertexFormatElements.JOINT -> {
+                        val srcAttribute = attributes.joints.firstOrNull() ?: continue
+                        VertexLoadUtil.copyAttributeData(
+                            vertices = vertices,
+                            stride = stride,
+                            element = element,
+                            normalized = false,
+                            srcAttribute = srcAttribute,
+                            dstAddress = currentDstStartAddress,
+                        )
+                    }
+
+                    BlazerodVertexFormatElements.WEIGHT -> {
+                        val srcAttribute = attributes.weights.firstOrNull() ?: continue
+                        VertexLoadUtil.copyAttributeData(
+                            vertices = vertices,
+                            stride = stride,
+                            element = element,
+                            normalized = true,
+                            srcAttribute = srcAttribute,
+                            dstAddress = currentDstStartAddress,
+                        )
+                    }
+
                     else -> {}
                 }
             }
@@ -374,8 +274,11 @@ class ModelPreprocessor private constructor(
     }
 
     private fun loadPrimitive(
+        skinIndex: Int?,
         primitive: Primitive,
     ): PrimitiveLoadInfo? {
+        val skinned =
+            skinIndex != null && primitive.attributes.joints.isNotEmpty() && primitive.attributes.weights.isNotEmpty()
         val vertexFormatMode = when (primitive.mode) {
             Primitive.Mode.POINTS -> return null
             Primitive.Mode.LINE_STRIP -> VertexFormat.DrawMode.LINE_STRIP
@@ -388,7 +291,7 @@ class ModelPreprocessor private constructor(
         val material = primitive.material?.let {
             loadMaterial(
                 material = it,
-                skinned = false,
+                skinned = skinned,
                 morphed = false,
             )
         }
@@ -397,13 +300,24 @@ class ModelPreprocessor private constructor(
             vertexFormatMode = vertexFormatMode,
             materialInfo = material,
             indexBufferIndex = primitive.indices?.let { loadIndexBuffer(it).bufferIndex },
-            vertexBufferIndex = loadVertexBuffer(material, primitive.attributes),
+            vertexBufferIndex = loadVertexBuffer(
+                material = material,
+                skinned = skinned,
+                attributes = primitive.attributes,
+            ),
+            skinIndex = skinIndex.takeIf { skinned },
         )
     }
 
     private val primitiveInfos = mutableListOf<PrimitiveLoadInfo>()
-    private fun loadMesh(mesh: Mesh) = mesh.primitives.mapNotNull { primitive ->
-        val primitiveInfo = loadPrimitive(primitive) ?: return@mapNotNull null
+    private fun loadMesh(
+        mesh: Mesh,
+        skinIndex: Int?,
+    ) = mesh.primitives.mapNotNull { primitive ->
+        val primitiveInfo = loadPrimitive(
+            skinIndex = skinIndex,
+            primitive = primitive,
+        ) ?: return@mapNotNull null
         val index = primitiveInfos.size
         primitiveInfos.add(primitiveInfo)
         NodeLoadInfo.Component.Primitive(index)
@@ -411,12 +325,35 @@ class ModelPreprocessor private constructor(
 
     private val nodes = mutableListOf<NodeLoadInfo>()
     private fun loadNode(node: Node): Int {
+        val skinJointData = skinJointsData[node.id]
         val node = NodeLoadInfo(
+            nodeId = node.id,
+            nodeName = node.name,
+            humanoidTags = skinJointData?.mapNotNull { it.humanoidTag } ?: listOf(),
             transform = node.transform,
-            components = node.components.flatMap { component ->
-                when (component) {
-                    is NodeComponent.MeshComponent -> loadMesh(component.mesh)
-                    else -> listOf()
+            components = buildList {
+                skinJointData?.forEach { (skinIndex, jointIndex) ->
+                    add(
+                        NodeLoadInfo.Component.Joint(
+                            skinIndex = skinIndex,
+                            jointIndex = jointIndex,
+                        )
+                    )
+                }
+                node.components.forEach { component ->
+                    when (component) {
+                        is NodeComponent.MeshComponent -> {
+                            val skinIndex = model.skins.indexOf(node.skinComponent?.skin).takeIf { it >= 0 }
+                            addAll(
+                                loadMesh(
+                                    mesh = component.mesh,
+                                    skinIndex = skinIndex,
+                                )
+                            )
+                        }
+
+                        else -> {}
+                    }
                 }
             },
             childrenIndices = node.children.map { loadNode(it) },
@@ -428,7 +365,11 @@ class ModelPreprocessor private constructor(
 
     private fun loadScene(scene: Scene): PreProcessModelLoadInfo? {
         val rootNode = NodeLoadInfo(
+            nodeId = null,
+            nodeName = "Root node",
+            humanoidTags = listOf(),
             transform = scene.initialTransform,
+            components = listOf(),
             childrenIndices = scene.nodes.map { loadNode(it) },
         )
         val rootNodeIndex = nodes.size
@@ -440,10 +381,12 @@ class ModelPreprocessor private constructor(
             primitiveInfos = primitiveInfos,
             nodes = nodes,
             rootNodeIndex = rootNodeIndex,
+            skins = skinsList,
         )
     }
 
     private fun loadModel(): PreProcessModelLoadInfo? {
+        loadSkins()
         val scene = model.defaultScene ?: model.scenes.firstOrNull() ?: return null
         return loadScene(scene)
     }
