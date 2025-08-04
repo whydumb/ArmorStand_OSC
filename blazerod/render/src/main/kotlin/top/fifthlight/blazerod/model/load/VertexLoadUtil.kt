@@ -1,93 +1,102 @@
 package top.fifthlight.blazerod.model.load
 
 import com.mojang.blaze3d.vertex.VertexFormatElement
-import org.lwjgl.system.MemoryUtil
 import top.fifthlight.blazerod.model.Accessor
 import top.fifthlight.blazerod.model.elementLength
 import top.fifthlight.blazerod.model.read
 import top.fifthlight.blazerod.model.readNormalized
 import top.fifthlight.blazerod.model.util.*
+import java.nio.ByteBuffer
 
 object VertexLoadUtil {
     fun copyRawData(
         vertices: Int,
         stride: Int,
         srcAttribute: Accessor,
-        dstAddress: Long,
-        dstLength: Long,
+        dstBuffer: ByteBuffer,
+        dstOffset: Int,
+        dstLength: Int,
     ) {
-        require(srcAttribute.elementLength.toLong() == dstLength) { "Raw copy failed: Source element length (${srcAttribute.elementLength}) does not match destination element length ($dstLength)" }
+        require(srcAttribute.elementLength == dstLength) { "Raw copy failed: Source element length (${srcAttribute.elementLength}) does not match destination element length ($dstLength)" }
         val srcByteBufferView = srcAttribute.bufferView ?: return
-        val srcByteOffset = srcAttribute.byteOffset + srcByteBufferView.byteOffset
-        var currentSrcAddress = MemoryUtil.memAddress(srcByteBufferView.buffer.buffer) + srcByteOffset
-        var currentDstAddress = dstAddress
-        val srcStride =
-            srcByteBufferView.byteStride.toLong().takeIf { it != 0L } ?: srcAttribute.elementLength.toLong()
+        val srcByteBuffer = srcByteBufferView.buffer.buffer.duplicate()
+        var currentSrcOffset = srcAttribute.byteOffset + srcByteBufferView.byteOffset
+        var currentDstOffset = dstOffset
+        val srcStride = srcByteBufferView.byteStride.takeIf { it != 0 } ?: srcAttribute.elementLength
 
         repeat(vertices) {
-            MemoryUtil.memCopy(currentSrcAddress, currentDstAddress, dstLength)
-            currentSrcAddress += srcStride
-            currentDstAddress += stride
+            srcByteBuffer.position(currentSrcOffset)
+            srcByteBuffer.limit(currentSrcOffset + dstLength)
+            dstBuffer.position(currentDstOffset)
+            dstBuffer.put(srcByteBuffer)
+            srcByteBuffer.clear()
+            dstBuffer.clear()
+            currentSrcOffset += srcStride
+            currentDstOffset += stride
         }
     }
 
     fun copyUnnormalizedData(
         stride: Int,
         srcAttribute: Accessor,
-        dstAddress: Long,
+        dstBuffer: ByteBuffer,
+        dstOffset: Int,
         targetElement: VertexFormatElement,
     ) {
         require(srcAttribute.type.components == targetElement.count()) { "Copy unnormalized data failed: Source element count (${srcAttribute.type.components}) does not match destination element count (${targetElement.count()})" }
         if (srcAttribute.bufferView == null) {
             return
         }
-        var currentDstAddress = dstAddress
+        var currentDstOffset = dstOffset
         srcAttribute.read { elementBuffer ->
             repeat(srcAttribute.type.components) { component ->
                 val dstComponentLength = targetElement.type.size()
-                val dstAddress = currentDstAddress + component * dstComponentLength
+                val absoluteDstOffset = currentDstOffset + component * dstComponentLength
                 when (srcAttribute.componentType) {
                     Accessor.ComponentType.BYTE -> {
                         val value = elementBuffer.get()
                         when (targetElement.type) {
-                            VertexFormatElement.Type.UBYTE, VertexFormatElement.Type.BYTE -> MemoryUtil.memPutByte(
-                                dstAddress,
+                            VertexFormatElement.Type.UBYTE, VertexFormatElement.Type.BYTE -> dstBuffer.put(
+                                absoluteDstOffset,
                                 value
                             )
 
-                            VertexFormatElement.Type.USHORT, VertexFormatElement.Type.SHORT -> MemoryUtil.memPutShort(
-                                dstAddress,
+                            VertexFormatElement.Type.USHORT, VertexFormatElement.Type.SHORT -> dstBuffer.putShort(
+                                absoluteDstOffset,
                                 value.toShort()
                             )
 
-                            VertexFormatElement.Type.UINT, VertexFormatElement.Type.INT -> MemoryUtil.memPutInt(
-                                dstAddress,
+                            VertexFormatElement.Type.UINT, VertexFormatElement.Type.INT -> dstBuffer.putInt(
+                                absoluteDstOffset,
                                 value.toInt()
                             )
 
-                            VertexFormatElement.Type.FLOAT -> MemoryUtil.memPutFloat(dstAddress, value.toFloat())
+                            VertexFormatElement.Type.FLOAT -> dstBuffer.putFloat(
+                                absoluteDstOffset,
+                                elementBuffer.getFloat()
+                            )
                         }
                     }
 
                     Accessor.ComponentType.UNSIGNED_BYTE -> {
                         val value = elementBuffer.get().toUByte()
                         when (targetElement.type) {
-                            VertexFormatElement.Type.UBYTE, VertexFormatElement.Type.BYTE -> MemoryUtil.memPutByte(
-                                dstAddress,
+                            VertexFormatElement.Type.UBYTE, VertexFormatElement.Type.BYTE -> dstBuffer.put(
+                                absoluteDstOffset,
                                 value.toByte()
                             )
 
-                            VertexFormatElement.Type.USHORT, VertexFormatElement.Type.SHORT -> MemoryUtil.memPutShort(
-                                dstAddress,
+                            VertexFormatElement.Type.USHORT, VertexFormatElement.Type.SHORT -> dstBuffer.putShort(
+                                absoluteDstOffset,
                                 value.toShort()
                             )
 
-                            VertexFormatElement.Type.UINT, VertexFormatElement.Type.INT -> MemoryUtil.memPutInt(
-                                dstAddress,
+                            VertexFormatElement.Type.UINT, VertexFormatElement.Type.INT -> dstBuffer.putInt(
+                                absoluteDstOffset,
                                 value.toInt()
                             )
 
-                            VertexFormatElement.Type.FLOAT -> MemoryUtil.memPutFloat(dstAddress, value.toFloat())
+                            VertexFormatElement.Type.FLOAT -> dstBuffer.putFloat(absoluteDstOffset, value.toFloat())
                         }
                     }
 
@@ -96,20 +105,20 @@ object VertexLoadUtil {
                         when (targetElement.type) {
                             VertexFormatElement.Type.UBYTE, VertexFormatElement.Type.BYTE -> {
                                 require(value in Byte.MIN_VALUE..Byte.MAX_VALUE) { "Short input cannot be copied to byte output" }
-                                MemoryUtil.memPutByte(dstAddress, value.toByte())
+                                dstBuffer.put(absoluteDstOffset, value.toByte())
                             }
 
-                            VertexFormatElement.Type.USHORT, VertexFormatElement.Type.SHORT -> MemoryUtil.memPutShort(
-                                dstAddress,
+                            VertexFormatElement.Type.USHORT, VertexFormatElement.Type.SHORT -> dstBuffer.putShort(
+                                absoluteDstOffset,
                                 value
                             )
 
-                            VertexFormatElement.Type.UINT, VertexFormatElement.Type.INT -> MemoryUtil.memPutInt(
-                                dstAddress,
+                            VertexFormatElement.Type.UINT, VertexFormatElement.Type.INT -> dstBuffer.putInt(
+                                absoluteDstOffset,
                                 value.toInt()
                             )
 
-                            VertexFormatElement.Type.FLOAT -> MemoryUtil.memPutFloat(dstAddress, value.toFloat())
+                            VertexFormatElement.Type.FLOAT -> dstBuffer.putFloat(absoluteDstOffset, value.toFloat())
                         }
                     }
 
@@ -118,20 +127,20 @@ object VertexLoadUtil {
                         when (targetElement.type) {
                             VertexFormatElement.Type.UBYTE, VertexFormatElement.Type.BYTE -> {
                                 require(value in UByte.MIN_VALUE..UByte.MAX_VALUE) { "Short input cannot be copied to byte output" }
-                                MemoryUtil.memPutByte(dstAddress, value.toByte())
+                                dstBuffer.put(absoluteDstOffset, value.toByte())
                             }
 
-                            VertexFormatElement.Type.USHORT, VertexFormatElement.Type.SHORT -> MemoryUtil.memPutShort(
-                                dstAddress,
+                            VertexFormatElement.Type.USHORT, VertexFormatElement.Type.SHORT -> dstBuffer.putShort(
+                                absoluteDstOffset,
                                 value.toShort()
                             )
 
-                            VertexFormatElement.Type.UINT, VertexFormatElement.Type.INT -> MemoryUtil.memPutInt(
-                                dstAddress,
+                            VertexFormatElement.Type.UINT, VertexFormatElement.Type.INT -> dstBuffer.putInt(
+                                absoluteDstOffset,
                                 value.toInt()
                             )
 
-                            VertexFormatElement.Type.FLOAT -> MemoryUtil.memPutFloat(dstAddress, value.toFloat())
+                            VertexFormatElement.Type.FLOAT -> dstBuffer.putFloat(absoluteDstOffset, value.toFloat())
                         }
                     }
 
@@ -140,37 +149,38 @@ object VertexLoadUtil {
                         when (targetElement.type) {
                             VertexFormatElement.Type.UBYTE, VertexFormatElement.Type.BYTE -> {
                                 require(value in UByte.MIN_VALUE..UByte.MAX_VALUE) { "Int input cannot be copied to byte output" }
-                                MemoryUtil.memPutByte(dstAddress, value.toByte())
+                                dstBuffer.put(absoluteDstOffset, value.toByte())
                             }
 
                             VertexFormatElement.Type.USHORT, VertexFormatElement.Type.SHORT -> {
                                 require(value in UShort.MIN_VALUE..UShort.MAX_VALUE) { "Int input cannot be copied to Short output" }
-                                MemoryUtil.memPutShort(dstAddress, value.toShort())
+                                dstBuffer.putShort(absoluteDstOffset, value.toShort())
                             }
 
-                            VertexFormatElement.Type.UINT, VertexFormatElement.Type.INT -> MemoryUtil.memPutInt(
-                                dstAddress,
+                            VertexFormatElement.Type.UINT, VertexFormatElement.Type.INT -> dstBuffer.putInt(
+                                absoluteDstOffset,
                                 value.toInt()
                             )
 
-                            VertexFormatElement.Type.FLOAT -> MemoryUtil.memPutFloat(dstAddress, value.toFloat())
+                            VertexFormatElement.Type.FLOAT -> dstBuffer.putFloat(absoluteDstOffset, value.toFloat())
                         }
                     }
 
                     Accessor.ComponentType.FLOAT -> {
                         require(targetElement.type == VertexFormatElement.Type.FLOAT) { "Float input can only be copied to float output" }
-                        MemoryUtil.memPutFloat(dstAddress, elementBuffer.getFloat())
+                        dstBuffer.putFloat(absoluteDstOffset, elementBuffer.getFloat())
                     }
                 }
             }
-            currentDstAddress += stride
+            currentDstOffset += stride
         }
     }
 
     fun copyNormalizedData(
         stride: Int,
         srcAttribute: Accessor,
-        dstAddress: Long,
+        dstBuffer: ByteBuffer,
+        dstOffset: Int,
         targetElementType: VertexFormatElement.Type,
         componentsToWrite: Int,
         fillAlphaValue: Float? = null,
@@ -184,83 +194,85 @@ object VertexLoadUtil {
             return
         }
 
-        var currentDstAddress = dstAddress
+        var currentDstOffset = dstOffset
         var dstComponentIndex = 0
         val byteSizePerComponent = targetElementType.size()
 
         srcAttribute.readNormalized { value ->
+            val absoluteDstOffset = currentDstOffset + dstComponentIndex * byteSizePerComponent
             when (targetElementType) {
-                VertexFormatElement.Type.FLOAT -> MemoryUtil.memPutFloat(
-                    currentDstAddress + dstComponentIndex * byteSizePerComponent,
+                VertexFormatElement.Type.FLOAT -> dstBuffer.putFloat(
+                    absoluteDstOffset,
                     value
                 )
 
-                VertexFormatElement.Type.UBYTE -> MemoryUtil.memPutByte(
-                    currentDstAddress + dstComponentIndex * byteSizePerComponent,
+                VertexFormatElement.Type.UBYTE -> dstBuffer.put(
+                    absoluteDstOffset,
                     value.toNormalizedUByte()
                 )
 
-                VertexFormatElement.Type.BYTE -> MemoryUtil.memPutByte(
-                    currentDstAddress + dstComponentIndex * byteSizePerComponent,
+                VertexFormatElement.Type.BYTE -> dstBuffer.put(
+                    absoluteDstOffset,
                     value.toNormalizedSByte()
                 )
 
-                VertexFormatElement.Type.USHORT -> MemoryUtil.memPutShort(
-                    currentDstAddress + dstComponentIndex * byteSizePerComponent,
+                VertexFormatElement.Type.USHORT -> dstBuffer.putShort(
+                    absoluteDstOffset,
                     value.toNormalizedUShort()
                 )
 
-                VertexFormatElement.Type.SHORT -> MemoryUtil.memPutShort(
-                    currentDstAddress + dstComponentIndex * byteSizePerComponent,
+                VertexFormatElement.Type.SHORT -> dstBuffer.putShort(
+                    absoluteDstOffset,
                     value.toNormalizedSShort()
                 )
 
-                VertexFormatElement.Type.UINT -> MemoryUtil.memPutInt(
-                    currentDstAddress + dstComponentIndex * byteSizePerComponent,
+                VertexFormatElement.Type.UINT -> dstBuffer.putInt(
+                    absoluteDstOffset,
                     value.toNormalizedUInt()
                 )
 
-                VertexFormatElement.Type.INT -> MemoryUtil.memPutInt(
-                    currentDstAddress + dstComponentIndex * byteSizePerComponent,
+                VertexFormatElement.Type.INT -> dstBuffer.putInt(
+                    absoluteDstOffset,
                     value.toNormalizedUInt()
                 )
             }
             dstComponentIndex++
 
             if (dstComponentIndex == 3 && fillAlphaValue != null) {
+                val absoluteDstOffsetAlpha = currentDstOffset + 3 * byteSizePerComponent
                 when (targetElementType) {
-                    VertexFormatElement.Type.FLOAT -> MemoryUtil.memPutFloat(
-                        currentDstAddress + 3 * byteSizePerComponent,
+                    VertexFormatElement.Type.FLOAT -> dstBuffer.putFloat(
+                        absoluteDstOffsetAlpha,
                         fillAlphaValue
                     )
 
-                    VertexFormatElement.Type.UBYTE -> MemoryUtil.memPutByte(
-                        currentDstAddress + 3 * byteSizePerComponent,
+                    VertexFormatElement.Type.UBYTE -> dstBuffer.put(
+                        absoluteDstOffsetAlpha,
                         fillAlphaValue.toNormalizedUByte()
                     )
 
-                    VertexFormatElement.Type.BYTE -> MemoryUtil.memPutByte(
-                        currentDstAddress + 3 * byteSizePerComponent,
+                    VertexFormatElement.Type.BYTE -> dstBuffer.put(
+                        absoluteDstOffsetAlpha,
                         fillAlphaValue.toNormalizedSByte()
                     )
 
-                    VertexFormatElement.Type.USHORT -> MemoryUtil.memPutShort(
-                        currentDstAddress + 3 * byteSizePerComponent,
+                    VertexFormatElement.Type.USHORT -> dstBuffer.putShort(
+                        absoluteDstOffsetAlpha,
                         fillAlphaValue.toNormalizedUShort()
                     )
 
-                    VertexFormatElement.Type.SHORT -> MemoryUtil.memPutShort(
-                        currentDstAddress + 3 * byteSizePerComponent,
+                    VertexFormatElement.Type.SHORT -> dstBuffer.putShort(
+                        absoluteDstOffsetAlpha,
                         fillAlphaValue.toNormalizedSShort()
                     )
 
-                    VertexFormatElement.Type.UINT -> MemoryUtil.memPutInt(
-                        currentDstAddress + 3 * byteSizePerComponent,
+                    VertexFormatElement.Type.UINT -> dstBuffer.putInt(
+                        absoluteDstOffsetAlpha,
                         fillAlphaValue.toNormalizedUInt()
                     )
 
-                    VertexFormatElement.Type.INT -> MemoryUtil.memPutInt(
-                        currentDstAddress + 3 * byteSizePerComponent,
+                    VertexFormatElement.Type.INT -> dstBuffer.putInt(
+                        absoluteDstOffsetAlpha,
                         fillAlphaValue.toNormalizedUInt()
                     )
                 }
@@ -269,7 +281,7 @@ object VertexLoadUtil {
 
             if (dstComponentIndex == componentsToWrite) {
                 dstComponentIndex = 0
-                currentDstAddress += stride
+                currentDstOffset += stride
             }
         }
     }
@@ -280,20 +292,21 @@ object VertexLoadUtil {
         element: VertexFormatElement,
         normalized: Boolean,
         srcAttribute: Accessor,
-        dstAddress: Long,
+        dstBuffer: ByteBuffer,
+        dstOffset: Int,
     ) {
         val isFloat =
             srcAttribute.componentType == Accessor.ComponentType.FLOAT && element.type == VertexFormatElement.Type.FLOAT
         require(normalized == srcAttribute.normalized || isFloat) { "Source attribute's normalized ${srcAttribute.normalized} don't match target element $normalized" }
         require(srcAttribute.count == vertices) { "Source attribute's vertex count ${srcAttribute.count} don't match target vertex count $vertices" }
-        val dstLength = element.byteSize().toLong()
+        val dstLength = element.byteSize()
         if (srcAttribute.bufferView == null) {
             return
         }
 
         val canCopyRaw = srcAttribute.componentType == Accessor.ComponentType.FLOAT &&
                 !srcAttribute.normalized &&
-                srcAttribute.elementLength.toLong() == dstLength &&
+                srcAttribute.elementLength == dstLength &&
                 element.type == VertexFormatElement.Type.FLOAT
 
         if (canCopyRaw) {
@@ -301,7 +314,8 @@ object VertexLoadUtil {
                 vertices = vertices,
                 stride = stride,
                 srcAttribute = srcAttribute,
-                dstAddress = dstAddress,
+                dstBuffer = dstBuffer,
+                dstOffset = dstOffset,
                 dstLength = dstLength,
             )
         } else if (normalized) {
@@ -315,7 +329,8 @@ object VertexLoadUtil {
             copyNormalizedData(
                 stride = stride,
                 srcAttribute = srcAttribute,
-                dstAddress = dstAddress,
+                dstBuffer = dstBuffer,
+                dstOffset = dstOffset,
                 targetElementType = element.type,
                 componentsToWrite = element.count(),
                 fillAlphaValue = fillAlpha,
@@ -324,7 +339,8 @@ object VertexLoadUtil {
             copyUnnormalizedData(
                 stride = stride,
                 srcAttribute = srcAttribute,
-                dstAddress = dstAddress,
+                dstBuffer = dstBuffer,
+                dstOffset = dstOffset,
                 targetElement = element,
             )
         }

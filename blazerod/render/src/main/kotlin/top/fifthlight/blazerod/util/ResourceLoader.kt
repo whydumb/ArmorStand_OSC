@@ -29,7 +29,13 @@ sealed class ResourceLoader protected constructor() : AutoCloseable {
     }
 
     class Async : ResourceLoader() {
-        private val executor = Executors.newSingleThreadExecutor()
+        private val executor = Executors.newSingleThreadExecutor(
+            Thread.ofPlatform()
+                .name("BlazeRod async loading thread")
+                .daemon(false)
+                .priority(Thread.MIN_PRIORITY)
+                .factory()
+        )
         override val loadDispatcher = executor.asCoroutineDispatcher()
         private val windowHandle: Long
         private var errorCallback: Callback? = null
@@ -68,11 +74,9 @@ sealed class ResourceLoader protected constructor() : AutoCloseable {
         }
 
         override fun close() {
-            runBlocking {
-                withContext(loadDispatcher) {
-                    errorCallback?.free()
-                    GLFW.glfwDestroyWindow(windowHandle)
-                }
+            runBlocking(loadDispatcher) {
+                errorCallback?.free()
+                GLFW.glfwDestroyWindow(windowHandle)
             }
         }
     }

@@ -5,7 +5,6 @@ import com.mojang.blaze3d.textures.TextureFormat
 import com.mojang.blaze3d.vertex.VertexFormat
 import com.mojang.blaze3d.vertex.VertexFormatElement
 import kotlinx.coroutines.*
-import org.lwjgl.system.MemoryUtil
 import top.fifthlight.blazerod.extension.NativeImageExt
 import top.fifthlight.blazerod.extension.TextureFormatExt
 import top.fifthlight.blazerod.extension.supportSsbo
@@ -191,11 +190,9 @@ class ModelPreprocessor private constructor(
             val vertices = attributes.position.count
             val stride = vertexFormat.vertexSize
             val buffer = ByteBuffer.allocateDirect(stride * vertices).order(ByteOrder.nativeOrder())
-            val pointer = MemoryUtil.memAddress(buffer)
 
             for (element in vertexFormat.elements) {
                 val dstOffset = vertexFormat.getOffset(element)
-                val currentDstStartAddress = pointer + dstOffset
 
                 when (element) {
                     VertexFormatElement.POSITION -> {
@@ -206,7 +203,8 @@ class ModelPreprocessor private constructor(
                             element = element,
                             normalized = false,
                             srcAttribute = srcAttribute,
-                            dstAddress = currentDstStartAddress,
+                            dstBuffer = buffer,
+                            dstOffset = dstOffset,
                         )
                     }
 
@@ -218,7 +216,8 @@ class ModelPreprocessor private constructor(
                             element = element,
                             normalized = false,
                             srcAttribute = srcAttribute,
-                            dstAddress = currentDstStartAddress,
+                            dstBuffer = buffer,
+                            dstOffset = dstOffset,
                         )
                     }
 
@@ -231,16 +230,12 @@ class ModelPreprocessor private constructor(
                                 element = element,
                                 normalized = true,
                                 srcAttribute = srcAttribute,
-                                dstAddress = currentDstStartAddress,
+                                dstBuffer = buffer,
+                                dstOffset = dstOffset,
                             )
                         } else {
-                            var currentVertexDstAddress = currentDstStartAddress
                             repeat(vertices) {
-                                MemoryUtil.memPutByte(currentVertexDstAddress, 0xFF.toByte())
-                                MemoryUtil.memPutByte(currentVertexDstAddress + 1, 0xFF.toByte())
-                                MemoryUtil.memPutByte(currentVertexDstAddress + 2, 0xFF.toByte())
-                                MemoryUtil.memPutByte(currentVertexDstAddress + 3, 0xFF.toByte())
-                                currentVertexDstAddress += stride
+                                buffer.putInt(dstOffset + it * stride, 0xFFFFFFFF.toInt())
                             }
                         }
                     }
@@ -253,7 +248,8 @@ class ModelPreprocessor private constructor(
                             element = element,
                             normalized = false,
                             srcAttribute = srcAttribute,
-                            dstAddress = currentDstStartAddress,
+                            dstBuffer = buffer,
+                            dstOffset = dstOffset,
                         )
                     }
 
@@ -265,7 +261,8 @@ class ModelPreprocessor private constructor(
                             element = element,
                             normalized = true,
                             srcAttribute = srcAttribute,
-                            dstAddress = currentDstStartAddress,
+                            dstBuffer = buffer,
+                            dstOffset = dstOffset,
                         )
                     }
 
