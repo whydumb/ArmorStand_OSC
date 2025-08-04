@@ -129,7 +129,7 @@ sealed class GpuShaderDataPool(
         override val supportSlicing: Boolean
             get() = false
 
-        class BufferItem private constructor() : AutoCloseable {
+        private class BufferItem private constructor() : AutoCloseable {
             private var _buffer: GpuBuffer? = null
             val buffer
                 get() = _buffer ?: error("BufferItem without buffer")
@@ -185,7 +185,9 @@ sealed class GpuShaderDataPool(
         }
 
         private val availableBuffers =
-            TreeSet<BufferItem>(compareBy<BufferItem> { it.bufferSize }.thenComparator { a, b ->
+            TreeSet<BufferItem>(compareBy<BufferItem> {
+                it.bufferSize
+            }.thenComparator { a, b ->
                 b.id.compareTo(a.id)
             })
 
@@ -234,7 +236,7 @@ sealed class GpuShaderDataPool(
             }
 
             frameData.buffers.add(allocatedBuffer)
-            return allocatedBuffer.buffer.slice(0, size)
+            return allocatedBuffer.buffer.slice()
         }
 
         override fun rotate() {
@@ -262,8 +264,8 @@ sealed class GpuShaderDataPool(
             // Clean oldest frame data
             allFrameData.remove(currentFrame - MAX_BUFFER_KEEP_FRAMES)?.let { frameData ->
                 frameData.fence?.close()
-                frameData.buffers.forEach { it.close() }
                 availableBuffers.removeAll(frameData.buffers)
+                frameData.buffers.forEach { it.close() }
                 frameData.buffers.clear()
             }
         }

@@ -78,7 +78,7 @@ class RenderPrimitive(
     )
 
     private fun RenderPass.bindMorphTargets(targets: Targets) {
-        if (RenderSystem.getDevice().supportSsbo) {
+        if (RenderSystem.getDevice().supportSsboInVertexShader) {
             setStorageBuffer("MorphPositionBlock", targets.position.slice)
             setStorageBuffer("MorphColorBlock", targets.color.slice)
             setStorageBuffer("MorphTexCoordBlock", targets.texCoord.slice)
@@ -163,13 +163,13 @@ class RenderPrimitive(
                     }
                 }
                 setUniform("InstanceData", instanceDataUniformBufferSlice)
-                if (device.supportSsbo) {
+                if (device.supportSsboInVertexShader) {
                     setStorageBuffer("LocalMatricesData", modelMatricesBufferSlice)
                 } else {
                     setUniform("LocalMatrices", modelMatricesBufferSlice)
                 }
                 skinJointBufferSlice?.let { skinJointBuffer ->
-                    if (device.supportSsbo) {
+                    if (device.supportSsboInVertexShader) {
                         setStorageBuffer("JointsData", skinJointBuffer)
                     } else {
                         setUniform("Joints", skinJointBuffer)
@@ -182,14 +182,14 @@ class RenderPrimitive(
                     setUniform("MorphData", morphDataUniformBuffer)
                 }
                 morphWeightsBufferSlice?.let { morphWeightsBuffer ->
-                    if (device.supportSsbo) {
+                    if (device.supportSsboInVertexShader) {
                         setStorageBuffer("MorphWeightsData", morphWeightsBuffer)
                     } else {
                         setUniform("MorphWeights", morphWeightsBuffer)
                     }
                 }
                 morphTargetIndicesBufferSlice?.let { morphTargetIndicesBuffer ->
-                    if (device.supportSsbo) {
+                    if (device.supportSsboInVertexShader) {
                         setStorageBuffer("MorphTargetIndicesData", morphTargetIndicesBuffer)
                     } else {
                         setUniform("MorphTargetIndices", morphTargetIndicesBuffer)
@@ -290,13 +290,13 @@ class RenderPrimitive(
                     }
                 }
                 setUniform("InstanceData", instanceDataUniformBufferSlice)
-                if (device.supportSsbo) {
+                if (device.supportSsboInVertexShader) {
                     setStorageBuffer("LocalMatricesData", modelMatricesBufferSlice)
                 } else {
                     setUniform("LocalMatrices", modelMatricesBufferSlice)
                 }
                 skinJointBufferSlice?.let { skinJointBuffer ->
-                    if (device.supportSsbo) {
+                    if (device.supportSsboInVertexShader) {
                         setStorageBuffer("JointsData", skinJointBuffer)
                     } else {
                         setUniform("Joints", skinJointBuffer)
@@ -309,14 +309,14 @@ class RenderPrimitive(
                     setUniform("MorphData", morphDataUniformBuffer)
                 }
                 morphWeightsBufferSlice?.let { morphWeightsBuffer ->
-                    if (device.supportSsbo) {
+                    if (device.supportSsboInVertexShader) {
                         setStorageBuffer("MorphWeightsData", morphWeightsBuffer)
                     } else {
                         setUniform("MorphWeights", morphWeightsBuffer)
                     }
                 }
                 morphTargetIndicesBufferSlice?.let { morphTargetIndicesBuffer ->
-                    if (device.supportSsbo) {
+                    if (device.supportSsboInVertexShader) {
                         setStorageBuffer("MorphTargetIndicesData", morphTargetIndicesBuffer)
                     } else {
                         setUniform("MorphTargetIndices", morphTargetIndicesBuffer)

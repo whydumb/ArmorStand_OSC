@@ -7,7 +7,7 @@ import com.mojang.blaze3d.textures.TextureFormat
 import kotlinx.coroutines.*
 import top.fifthlight.blazerod.extension.GpuBufferExt
 import top.fifthlight.blazerod.extension.createBuffer
-import top.fifthlight.blazerod.extension.supportSsbo
+import top.fifthlight.blazerod.extension.supportSsboInVertexShader
 import top.fifthlight.blazerod.model.resource.RenderPrimitive
 import top.fifthlight.blazerod.model.resource.RenderTexture
 import top.fifthlight.blazerod.render.GpuIndexBuffer
@@ -142,12 +142,12 @@ object ModelResourceLoader {
                 val commandEncoder = device.createCommandEncoder()
                 val gpuBuffer = device.createBuffer(
                     labelGetter = { "Morph target buffer" },
-                    usage = if (device.supportSsbo) {
+                    usage = if (device.supportSsboInVertexShader) {
                         GpuBuffer.USAGE_MAP_WRITE
                     } else {
                         GpuBuffer.USAGE_MAP_WRITE or GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER
                     },
-                    extraUsage = if (device.supportSsbo) {
+                    extraUsage = if (device.supportSsboInVertexShader) {
                         GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER
                     } else {
                         0

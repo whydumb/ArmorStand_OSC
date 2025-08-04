@@ -7,7 +7,7 @@ import com.mojang.blaze3d.vertex.VertexFormatElement
 import kotlinx.coroutines.*
 import top.fifthlight.blazerod.extension.NativeImageExt
 import top.fifthlight.blazerod.extension.TextureFormatExt
-import top.fifthlight.blazerod.extension.supportSsbo
+import top.fifthlight.blazerod.extension.supportSsboInVertexShader
 import top.fifthlight.blazerod.model.*
 import top.fifthlight.blazerod.model.resource.MorphTargetGroup
 import top.fifthlight.blazerod.model.resource.RenderExpression
@@ -324,7 +324,7 @@ class ModelPreprocessor private constructor(
         val verticesCount = primitive.attributes.position.count
         val targets = primitive.targets
         val loadedTargets = coroutineScope.async(dispatcher) {
-            val useSsbo = RenderSystem.getDevice().supportSsbo
+            val useSsbo = RenderSystem.getDevice().supportSsboInVertexShader
             val positionTarget = BuildingTarget.of(
                 useSsbo = useSsbo,
                 textureFormat = TextureFormatExt.RGB32F,

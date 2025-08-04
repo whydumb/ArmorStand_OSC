@@ -73,11 +73,14 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExt {
     }
 
     @ModifyExpressionValue(method = "setupRenderPass", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderPipeline$UniformDescription;type()Lnet/minecraft/client/gl/UniformType;", ordinal = 2))
-    private UniformType onCheckTexelBufferUniformSlice(UniformType original) {
+    private UniformType onCheckTexelBufferUniformSlice(UniformType original, @Local GpuBufferSlice gpuBufferSlice, @Local RenderPipeline.UniformDescription uniformDescription) {
         if (original != UniformType.TEXEL_BUFFER) {
             return original;
         }
         if (!((GpuDeviceExt) backend).blazerod$getShaderDataPool().getSupportSlicing()) {
+            if (gpuBufferSlice.offset() != 0 || gpuBufferSlice.length() != gpuBufferSlice.buffer().size()) {
+                System.err.println("BAD UNIFORM " + uniformDescription.name() + " (BAD SLICE)");
+            }
             return original;
         }
         return null;

@@ -42,6 +42,9 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
     @Unique
     private static final boolean allowGlShaderStorageBufferObject = true;
 
+    @Unique
+    private static final boolean allowSsboInVertexShader = true;
+
     @Shadow
     @Final
     private Set<String> usedGlCapabilities;
@@ -59,6 +62,9 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
 
     @Unique
     private boolean supportSsbo;
+
+    @Unique
+    private boolean supportSsboInVertexShader;
 
     @Shadow
     public abstract GpuBuffer createBuffer(@Nullable Supplier<String> labelSupplier, int usage, int size);
@@ -83,28 +89,22 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
         return a * b / gcd(a, b);
     }
 
-    @Unique
-    private static boolean canUseSsbo(boolean useVertexSsbo) {
-        // OpenGL spec says GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS must be at least 8, but we check it
-        // just in case some drivers don't follow the spec
-        if (GL11.glGetInteger(GL43C.GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS) < 8) {
-            return true;
-        }
-        if (useVertexSsbo && GL11.glGetInteger(GL43C.GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS) < 8) {
-            return false;
-        }
-        return true;
-    }
-
     @Inject(method = "<init>", at = @At("TAIL"))
     private void onInit(long contextId, int debugVerbosity, boolean sync, BiFunction<Identifier, ShaderType, String> shaderSourceGetter, boolean renderDebugLabels, CallbackInfo ci, @Local(ordinal = 0) GLCapabilities glCapabilities) {
-        if (allowGlShaderStorageBufferObject && glCapabilities.GL_ARB_shader_storage_buffer_object && glCapabilities.GL_ARB_program_interface_query && canUseSsbo(true)) {
+        if (allowGlShaderStorageBufferObject
+                && glCapabilities.GL_ARB_shader_storage_buffer_object
+                && glCapabilities.GL_ARB_program_interface_query
+                // OpenGL spec says GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS must be at least 8, but we check it
+                // just in case some drivers don't follow the spec
+                && GL11.glGetInteger(GL43C.GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS) > 8) {
             usedGlCapabilities.add("ARB_shader_storage_buffer_object");
             usedGlCapabilities.add("ARB_program_interface_query");
             supportSsbo = true;
         } else {
             supportSsbo = false;
         }
+
+        supportSsboInVertexShader = supportSsbo && allowSsboInVertexShader && GL11.glGetInteger(GL43C.GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS) >= 8;
 
         glMajorVersion = GL11.glGetInteger(GL30C.GL_MAJOR_VERSION);
         glMinorVersion = GL11.glGetInteger(GL30C.GL_MINOR_VERSION);
@@ -177,5 +177,10 @@ public abstract class GlBackendMixin implements GpuDeviceExt {
     @Override
     public boolean blazerod$supportSsbo() {
         return supportSsbo;
+    }
+
+    @Override
+    public boolean blazerod$supportSsboInVertexShader() {
+        return supportSsboInVertexShader;
     }
 }

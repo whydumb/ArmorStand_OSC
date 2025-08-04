@@ -34,3 +34,6 @@ val GpuDevice.shaderDataPool
 
 val GpuDevice.supportSsbo
     get() = (this as GpuDeviceExt).`blazerod$supportSsbo`()
+
+val GpuDevice.supportSsboInVertexShader
+    get() = (this as GpuDeviceExt).`blazerod$supportSsboInVertexShader`()

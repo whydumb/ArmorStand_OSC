@@ -13,7 +13,7 @@ import net.minecraft.client.gl.UniformType
 import net.minecraft.util.Identifier
 import top.fifthlight.blazerod.BlazeRod
 import top.fifthlight.blazerod.extension.TextureFormatExt
-import top.fifthlight.blazerod.extension.supportSsbo
+import top.fifthlight.blazerod.extension.supportSsboInVertexShader
 import top.fifthlight.blazerod.extension.withStorageBuffer
 import top.fifthlight.blazerod.extension.withVertexFormat
 import top.fifthlight.blazerod.model.Material.AlphaMode
@@ -111,7 +111,7 @@ abstract class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCou
         fun pipelineSnippet(): RenderPipeline.Snippet = RenderPipeline.builder().apply {
             withCull(!doubleSided)
             withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            val useSsbo = RenderSystem.getDevice().supportSsbo
+            val useSsbo = RenderSystem.getDevice().supportSsboInVertexShader
             if (useSsbo) {
                 withShaderDefine("SUPPORT_SSBO")
             }

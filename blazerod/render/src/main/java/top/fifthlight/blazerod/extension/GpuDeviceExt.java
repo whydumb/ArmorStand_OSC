@@ -19,4 +19,6 @@ public interface GpuDeviceExt {
     GpuBuffer blazerod$createBuffer(@Nullable Supplier<String> labelSupplier, int usage, int extraUsage, ByteBuffer data);
 
     boolean blazerod$supportSsbo();
+
+    boolean blazerod$supportSsboInVertexShader();
 }
