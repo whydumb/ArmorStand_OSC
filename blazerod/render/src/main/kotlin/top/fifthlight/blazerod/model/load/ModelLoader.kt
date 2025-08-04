@@ -12,18 +12,16 @@ object ModelLoader {
     suspend fun loadModel(model: Model): RenderScene? = coroutineScope {
         val loadInfo = ModelPreprocessor.preprocess(
             scope = this,
-            dispatcher = Dispatchers.Default,
+            loadDispatcher = Dispatchers.Default,
             model = model,
         ) ?: return@coroutineScope null
         val gpuInfo = ModelResourceLoader.load(
             scope = this,
-            dispatcher = Dispatchers.BlazeRod.Main,
+            loadDispatcher = Dispatchers.Default,
+            gpuDispatcher = Dispatchers.BlazeRod.Main,
             info = loadInfo,
         )
-        SceneReconstructor.reconstruct(
-            dispatcher = Dispatchers.BlazeRod.Main,
-            info = gpuInfo
-        )
+        SceneReconstructor.reconstruct(info = gpuInfo)
     }
 
     @JvmStatic

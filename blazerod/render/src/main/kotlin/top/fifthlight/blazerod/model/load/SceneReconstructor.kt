@@ -1,6 +1,5 @@
 package top.fifthlight.blazerod.model.load
 
-import kotlinx.coroutines.CoroutineDispatcher
 import net.minecraft.client.gl.RenderPassImpl
 import top.fifthlight.blazerod.model.RenderScene
 import top.fifthlight.blazerod.model.TransformId
@@ -146,10 +145,7 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
     }
 
     companion object {
-        suspend fun reconstruct(
-            dispatcher: CoroutineDispatcher,
-            info: GpuLoadModelLoadInfo,
-        ) = SceneReconstructor(info).reconstruct().also {
+        suspend fun reconstruct(info: GpuLoadModelLoadInfo) = SceneReconstructor(info).reconstruct().also {
             if (RenderPassImpl.IS_DEVELOPMENT) {
                 info.textures.forEach { it.await()?.checkInUse() }
                 info.indexBuffers.forEach { it.await().checkInUse() }

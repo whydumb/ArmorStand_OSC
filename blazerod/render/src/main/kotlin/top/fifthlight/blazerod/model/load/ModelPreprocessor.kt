@@ -643,8 +643,8 @@ class ModelPreprocessor private constructor(
     companion object {
         fun preprocess(
             scope: CoroutineScope,
-            dispatcher: CoroutineDispatcher,
+            loadDispatcher: CoroutineDispatcher,
             model: Model,
-        ) = ModelPreprocessor(scope, dispatcher, model).loadModel()
+        ) = ModelPreprocessor(scope, loadDispatcher, model).loadModel()
     }
 }

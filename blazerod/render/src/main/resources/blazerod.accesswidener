@@ -8,6 +8,4 @@ accessible field net/minecraft/client/gl/RenderPassImpl pipeline Lnet/minecraft/
 accessible class net/minecraft/client/gl/BufferManager$ARBBufferManager
 accessible class net/minecraft/client/gl/BufferManager$DefaultBufferManager
 accessible method net/minecraft/client/gl/GlCommandEncoder drawBoundObjectWithRenderPass (Lnet/minecraft/client/gl/RenderPassImpl;IIILcom/mojang/blaze3d/vertex/VertexFormat$IndexType;I)V
-accessible class com/mojang/blaze3d/opengl/GlStateManager$Texture2DState
-accessible method com/mojang/blaze3d/opengl/GlStateManager$Texture2DState <init> ()V
 accessible field com/mojang/blaze3d/vertex/VertexFormatElement ELEMENTS Ljava/util/List;

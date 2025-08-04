@@ -273,6 +273,7 @@ java_binary(
     ],
     main_class = "top.fifthlight.fabazel.devlaunchwrapper.DevLaunchWrapper",
     jvm_flags = [
+        "-Dkotlinx.coroutines.debug=on",
         "-Dfabric.development=true",
         "-Dfabric.log.disableAnsi=false",
         "-Dfabric.remapClasspathFile=../../remap_classpath.txt",
