@@ -17,11 +17,11 @@ object ModelLoader {
         ) ?: return@coroutineScope null
         val gpuInfo = ModelResourceLoader.load(
             scope = this,
-            dispatcher = Dispatchers.BlazeRod.Load,
+            dispatcher = Dispatchers.BlazeRod.Main,
             info = loadInfo,
         )
         SceneReconstructor.reconstruct(
-            dispatcher = Dispatchers.BlazeRod.Load,
+            dispatcher = Dispatchers.BlazeRod.Main,
             info = gpuInfo
         )
     }

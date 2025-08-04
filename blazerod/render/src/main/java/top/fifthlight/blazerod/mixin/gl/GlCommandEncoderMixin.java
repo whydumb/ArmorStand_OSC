@@ -28,7 +28,6 @@ import top.fifthlight.blazerod.extension.internal.RenderPassExtInternal;
 import top.fifthlight.blazerod.extension.internal.gl.BufferManagerExtInternal;
 import top.fifthlight.blazerod.extension.internal.gl.ShaderProgramExt;
 import top.fifthlight.blazerod.render.gl.BufferClearer;
-import top.fifthlight.blazerod.util.ResourceLoader;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
@@ -41,16 +40,6 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExt {
 
     @Shadow
     public abstract void writeToBuffer(GpuBufferSlice gpuBufferSlice, ByteBuffer byteBuffer);
-
-    @WrapOperation(method = "writeToTexture(Lcom/mojang/blaze3d/textures/GpuTexture;Lnet/minecraft/client/texture/NativeImage;IIIIIIII)V", at = @At(value = "FIELD", target = "Lnet/minecraft/client/gl/GlCommandEncoder;renderPassOpen:Z"))
-    public boolean onGetRenderPassOpen(GlCommandEncoder instance, Operation<Boolean> original) {
-        // Resource loading thread never render anything
-        if (ResourceLoader.isOnResourceLoadingThread()) {
-            return false;
-        } else {
-            return original.call(instance);
-        }
-    }
 
     @WrapOperation(method = "drawObjectWithRenderPass", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderPipeline;getVertexFormatMode()Lcom/mojang/blaze3d/vertex/VertexFormat$DrawMode;"))
     private VertexFormat.DrawMode onDrawObjectWithRenderPassGetVertexMode(RenderPipeline instance, Operation<VertexFormat.DrawMode> original, RenderPassImpl pass) {

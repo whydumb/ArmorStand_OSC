@@ -1,7 +1,6 @@
 package top.fifthlight.blazerod.model.load
 
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.withContext
 import net.minecraft.client.gl.RenderPassImpl
 import top.fifthlight.blazerod.model.RenderScene
 import top.fifthlight.blazerod.model.TransformId
@@ -11,7 +10,6 @@ import top.fifthlight.blazerod.model.resource.RenderCamera
 import top.fifthlight.blazerod.model.resource.RenderMaterial
 import top.fifthlight.blazerod.model.resource.RenderPrimitive
 import top.fifthlight.blazerod.model.resource.RenderTexture
-import top.fifthlight.blazerod.util.ResourceLoader
 import top.fifthlight.blazerod.util.checkInUse
 
 class SceneReconstructor private constructor(private val info: GpuLoadModelLoadInfo) {
@@ -152,9 +150,6 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
             dispatcher: CoroutineDispatcher,
             info: GpuLoadModelLoadInfo,
         ) = SceneReconstructor(info).reconstruct().also {
-            withContext(dispatcher) {
-                ResourceLoader.finishLoading()
-            }
             if (RenderPassImpl.IS_DEVELOPMENT) {
                 info.textures.forEach { it.await()?.checkInUse() }
                 info.indexBuffers.forEach { it.await().checkInUse() }

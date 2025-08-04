@@ -14,7 +14,6 @@ import top.fifthlight.blazerod.extension.shaderDataPool
 import top.fifthlight.blazerod.model.resource.RenderMaterial
 import top.fifthlight.blazerod.model.resource.RenderTexture
 import top.fifthlight.blazerod.model.uniform.UniformBuffer
-import top.fifthlight.blazerod.util.ResourceLoader
 import top.fifthlight.blazerod.util.ThreadExecutorDispatcher
 import top.fifthlight.blazerod.util.cleanupPools
 import javax.swing.SwingUtilities
@@ -52,7 +51,6 @@ object BlazeRod: ClientModInitializer {
         }
 
         RenderEvents.INITIALIZE_DEVICE.register {
-            ResourceLoader.initialize()
             RenderMaterial.initialize()
             // Trigger its loading in render thread
             RenderTexture.WHITE_RGBA_TEXTURE
@@ -66,7 +64,6 @@ object BlazeRod: ClientModInitializer {
         ClientLifecycleEvents.CLIENT_STOPPING.register { client ->
             cleanupPools()
             UniformBuffer.close()
-            ResourceLoader.close()
         }
     }
 }
