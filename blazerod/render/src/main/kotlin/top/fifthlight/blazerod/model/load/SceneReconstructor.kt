@@ -14,7 +14,7 @@ import top.fifthlight.blazerod.util.checkInUse
 class SceneReconstructor private constructor(private val info: GpuLoadModelLoadInfo) {
     private suspend fun loadTexture(
         textureInfo: MaterialLoadInfo.TextureInfo?,
-        fallback: RenderTexture = RenderTexture.Companion.WHITE_RGBA_TEXTURE,
+        fallback: RenderTexture = RenderTexture.WHITE_RGBA_TEXTURE,
     ) = textureInfo?.let {
         info.textures[textureInfo.textureIndex].await()
     } ?: fallback
