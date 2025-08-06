@@ -10,3 +10,4 @@ accessible class net/minecraft/client/gl/BufferManager$DefaultBufferManager
 accessible method net/minecraft/client/gl/GlCommandEncoder drawBoundObjectWithRenderPass (Lnet/minecraft/client/gl/RenderPassImpl;IIILcom/mojang/blaze3d/vertex/VertexFormat$IndexType;I)V
 accessible field com/mojang/blaze3d/vertex/VertexFormatElement ELEMENTS Ljava/util/List;
 accessible field net/minecraft/client/render/OverlayTexture texture Lnet/minecraft/client/texture/NativeImageBackedTexture;
+accessible class net/minecraft/client/gl/GlBackend$ShaderKey

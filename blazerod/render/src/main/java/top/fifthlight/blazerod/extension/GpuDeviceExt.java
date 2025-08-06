@@ -15,15 +15,13 @@ public interface GpuDeviceExt {
     GpuBuffer blazerod$createBuffer(@Nullable Supplier<String> labelSupplier, int usage, int extraUsage, ByteBuffer data);
 
     boolean blazerod$supportTextureBufferSlice();
-
     boolean blazerod$supportSsbo();
+    boolean blazerod$supportComputeShader();
 
     int blazerod$getMaxSsboBindings();
-
     int blazerod$getMaxSsboInVertexShader();
     int blazerod$getMaxSsboInFragmentShader();
 
     int blazerod$getSsboOffsetAlignment();
-
     int blazerod$getTextureBufferOffsetAlignment();
 }

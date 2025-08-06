@@ -15,14 +15,14 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.fifthlight.blazerod.extension.GpuDeviceExt;
-import top.fifthlight.blazerod.extension.internal.gl.ShaderProgramExt;
+import top.fifthlight.blazerod.extension.internal.gl.ShaderProgramExtInternal;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
 @Mixin(ShaderProgram.class)
-public abstract class ShaderProgramMixin implements ShaderProgramExt {
+public abstract class ShaderProgramMixin implements ShaderProgramExtInternal {
     @Shadow
     @Final
     private static Logger LOGGER;
