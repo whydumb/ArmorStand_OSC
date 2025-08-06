@@ -11,7 +11,6 @@ import top.fifthlight.blazerod.debug.*
 import top.fifthlight.blazerod.event.RenderEvents
 import top.fifthlight.blazerod.model.resource.RenderTexture
 import top.fifthlight.blazerod.model.uniform.UniformBuffer
-import top.fifthlight.blazerod.util.GpuShaderDataPool
 import top.fifthlight.blazerod.util.ThreadExecutorDispatcher
 import top.fifthlight.blazerod.util.cleanupObjectPools
 import javax.swing.SwingUtilities

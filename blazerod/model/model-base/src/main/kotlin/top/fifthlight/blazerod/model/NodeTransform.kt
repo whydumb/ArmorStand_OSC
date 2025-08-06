@@ -1,11 +1,6 @@
 package top.fifthlight.blazerod.model
 
-import org.joml.Matrix4f
-import org.joml.Matrix4fc
-import org.joml.Quaternionf
-import org.joml.Quaternionfc
-import org.joml.Vector3f
-import org.joml.Vector3fc
+import org.joml.*
 
 sealed interface NodeTransformView {
     val matrix: Matrix4fc

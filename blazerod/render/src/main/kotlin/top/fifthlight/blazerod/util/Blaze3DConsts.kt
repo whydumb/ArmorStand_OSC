@@ -4,7 +4,6 @@ import com.mojang.blaze3d.textures.AddressMode
 import com.mojang.blaze3d.textures.FilterMode
 import com.mojang.blaze3d.vertex.VertexFormat
 import com.mojang.blaze3d.vertex.VertexFormatElement
-import net.minecraft.client.texture.TextureSetup
 import top.fifthlight.blazerod.extension.AddressModeExt
 import top.fifthlight.blazerod.model.Accessor.ComponentType
 import top.fifthlight.blazerod.model.Primitive

@@ -1,6 +1,5 @@
 package top.fifthlight.blazerod.model
 
-import com.mojang.blaze3d.textures.GpuTextureView
 import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.util.Identifier
 import org.joml.Matrix4f
@@ -10,7 +9,10 @@ import top.fifthlight.blazerod.model.data.MorphTargetBuffer
 import top.fifthlight.blazerod.model.data.RenderSkinBuffer
 import top.fifthlight.blazerod.model.node.TransformMap
 import top.fifthlight.blazerod.model.resource.CameraTransform
-import top.fifthlight.blazerod.util.*
+import top.fifthlight.blazerod.util.AbstractRefCount
+import top.fifthlight.blazerod.util.CowBuffer
+import top.fifthlight.blazerod.util.copy
+import top.fifthlight.blazerod.util.mapToArray
 import java.util.function.Consumer
 
 class ModelInstance(val scene: RenderScene) : AbstractRefCount() {

@@ -1,11 +1,7 @@
 package top.fifthlight.armorstand.ui.component
 
 import net.minecraft.client.gl.RenderPipelines
-import net.minecraft.client.gui.DrawContext
-import net.minecraft.client.gui.Drawable
-import net.minecraft.client.gui.ParentElement
-import net.minecraft.client.gui.ScreenRect
-import net.minecraft.client.gui.Selectable
+import net.minecraft.client.gui.*
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.gui.screen.world.CreateWorldScreen
 import net.minecraft.client.gui.tab.TabManager

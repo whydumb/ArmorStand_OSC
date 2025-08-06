@@ -1,6 +1,6 @@
 package top.fifthlight.blazerod.model
 
-import java.util.UUID
+import java.util.*
 
 data class Mesh(
     val id: MeshId,

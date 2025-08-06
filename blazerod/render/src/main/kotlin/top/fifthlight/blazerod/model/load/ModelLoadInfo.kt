@@ -1,6 +1,5 @@
 package top.fifthlight.blazerod.model.load
 
-import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.vertex.VertexFormat
 import kotlinx.coroutines.Deferred
 import net.minecraft.client.texture.NativeImage

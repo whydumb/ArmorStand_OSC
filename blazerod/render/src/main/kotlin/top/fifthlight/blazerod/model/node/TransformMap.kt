@@ -7,7 +7,6 @@ import org.joml.Vector3f
 import top.fifthlight.blazerod.model.NodeTransform
 import top.fifthlight.blazerod.model.NodeTransformView
 import top.fifthlight.blazerod.model.TransformId
-import java.lang.IllegalStateException
 import java.util.*
 
 class TransformMap(first: NodeTransform?) {

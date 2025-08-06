@@ -11,7 +11,6 @@ import org.joml.Matrix4f
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.armorstand.util.RendererManager
-import top.fifthlight.blazerod.model.TaskMap
 import top.fifthlight.blazerod.model.renderer.InstancedRenderer
 import top.fifthlight.blazerod.model.resource.CameraTransform
 import top.fifthlight.blazerod.model.resource.RenderCamera

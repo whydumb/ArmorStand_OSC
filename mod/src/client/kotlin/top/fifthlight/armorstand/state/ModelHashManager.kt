@@ -1,7 +1,7 @@
 package top.fifthlight.armorstand.state
 
 import top.fifthlight.armorstand.util.ModelHash
-import java.util.UUID
+import java.util.*
 
 object ModelHashManager {
     private val modelHashes = mutableMapOf<UUID, ModelHash>()

@@ -15,14 +15,7 @@ import net.minecraft.client.render.LightmapTextureManager
 import net.minecraft.util.Identifier
 import org.joml.Vector2i
 import top.fifthlight.blazerod.BlazeRod
-import top.fifthlight.blazerod.extension.TextureFormatExt
-import top.fifthlight.blazerod.extension.draw
-import top.fifthlight.blazerod.extension.maxSsboInVertexShader
-import top.fifthlight.blazerod.extension.setStorageBuffer
-import top.fifthlight.blazerod.extension.setVertexFormatMode
-import top.fifthlight.blazerod.extension.supportSsbo
-import top.fifthlight.blazerod.extension.withStorageBuffer
-import top.fifthlight.blazerod.extension.withVertexFormat
+import top.fifthlight.blazerod.extension.*
 import top.fifthlight.blazerod.model.RenderScene
 import top.fifthlight.blazerod.model.RenderTask
 import top.fifthlight.blazerod.model.data.MorphTargetBuffer
@@ -36,13 +29,8 @@ import top.fifthlight.blazerod.model.uniform.SkinModelIndicesUniformBuffer
 import top.fifthlight.blazerod.model.uniform.UnlitDataUniformBuffer
 import top.fifthlight.blazerod.render.BlazerodVertexFormats
 import top.fifthlight.blazerod.render.setIndexBuffer
-import top.fifthlight.blazerod.util.GpuShaderDataPool
-import top.fifthlight.blazerod.util.getOrPut
-import top.fifthlight.blazerod.util.ofSsbo
-import top.fifthlight.blazerod.util.ofTbo
-import top.fifthlight.blazerod.util.upload
-import java.util.OptionalDouble
-import java.util.OptionalInt
+import top.fifthlight.blazerod.util.*
+import java.util.*
 
 class VertexShaderTransformRenderer private constructor() :
     TaskMapInstancedRenderer<VertexShaderTransformRenderer, VertexShaderTransformRenderer.Type>() {

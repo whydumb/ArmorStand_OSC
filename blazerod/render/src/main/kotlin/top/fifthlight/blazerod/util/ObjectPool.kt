@@ -2,8 +2,7 @@ package top.fifthlight.blazerod.util
 
 import net.minecraft.util.Identifier
 import top.fifthlight.blazerod.debug.ObjectPoolTracker
-import java.util.ArrayDeque
-import java.util.Collections
+import java.util.*
 
 private val pools = Collections.synchronizedSet(mutableSetOf<Pool<*>>())
 private var cleaned = false

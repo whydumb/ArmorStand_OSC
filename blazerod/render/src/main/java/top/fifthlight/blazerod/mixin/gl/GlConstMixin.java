@@ -1,16 +1,16 @@
 package top.fifthlight.blazerod.mixin.gl;
 
+import com.mojang.blaze3d.opengl.GlConst;
 import com.mojang.blaze3d.textures.AddressMode;
+import com.mojang.blaze3d.textures.TextureFormat;
 import org.lwjgl.opengl.GL11C;
 import org.lwjgl.opengl.GL30C;
-import top.fifthlight.blazerod.extension.AddressModeExt;
-import top.fifthlight.blazerod.extension.TextureFormatExt;
-import com.mojang.blaze3d.opengl.GlConst;
-import com.mojang.blaze3d.textures.TextureFormat;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import top.fifthlight.blazerod.extension.AddressModeExt;
+import top.fifthlight.blazerod.extension.TextureFormatExt;
 
 @Mixin(GlConst.class)
 public class GlConstMixin {

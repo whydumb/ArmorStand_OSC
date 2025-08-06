@@ -12,7 +12,7 @@ import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.manage.ModelManager
 import top.fifthlight.armorstand.util.ModelHash
 import java.nio.file.Path
-import java.util.UUID
+import java.util.*
 
 object ClientModelPathManager {
     private val client = MinecraftClient.getInstance()

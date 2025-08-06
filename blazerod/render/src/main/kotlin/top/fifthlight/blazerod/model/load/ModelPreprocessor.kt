@@ -1,6 +1,5 @@
 package top.fifthlight.blazerod.model.load
 
-import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.textures.TextureFormat
 import com.mojang.blaze3d.vertex.VertexFormat
 import com.mojang.blaze3d.vertex.VertexFormatElement

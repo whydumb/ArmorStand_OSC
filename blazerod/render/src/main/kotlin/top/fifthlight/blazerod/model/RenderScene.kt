@@ -1,13 +1,9 @@
 package top.fifthlight.blazerod.model
 
-import com.mojang.blaze3d.textures.GpuTextureView
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap
 import net.minecraft.client.render.VertexConsumerProvider
 import net.minecraft.util.Identifier
 import org.joml.Matrix4fc
-import top.fifthlight.blazerod.model.data.ModelMatricesBuffer
-import top.fifthlight.blazerod.model.data.MorphTargetBuffer
-import top.fifthlight.blazerod.model.data.RenderSkinBuffer
 import top.fifthlight.blazerod.model.node.RenderNode
 import top.fifthlight.blazerod.model.node.RenderNodeComponent
 import top.fifthlight.blazerod.model.node.UpdatePhase
@@ -17,7 +13,6 @@ import top.fifthlight.blazerod.model.resource.RenderExpression
 import top.fifthlight.blazerod.model.resource.RenderExpressionGroup
 import top.fifthlight.blazerod.model.resource.RenderSkin
 import top.fifthlight.blazerod.util.AbstractRefCount
-import top.fifthlight.blazerod.util.CowBufferList
 
 class RenderScene(
     val rootNode: RenderNode,

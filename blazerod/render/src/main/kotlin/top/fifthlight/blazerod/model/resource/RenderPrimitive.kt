@@ -3,7 +3,8 @@ package top.fifthlight.blazerod.model.resource
 import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.vertex.VertexFormat
 import net.minecraft.util.Identifier
-import top.fifthlight.blazerod.extension.*
+import top.fifthlight.blazerod.extension.GpuBufferExt
+import top.fifthlight.blazerod.extension.extraUsage
 import top.fifthlight.blazerod.render.GpuIndexBuffer
 import top.fifthlight.blazerod.render.RefCountedGpuBuffer
 import top.fifthlight.blazerod.util.AbstractRefCount
