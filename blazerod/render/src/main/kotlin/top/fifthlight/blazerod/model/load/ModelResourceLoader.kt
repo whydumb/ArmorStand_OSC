@@ -4,7 +4,10 @@ import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.textures.GpuTexture
 import com.mojang.blaze3d.textures.TextureFormat
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import top.fifthlight.blazerod.extension.GpuBufferExt
 import top.fifthlight.blazerod.extension.createBuffer
 import top.fifthlight.blazerod.model.resource.RenderPrimitive
@@ -17,7 +20,6 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
-import kotlin.coroutines.resume
 
 object ModelResourceLoader {
     private fun <T, R> Deferred<T>.map(
@@ -36,27 +38,8 @@ object ModelResourceLoader {
         it.map(scope, context, block)
     }
 
-    private fun CoroutineScope.awaitFence(context: CoroutineContext = EmptyCoroutineContext) = async(context) {
-        suspendCancellableCoroutine { continuation ->
-            RenderSystem.queueFencedTask {
-                continuation.resume(Unit)
-            }
-        }
-    }
-
-    private suspend inline fun <T> CoroutineScope.awaitFence(
-        context: CoroutineContext = EmptyCoroutineContext,
-        crossinline block: suspend () -> T,
-    ): T {
-        val fence = awaitFence(context)
-        val result = block()
-        fence.await()
-        return result
-    }
-
     fun load(
         scope: CoroutineScope,
-        loadDispatcher: CoroutineDispatcher,
         gpuDispatcher: CoroutineDispatcher,
         info: PreProcessModelLoadInfo,
     ): GpuLoadModelLoadInfo {
@@ -83,9 +66,7 @@ object ModelResourceLoader {
                         sampler.magFilter.blaze3d,
                         sampler.minFilter.useMipmap,
                     )
-                    scope.awaitFence(gpuDispatcher) {
-                        commandEncoder.writeToTexture(gpuTexture, nativeImage)
-                    }
+                    commandEncoder.writeToTexture(gpuTexture, nativeImage)
                 }
                 val textureView = device.createTextureView(gpuTexture)
                 RenderTexture(gpuTexture, textureView)
@@ -93,20 +74,13 @@ object ModelResourceLoader {
         }
         val indexBuffers = info.indexBuffers.mapAll(scope, gpuDispatcher) { indexData ->
             val device = RenderSystem.getDevice()
-            val commandEncoder = device.createCommandEncoder()
             val buffer = RefCountedGpuBuffer(
                 device.createBuffer(
                     null,
                     GpuBuffer.USAGE_MAP_WRITE or GpuBuffer.USAGE_INDEX,
-                    indexData.buffer.remaining()
+                    indexData.buffer,
                 )
             )
-            commandEncoder.mapBuffer(buffer.inner, false, true).use { mapped ->
-                val data = mapped.data()
-                withContext(loadDispatcher) {
-                    data.put(indexData.buffer)
-                }
-            }
             GpuIndexBuffer(
                 type = indexData.type,
                 length = indexData.length,
@@ -115,25 +89,20 @@ object ModelResourceLoader {
         }
         val vertexBuffers = info.vertexBuffers.mapAll(scope, gpuDispatcher) {
             val device = RenderSystem.getDevice()
-            val commandEncoder = device.createCommandEncoder()
             val buffer = RefCountedGpuBuffer(
-                device.createBuffer(null, GpuBuffer.USAGE_MAP_WRITE or GpuBuffer.USAGE_VERTEX, it.remaining())
+                device.createBuffer(
+                    null,
+                    GpuBuffer.USAGE_MAP_WRITE or GpuBuffer.USAGE_VERTEX,
+                    it
+                )
             )
-            scope.awaitFence(gpuDispatcher) {
-                commandEncoder.mapBuffer(buffer.inner, false, true).use { mapped ->
-                    val data = mapped.data()
-                    withContext(loadDispatcher) {
-                        data.put(it)
-                    }
-                }
-            }
             GpuLoadVertexData(
                 gpuBuffer = buffer,
                 cpuBuffer = it,
             )
         }
         val morphTargetInfos = info.morphTargetInfos.mapAll(scope, gpuDispatcher) {
-            suspend fun loadTarget(target: MorphTargetsLoadData.TargetInfo): RenderPrimitive.Target {
+            fun loadTarget(target: MorphTargetsLoadData.TargetInfo): RenderPrimitive.Target {
                 val targetBuffer = if (target.targetsCount == 0) {
                     // No targets, but we can't create an empty buffer, so let's create a dummy one
                     ByteBuffer.allocateDirect(target.itemStride).order(ByteOrder.nativeOrder())
@@ -141,21 +110,12 @@ object ModelResourceLoader {
                     target.buffer
                 }
                 val device = RenderSystem.getDevice()
-                val commandEncoder = device.createCommandEncoder()
                 val gpuBuffer = device.createBuffer(
                     labelGetter = { "Morph target buffer" },
                     usage = GpuBuffer.USAGE_MAP_WRITE or GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER,
                     extraUsage = GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER,
-                    size = targetBuffer.remaining(),
+                    data = targetBuffer,
                 )
-                scope.awaitFence(gpuDispatcher) {
-                    commandEncoder.mapBuffer(gpuBuffer, false, true).use { mapped ->
-                        val data = mapped.data()
-                        withContext(loadDispatcher) {
-                            data.put(targetBuffer)
-                        }
-                    }
-                }
                 return RenderPrimitive.Target(
                     gpuBuffer = gpuBuffer,
                     cpuBuffer = targetBuffer,

@@ -17,7 +17,6 @@ object ModelLoader {
         ) ?: return@coroutineScope null
         val gpuInfo = ModelResourceLoader.load(
             scope = this,
-            loadDispatcher = Dispatchers.Default,
             gpuDispatcher = Dispatchers.BlazeRod.Main,
             info = loadInfo,
         )
