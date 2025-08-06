@@ -7,7 +7,7 @@ import java.util.Collections
 
 private val pools = Collections.synchronizedSet(mutableSetOf<Pool<*>>())
 private var cleaned = false
-internal fun cleanupPools() {
+internal fun cleanupObjectPools() {
     require(!cleaned) { "All pools has been cleaned" }
     cleaned = true
     pools.forEach { it.close() }

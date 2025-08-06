@@ -1,4 +1,5 @@
-load("//:properties.bzl", "mod_version", "game_version")
+load("//:properties.bzl", "game_version", "mod_version")
+load("//rule:decompile_jar.bzl", "decompile_jar")
 load("//rule:extract_jar.bzl", "extract_jar")
 load("//rule:merge_mapping.bzl", "merge_mapping", "merge_mapping_input")
 load("//rule:remap_jar.bzl", "remap_jar")
@@ -48,17 +49,17 @@ merge_mapping(
 
 remap_jar(
     name = "remapped_client_intermediary",
+    from_namespace = "official",
     inputs = ["@minecraft//:%s_client" % game_version],
     mapping = ":merged_mapping",
-    from_namespace = "official",
     to_namespace = "intermediary",
 )
 
 remap_jar(
     name = "remapped_client_named",
+    from_namespace = "official",
     inputs = ["@minecraft//:%s_client" % game_version],
     mapping = ":merged_mapping",
-    from_namespace = "official",
     to_namespace = "named",
 )
 
@@ -78,8 +79,51 @@ java_import(
 
 remap_jar(
     name = "remapped_server_named",
+    from_namespace = "official",
     inputs = [":server_jar"],
     mapping = ":merged_mapping",
-    from_namespace = "official",
     to_namespace = "named",
+)
+
+remap_jar(
+    name = "remapped_sodium",
+    classpath = [
+        "//game:remapped_client_intermediary",
+    ],
+    from_namespace = "intermediary",
+    inputs = [
+        "@sodium//jar",
+    ],
+    mapping = "//game:merged_mapping",
+    mixin = True,
+    remap_transitive_deps = False,
+    remove_jar_in_jar = True,
+    to_namespace = "named",
+)
+
+remap_jar(
+    name = "remapped_iris",
+    classpath = [
+        "//game:remapped_client_intermediary",
+        "@sodium//jar",
+    ],
+    from_namespace = "intermediary",
+    inputs = [
+        "@iris//jar",
+    ],
+    mapping = "//game:merged_mapping",
+    mixin = True,
+    remap_transitive_deps = False,
+    remove_jar_in_jar = True,
+    to_namespace = "named",
+)
+
+decompile_jar(
+    name = "decompile_remapped_sodium",
+    inputs = [":remapped_sodium"],
+)
+
+decompile_jar(
+    name = "decompile_remapped_iris",
+    inputs = [":remapped_iris"],
 )

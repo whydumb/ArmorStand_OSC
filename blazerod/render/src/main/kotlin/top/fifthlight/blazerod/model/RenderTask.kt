@@ -1,9 +1,9 @@
 package top.fifthlight.blazerod.model
 
-import com.mojang.blaze3d.textures.GpuTextureView
 import net.minecraft.util.Identifier
 import org.joml.Matrix4f
 import org.joml.Matrix4fc
+import top.fifthlight.blazerod.BlazeRod
 import top.fifthlight.blazerod.model.data.ModelMatricesBuffer
 import top.fifthlight.blazerod.model.data.MorphTargetBuffer
 import top.fifthlight.blazerod.model.data.RenderSkinBuffer
@@ -65,6 +65,7 @@ class RenderTask private constructor(
             },
         )
 
+        @JvmStatic
         fun acquire(
             instance: ModelInstance,
             modelViewMatrix: Matrix4fc,
@@ -88,19 +89,40 @@ class RenderTask private constructor(
     }
 }
 
-class TaskMap {
+class TaskMap: AutoCloseable {
+    private var closed = false
     private val tasks = mutableMapOf<RenderScene, MutableList<RenderTask>>()
 
+    private fun checkNotClosed() = check(!closed) { "TaskMap is closed" }
+
     fun addTask(task: RenderTask) {
+        checkNotClosed()
         tasks.getOrPut(task.instance.scene) { mutableListOf() }.add(task)
     }
 
-    fun executeTasks(
-        colorFrameBuffer: GpuTextureView,
-        depthFrameBuffer: GpuTextureView?,
-    ) {
+    fun executeTasks(executor: (RenderScene, List<RenderTask>) -> Unit) {
+        checkNotClosed()
         for ((scene, tasks) in tasks) {
-            scene.renderInstanced(tasks, colorFrameBuffer, depthFrameBuffer)
+            if (tasks.size > BlazeRod.INSTANCE_SIZE) {
+                for (chunk in tasks.chunked(BlazeRod.INSTANCE_SIZE)) {
+                    executor(scene, chunk)
+                }
+            } else {
+                executor(scene, tasks)
+            }
+            for (task in tasks) {
+                task.release()
+            }
+        }
+        tasks.clear()
+    }
+
+    override fun close() {
+        if (closed) {
+            return
+        }
+        closed = true
+        for ((_, tasks) in tasks) {
             for (task in tasks) {
                 task.release()
             }

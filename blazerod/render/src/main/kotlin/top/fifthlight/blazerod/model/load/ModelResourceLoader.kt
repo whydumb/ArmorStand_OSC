@@ -7,7 +7,6 @@ import com.mojang.blaze3d.textures.TextureFormat
 import kotlinx.coroutines.*
 import top.fifthlight.blazerod.extension.GpuBufferExt
 import top.fifthlight.blazerod.extension.createBuffer
-import top.fifthlight.blazerod.extension.supportSsboInVertexShader
 import top.fifthlight.blazerod.model.resource.RenderPrimitive
 import top.fifthlight.blazerod.model.resource.RenderTexture
 import top.fifthlight.blazerod.render.GpuIndexBuffer
@@ -128,7 +127,10 @@ object ModelResourceLoader {
                     }
                 }
             }
-            buffer
+            GpuLoadVertexData(
+                gpuBuffer = buffer,
+                cpuBuffer = it,
+            )
         }
         val morphTargetInfos = info.morphTargetInfos.mapAll(scope, gpuDispatcher) {
             suspend fun loadTarget(target: MorphTargetsLoadData.TargetInfo): RenderPrimitive.Target {
@@ -142,16 +144,8 @@ object ModelResourceLoader {
                 val commandEncoder = device.createCommandEncoder()
                 val gpuBuffer = device.createBuffer(
                     labelGetter = { "Morph target buffer" },
-                    usage = if (device.supportSsboInVertexShader) {
-                        GpuBuffer.USAGE_MAP_WRITE
-                    } else {
-                        GpuBuffer.USAGE_MAP_WRITE or GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER
-                    },
-                    extraUsage = if (device.supportSsboInVertexShader) {
-                        GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER
-                    } else {
-                        0
-                    },
+                    usage = GpuBuffer.USAGE_MAP_WRITE or GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER,
+                    extraUsage = GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER,
                     size = targetBuffer.remaining(),
                 )
                 scope.awaitFence(gpuDispatcher) {
@@ -163,7 +157,8 @@ object ModelResourceLoader {
                     }
                 }
                 return RenderPrimitive.Target(
-                    data = gpuBuffer,
+                    gpuBuffer = gpuBuffer,
+                    cpuBuffer = targetBuffer,
                     targetsCount = target.targetsCount,
                 )
             }

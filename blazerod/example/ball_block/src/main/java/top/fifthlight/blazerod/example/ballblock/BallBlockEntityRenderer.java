@@ -1,7 +1,6 @@
 package top.fifthlight.blazerod.example.ballblock;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTextureView;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
@@ -35,6 +34,7 @@ public class BallBlockEntityRenderer implements BlockEntityRenderer<BallBlockEnt
         var depthFrameBuffer = frameBuffer.useDepthAttachment
                 ? (RenderSystem.outputDepthTextureOverride != null ? RenderSystem.outputDepthTextureOverride : frameBuffer.getDepthAttachmentView())
                 : null;
-        instance.render(matrix, light, Objects.requireNonNull(colorFrameBuffer), depthFrameBuffer);
+        var renderer = BallBlockMod.getRenderer();
+        renderer.render(Objects.requireNonNull(colorFrameBuffer), depthFrameBuffer, instance.createRenderTask(matrix, light), instance.getScene());
     }
 }

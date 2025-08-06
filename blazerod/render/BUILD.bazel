@@ -79,6 +79,8 @@ kt_jvm_library(
         ":remapped_deps",
         "//blazerod/model/model-formats",
         "//game:remapped_client_named",
+        "//game:remapped_iris",
+        "//game:remapped_sodium",
         "@maven//:io_github_llamalad7_mixinextras_fabric",
         "@maven//:net_fabricmc_fabric_language_kotlin",
         "@maven//:net_fabricmc_fabric_loader",

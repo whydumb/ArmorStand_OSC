@@ -1,6 +1,5 @@
 package top.fifthlight.blazerod
 
-import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.logging.LogUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import net.fabricmc.api.ClientModInitializer
@@ -10,12 +9,11 @@ import net.minecraft.client.gl.RenderPassImpl
 import top.fifthlight.armorstand.debug.ResourceCountTrackerFrame
 import top.fifthlight.blazerod.debug.*
 import top.fifthlight.blazerod.event.RenderEvents
-import top.fifthlight.blazerod.extension.shaderDataPool
-import top.fifthlight.blazerod.model.resource.RenderMaterial
 import top.fifthlight.blazerod.model.resource.RenderTexture
 import top.fifthlight.blazerod.model.uniform.UniformBuffer
+import top.fifthlight.blazerod.util.GpuShaderDataPool
 import top.fifthlight.blazerod.util.ThreadExecutorDispatcher
-import top.fifthlight.blazerod.util.cleanupPools
+import top.fifthlight.blazerod.util.cleanupObjectPools
 import javax.swing.SwingUtilities
 
 object BlazeRod: ClientModInitializer {
@@ -51,18 +49,16 @@ object BlazeRod: ClientModInitializer {
         }
 
         RenderEvents.INITIALIZE_DEVICE.register {
-            RenderMaterial.initialize()
             // Trigger its loading in render thread
             RenderTexture.WHITE_RGBA_TEXTURE
         }
 
         RenderEvents.FLIP_FRAME.register {
             UniformBuffer.clear()
-            RenderSystem.getDevice().shaderDataPool.rotate()
         }
 
         ClientLifecycleEvents.CLIENT_STOPPING.register { client ->
-            cleanupPools()
+            cleanupObjectPools()
             UniformBuffer.close()
         }
     }

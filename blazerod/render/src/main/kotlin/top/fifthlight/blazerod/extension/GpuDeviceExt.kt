@@ -29,11 +29,23 @@ fun GpuDevice.createBuffer(
     data: ByteBuffer,
 ): GpuBuffer = (this as GpuDeviceExt).`blazerod$createBuffer`(labelGetter, usage, extraUsage, data)
 
-val GpuDevice.shaderDataPool
-    get() = (this as GpuDeviceExt).`blazerod$getShaderDataPool`()
+val GpuDevice.supportTextureBufferSlice: Boolean
+    get() = (this as GpuDeviceExt).`blazerod$supportTextureBufferSlice`()
 
-val GpuDevice.supportSsbo
+val GpuDevice.supportSsbo: Boolean
     get() = (this as GpuDeviceExt).`blazerod$supportSsbo`()
 
-val GpuDevice.supportSsboInVertexShader
-    get() = (this as GpuDeviceExt).`blazerod$supportSsboInVertexShader`()
+val GpuDevice.maxSsboBindings: Int
+    get() = (this as GpuDeviceExt).`blazerod$getMaxSsboBindings`()
+
+val GpuDevice.maxSsboInVertexShader: Int
+    get() = (this as GpuDeviceExt).`blazerod$getMaxSsboInVertexShader`()
+
+val GpuDevice.maxSsboInFragmentShader: Int
+    get() = (this as GpuDeviceExt).`blazerod$getMaxSsboInFragmentShader`()
+
+val GpuDevice.ssboOffsetAlignment: Int
+    get() = (this as GpuDeviceExt).`blazerod$getSsboOffsetAlignment`()
+
+val GpuDevice.textureBufferOffsetAlignment: Int
+    get() = (this as GpuDeviceExt).`blazerod$getTextureBufferOffsetAlignment`()

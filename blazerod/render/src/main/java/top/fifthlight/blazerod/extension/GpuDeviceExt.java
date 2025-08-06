@@ -10,15 +10,21 @@ import java.util.function.Supplier;
 
 public interface GpuDeviceExt {
     @NotNull
-    GpuShaderDataPool blazerod$getShaderDataPool();
-
-    @NotNull
     GpuBuffer blazerod$createBuffer(@Nullable Supplier<String> labelSupplier, int usage, int extraUsage, int size);
 
     @NotNull
     GpuBuffer blazerod$createBuffer(@Nullable Supplier<String> labelSupplier, int usage, int extraUsage, ByteBuffer data);
 
+    boolean blazerod$supportTextureBufferSlice();
+
     boolean blazerod$supportSsbo();
 
-    boolean blazerod$supportSsboInVertexShader();
+    int blazerod$getMaxSsboBindings();
+
+    int blazerod$getMaxSsboInVertexShader();
+    int blazerod$getMaxSsboInFragmentShader();
+
+    int blazerod$getSsboOffsetAlignment();
+
+    int blazerod$getTextureBufferOffsetAlignment();
 }

@@ -65,48 +65,52 @@ uniform isamplerBuffer MorphTargetIndices;
 
 #ifndef INSTANCE_SIZE
 #error "INSTANCE_SIZE not defined"
-#endif // INSTANCE_SIZE
+#endif// INSTANCE_SIZE
 #ifdef INSTANCED
 #define MORPH_INSTANCE_ID gl_InstanceID
-#else // INSTANCED
+#else// INSTANCED
 #define MORPH_INSTANCE_ID 0
-#endif // INSTANCED
+#endif// INSTANCED
 
 #ifdef SUPPORT_SSBO
+// @formatter:off
 #define MACRO_MORPH_FUNCTION(RETURN_TYPE, FUNCTION_NAME, BASE_VAR_TYPE, BASE_VAR_ACCESSOR, MORPH_DATA_BUFFER_VAR, OFFSET, COUNT_NAME, INDEX_NAME, WEIGHT_OFFSET) \
-RETURN_TYPE FUNCTION_NAME(BASE_VAR_TYPE baseVar) { \
+RETURN_TYPE FUNCTION_NAME(BASE_VAR_TYPE baseVar) {                                                                                                               \
     RETURN_TYPE delta = RETURN_TYPE(0.0);                                                                                                                        \
     int modelIndex = MORPH_INSTANCE_ID;                                                                                                                          \
     int targetSize = MorphTargetIndices[modelIndex].COUNT_NAME;                                                                                                  \
                                                                                                                                                                  \
- for (int i = 0; i < MAX_ENABLED_MORPH_TARGETS; i++) { \
-        if (i >= targetSize) { \
- break;                                                                                                                                               \
- }                                                                                                                                                        \
+    for (int i = 0; i < MAX_ENABLED_MORPH_TARGETS; i++) {                                                                                                        \
+        if (i >= targetSize) {                                                                                                                                   \
+            break;                                                                                                                                               \
+        }                                                                                                                                                        \
         int targetIndex = MorphTargetIndices[modelIndex].indices[i].INDEX_NAME;                                                                                  \
         float weight = MorphWeights[modelIndex * TotalTargets + WEIGHT_OFFSET + targetIndex];                                                                    \
         delta += MORPH_DATA_BUFFER_VAR[gl_VertexID + targetIndex * TotalVertices] * weight;                                                                      \
- }                                                                                                                                                            \
- return baseVar + delta;                                                                                                                                      \
- }
+    }                                                                                                                                                            \
+    return baseVar + delta;                                                                                                                                      \
+}
+// @formatter:on
 #else// SUPPORT_SSBO
 #define MODEL_ITEM_SIZE (3 + 3 * (MAX_ENABLED_MORPH_TARGETS))
+// @formatter:off
 #define MACRO_MORPH_FUNCTION(RETURN_TYPE, FUNCTION_NAME, BASE_VAR_TYPE, BASE_VAR_ACCESSOR, MORPH_DATA_BUFFER_VAR, OFFSET, COUNT_NAME, INDEX_NAME, WEIGHT_OFFSET) \
-RETURN_TYPE FUNCTION_NAME(BASE_VAR_TYPE baseVar) { \
+RETURN_TYPE FUNCTION_NAME(BASE_VAR_TYPE baseVar) {                                                                                                               \
     RETURN_TYPE delta = RETURN_TYPE(0.0);                                                                                                                        \
     int modelIndex = MORPH_INSTANCE_ID;                                                                                                                          \
     int baseModelItemOffset = modelIndex * MODEL_ITEM_SIZE;                                                                                                      \
     int targetSize = texelFetch(MorphTargetIndices, baseModelItemOffset + OFFSET).x;                                                                             \
- for (int i = 0; i < MAX_ENABLED_MORPH_TARGETS; i++) { \
-        if (i >= targetSize) { \
- break;                                                                                                                                               \
- }                                                                                                                                                        \
+    for (int i = 0; i < MAX_ENABLED_MORPH_TARGETS; i++) {                                                                                                        \
+        if (i >= targetSize) {                                                                                                                                   \
+            break;                                                                                                                                               \
+        }                                                                                                                                                        \
         int targetIndex = texelFetch(MorphTargetIndices, baseModelItemOffset + 3 + 3 * i + OFFSET).x;                                                            \
         float weight = texelFetch(MorphWeights, modelIndex * TotalTargets + WEIGHT_OFFSET + targetIndex).x;                                                      \
         delta += texelFetch(MORPH_DATA_BUFFER_VAR, gl_VertexID + targetIndex * TotalVertices).BASE_VAR_ACCESSOR * weight;                                        \
- }                                                                                                                                                            \
- return baseVar + delta;                                                                                                                                      \
+    }                                                                                                                                                            \
+    return baseVar + delta;                                                                                                                                      \
 }
+// @formatter:on
 #endif// SUPPORT_SSBO
 
 MACRO_MORPH_FUNCTION(vec3, applyPositionMorph, vec3, xyz,  MorphPositionData, 0, posCount,      pos,      0)
@@ -117,10 +121,10 @@ MACRO_MORPH_FUNCTION(vec2, applyTexCoordMorph, vec2, st,   MorphTexCoordData, 2,
 #define GET_MORPHED_VERTEX_COLOR(color) applyColorMorph(color)
 #define GET_MORPHED_VERTEX_TEX_COORD(texCoord) applyTexCoordMorph(texCoord)
 
-#else // MORPHED
+#else// MORPHED
 
 #define GET_MORPHED_VERTEX_POSITION(position) (position)
 #define GET_MORPHED_VERTEX_COLOR(color) (color)
 #define GET_MORPHED_VERTEX_TEX_COORD(texCoord) (texCoord)
 
-#endif // MORPHED
+#endif// MORPHED

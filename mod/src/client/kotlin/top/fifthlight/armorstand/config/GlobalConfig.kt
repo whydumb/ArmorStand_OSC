@@ -25,6 +25,7 @@ data class GlobalConfig(
     val modelScale: Float = 1f,
     val thirdPersonDistanceScale: Float = 1f,
     val invertHeadDirection: Boolean = false,
+    val useCpuRenderer: Boolean = false,
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(GlobalConfig::class.java)

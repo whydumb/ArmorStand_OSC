@@ -76,7 +76,8 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
                         primitive = RenderPrimitive(
                             vertices = primitiveInfo.vertices,
                             vertexFormatMode = primitiveInfo.vertexFormatMode,
-                            vertexBuffer = vertexBuffer,
+                            gpuVertexBuffer = vertexBuffer.gpuBuffer,
+                            cpuVertexBuffer = vertexBuffer.cpuBuffer,
                             indexBuffer = indexBuffer,
                             material = material,
                             targets = targets?.let {
@@ -149,7 +150,7 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
             if (RenderPassImpl.IS_DEVELOPMENT) {
                 info.textures.forEach { it.await()?.checkInUse() }
                 info.indexBuffers.forEach { it.await().checkInUse() }
-                info.vertexBuffers.forEach { it.await().checkInUse() }
+                info.vertexBuffers.forEach { it.await().gpuBuffer?.checkInUse() }
             }
         }
     }

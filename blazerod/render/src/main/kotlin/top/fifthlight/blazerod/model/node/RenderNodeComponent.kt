@@ -76,37 +76,6 @@ sealed class RenderNodeComponent<C : RenderNodeComponent<C>> : AbstractRefCount(
                 }
             }
         }
-
-        fun render(
-            scene: RenderScene,
-            modelViewMatrix: Matrix4fc,
-            light: Int,
-            modelMatricesBuffer: ModelMatricesBuffer,
-            skinBuffer: List<RenderSkinBuffer>?,
-            morphTargetBuffer: List<MorphTargetBuffer>?,
-            colorFrameBuffer: GpuTextureView,
-            depthFrameBuffer: GpuTextureView?,
-        ) {
-            primitive.render(
-                scene = scene,
-                primitiveIndex = primitiveIndex,
-                viewModelMatrix = modelViewMatrix,
-                light = light,
-                modelMatricesBuffer = modelMatricesBuffer,
-                skinBuffer = skinIndex?.let {
-                    (skinBuffer ?: error("Has skin but no skin buffer"))[it]
-                },
-                targetBuffer = morphedPrimitiveIndex?.let {
-                    (morphTargetBuffer ?: error("Has morph targets but no morph target buffer"))[it]
-                },
-                colorFrameBuffer = colorFrameBuffer,
-                depthFrameBuffer = depthFrameBuffer,
-            )
-        }
-
-        fun renderInstanced(tasks: List<RenderTask>) {
-            primitive.renderInstanced(tasks, this)
-        }
     }
 
     class Joint(

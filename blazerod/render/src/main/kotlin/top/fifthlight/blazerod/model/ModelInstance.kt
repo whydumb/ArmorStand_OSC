@@ -121,38 +121,24 @@ class ModelInstance(val scene: RenderScene) : AbstractRefCount() {
         scene.updateRenderData(this)
     }
 
-    fun render(
+    fun createRenderTask(
         modelViewMatrix: Matrix4fc,
         light: Int,
-        colorFrameBuffer: GpuTextureView,
-        depthFrameBuffer: GpuTextureView?,
-    ) {
-        // Upload indices don't change the actual data
-        modelData.targetBuffers.forEach { it.content.uploadIndices() }
-        scene.render(
+    ): RenderTask {
+        return RenderTask.acquire(
+            instance = this,
             modelViewMatrix = modelViewMatrix,
             light = light,
-            modelMatricesBuffer = modelData.modelMatricesBuffer.content,
-            skinBuffer = CowBufferList(modelData.skinBuffers),
-            morphTargetBuffer = CowBufferList(modelData.targetBuffers),
-            colorFrameBuffer = colorFrameBuffer,
-            depthFrameBuffer = depthFrameBuffer,
+            modelMatricesBuffer = modelData.modelMatricesBuffer.copy(),
+            skinBuffer = modelData.skinBuffers.copy(),
+            morphTargetBuffer = modelData.targetBuffers.copy().also { buffer ->
+                // Upload indices don't change the actual data
+                buffer.forEach {
+                    it.content.uploadIndices()
+                }
+            },
         )
     }
-
-    fun schedule(modelViewMatrix: Matrix4fc, light: Int): RenderTask = RenderTask.acquire(
-        instance = this,
-        modelViewMatrix = modelViewMatrix,
-        light = light,
-        modelMatricesBuffer = modelData.modelMatricesBuffer.copy(),
-        skinBuffer = modelData.skinBuffers.copy(),
-        morphTargetBuffer = modelData.targetBuffers.copy().also { buffer ->
-            // Upload indices don't change the actual data
-            buffer.forEach {
-                it.content.uploadIndices()
-            }
-        },
-    )
 
     override fun onClosed() {
         scene.decreaseReferenceCount()

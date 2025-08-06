@@ -209,6 +209,23 @@ object ModelInstanceManager {
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
+    fun cleanAll() {
+        modelInstanceItems.values.forEach {
+            (it as? ModelInstanceItem.Model)?.decreaseReferenceCount()
+        }
+        modelInstanceItems.clear()
+        modelCaches.values.forEach { item ->
+            if (item.isCompleted) {
+                val item = item.getCompleted() as? ModelCache.Loaded
+                item?.scene?.decreaseReferenceCount()
+            } else {
+                item.cancel()
+            }
+        }
+        modelCaches.clear()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun cleanup(time: Long) {
         val usedPaths = mutableSetOf<Path>()
 

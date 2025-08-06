@@ -26,18 +26,22 @@ class ModelMatricesBuffer private constructor(val primitiveNodesSize: Int) : Cow
 
     fun clear() {
         repeat(primitiveNodesSize) {
-            buffer.position(it * MAT4X4_SIZE)
             IDENTITY.get(it * MAT4X4_SIZE, buffer)
         }
         buffer.clear()
     }
 
-    fun setMatrix(index: Int, matrix4f: Matrix4fc) {
-        buffer.position(index * MAT4X4_SIZE)
-        matrix4f.get(index * MAT4X4_SIZE, buffer)
+    fun setMatrix(index: Int, src: Matrix4fc) {
+        src.get(index * MAT4X4_SIZE, buffer)
+    }
+
+    fun getMatrix(index: Int, dest: Matrix4f) {
+        dest.set(index * MAT4X4_SIZE, buffer)
     }
 
     override fun copy(): ModelMatricesBuffer = ModelMatricesBuffer(primitiveNodesSize).also {
+        it.buffer.clear()
+        buffer.clear()
         it.buffer.put(buffer)
         it.buffer.clear()
     }

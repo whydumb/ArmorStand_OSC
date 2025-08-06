@@ -8,6 +8,8 @@ import top.fifthlight.blazerod.model.ModelInstance;
 import top.fifthlight.blazerod.model.RenderScene;
 import top.fifthlight.blazerod.model.TransformId;
 import top.fifthlight.blazerod.model.load.ModelLoader;
+import top.fifthlight.blazerod.model.renderer.Renderer;
+import top.fifthlight.blazerod.model.renderer.VertexShaderTransformRenderer;
 
 import java.io.IOException;
 import java.net.URI;
@@ -22,6 +24,7 @@ public class BallBlockMod implements ClientModInitializer {
     private static RenderScene BALL_SCENE = null;
     // Share same instance
     private static ModelInstance BALL_INSTANCE = null;
+    private static Renderer<?, ?> RENDERER = null;
 
     private void loadModel() {
         var resource = getClass().getClassLoader().getResource("ball.glb");
@@ -52,6 +55,7 @@ public class BallBlockMod implements ClientModInitializer {
         if (model == null) {
             throw new IllegalStateException("Ball model don't contain model");
         }
+        RENDERER = VertexShaderTransformRenderer.create();
         ModelLoader.loadModelAsFuture(model).thenAccept(scene -> {
             if (scene == null) {
                 throw new IllegalStateException("Ball model load failed");
@@ -72,6 +76,10 @@ public class BallBlockMod implements ClientModInitializer {
 
     public static ModelInstance getBallInstance() {
         return BALL_INSTANCE;
+    }
+
+    public static Renderer<?, ?> getRenderer() {
+        return RENDERER;
     }
 
     @Override

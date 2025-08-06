@@ -1,15 +1,15 @@
-load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
-load("//rule:fabric_mod_json_jar.bzl", "fabric_mod_json_jar")
-load("//rule:remap_jar.bzl", "remap_jar")
-load("//rule:apply_access_widener.bzl", "apply_access_widener")
-load("//rule:extract_access_widener.bzl", "extract_access_widener")
-load("//rule:merge_jar.bzl", "merge_jar")
-load("//rule:generate_remap_classpath.bzl", "generate_remap_classpath")
-load("//rule:decompile_jar.bzl", "decompile_jar")
-load("//rule:merge_jij.bzl", "merge_jij")
-load("//:properties.bzl", "mod_version", "game_version")
-load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
+load("//:properties.bzl", "game_version", "mod_version")
+load("//rule:apply_access_widener.bzl", "apply_access_widener")
+load("//rule:decompile_jar.bzl", "decompile_jar")
+load("//rule:extract_access_widener.bzl", "extract_access_widener")
+load("//rule:fabric_mod_json_jar.bzl", "fabric_mod_json_jar")
+load("//rule:generate_remap_classpath.bzl", "generate_remap_classpath")
+load("//rule:merge_jar.bzl", "merge_jar")
+load("//rule:merge_jij.bzl", "merge_jij")
+load("//rule:remap_jar.bzl", "remap_jar")
 
 extract_access_widener(
     name = "access_widener_dep_intermediary",
@@ -24,60 +24,17 @@ remap_jar(
     classpath = [
         "//game:remapped_client_intermediary",
     ],
+    from_namespace = "intermediary",
     inputs = [
         "@maven//:net_fabricmc_fabric_api_fabric_api",
         "@maven//:com_terraformersmc_modmenu",
         "@maven//:eu_pb4_placeholder_api",
     ],
+    mapping = "//game:merged_mapping",
     mixin = True,
     remap_transitive_deps = True,
     remove_jar_in_jar = True,
-    mapping = "//game:merged_mapping",
-    from_namespace = "intermediary",
     to_namespace = "named",
-)
-
-remap_jar(
-    name = "remapped_sodium",
-    classpath = [
-        "//game:remapped_client_intermediary",
-    ],
-    inputs = [
-        "@sodium//jar",
-    ],
-    mixin = True,
-    remap_transitive_deps = False,
-    remove_jar_in_jar = True,
-    mapping = "//game:merged_mapping",
-    from_namespace = "intermediary",
-    to_namespace = "named",
-)
-
-remap_jar(
-    name = "remapped_iris",
-    classpath = [
-        "//game:remapped_client_intermediary",
-        "@sodium//jar",
-    ],
-    inputs = [
-        "@iris//jar",
-    ],
-    mixin = True,
-    remap_transitive_deps = False,
-    remove_jar_in_jar = True,
-    mapping = "//game:merged_mapping",
-    from_namespace = "intermediary",
-    to_namespace = "named",
-)
-
-decompile_jar(
-    name = "decompile_remapped_sodium",
-    inputs = [":remapped_sodium"],
-)
-
-decompile_jar(
-    name = "decompile_remapped_iris",
-    inputs = [":remapped_iris"],
 )
 
 extract_access_widener(
@@ -87,11 +44,11 @@ extract_access_widener(
 
 apply_access_widener(
     name = "remapped_client_access_widened_named",
-    input = "//game:remapped_client_named",
     srcs = [
         "src/main/resources/armorstand.accesswidener",
         ":access_widener_dep_named",
     ],
+    input = "//game:remapped_client_named",
 )
 
 decompile_jar(
@@ -101,20 +58,20 @@ decompile_jar(
 
 apply_access_widener(
     name = "remapped_server_access_widened_named",
-    input = "//game:remapped_server_named",
     srcs = [
         "src/main/resources/armorstand.accesswidener",
         ":access_widener_dep_named",
     ],
+    input = "//game:remapped_server_named",
 )
 
 fabric_mod_json_jar(
     name = "fabric_mod_json",
     src = "src/main/resources/fabric.mod.json",
+    resource_strip_prefix = "mod",
     substitutions = {
         "${version}": mod_version,
     },
-    resource_strip_prefix = "mod",
 )
 
 kt_jvm_library(
@@ -133,9 +90,9 @@ kt_jvm_library(
         exclude = ["src/main/resources/fabric.mod.json"],
     ),
     deps = [
-        "//:kotlin_serialization",
-        ":remapped_server_access_widened_named",
         ":remapped_deps",
+        ":remapped_server_access_widened_named",
+        "//:kotlin_serialization",
         "@maven//:net_fabricmc_fabric_language_kotlin",
         "@maven//:net_fabricmc_fabric_loader",
         "@minecraft//:%s_server_libraries" % game_version,
@@ -144,11 +101,11 @@ kt_jvm_library(
 
 remap_jar(
     name = "mod_main",
-    inputs = [":mod_main_unmapped"],
     classpath = ["//game:remapped_client_named"],
+    from_namespace = "named",
+    inputs = [":mod_main_unmapped"],
     mapping = "//game:merged_mapping",
     mixin = True,
-    from_namespace = "named",
     to_namespace = "intermediary",
 )
 
@@ -162,45 +119,43 @@ kt_jvm_library(
         allow_empty = True,
     ),
     module_name = "top_fifthlight_armorstand",
+    resource_jars = ["//blazerod/model/model-gltf:default_models"],
     resource_strip_prefix = "mod/src/client/resources",
     resources = glob(
         include = ["src/client/resources/**"],
         allow_empty = True,
     ),
-    resource_jars = ["//blazerod/model/model-gltf:default_models"],
     deps = [
-        "//:kotlin_serialization",
-        "//blazerod:blazerod_without_jij",
         ":mod_main_unmapped",
         ":remapped_client_access_widened_named",
         ":remapped_deps",
-        ":remapped_sodium",
-        ":remapped_iris",
+        "//:kotlin_serialization",
+        "//blazerod:blazerod_without_jij",
+        "@maven//:com_h2database_h2",
+        "@maven//:io_github_llamalad7_mixinextras_fabric",
         "@maven//:net_fabricmc_fabric_language_kotlin",
         "@maven//:net_fabricmc_fabric_loader",
         "@maven//:net_fabricmc_sponge_mixin",
-        "@maven//:io_github_llamalad7_mixinextras_fabric",
-        "@maven//:com_h2database_h2",
         "@minecraft//:%s_client_libraries" % game_version,
     ],
 )
 
 remap_jar(
     name = "mod_client",
-    inputs = [":mod_client_unmapped"],
     classpath = ["//game:remapped_client_named"],
+    from_namespace = "named",
+    inputs = [":mod_client_unmapped"],
     mapping = "//game:merged_mapping",
     mixin = True,
-    from_namespace = "named",
     to_namespace = "intermediary",
 )
 
 merge_jar(
     name = "mod_unmapped",
     deps = [
-        ":mod_main_unmapped",
         ":mod_client_unmapped",
-    ]
+        ":mod_main_unmapped",
+    ],
 )
 
 merge_jar(
@@ -213,8 +168,8 @@ merge_jar(
 
 merge_jij(
     name = "mod",
-    visibility = ["//visibility:public"],
     input = ":mod_without_jij",
+    visibility = ["//visibility:public"],
     deps = {
         "@maven//:com_h2database_h2": "com_h2database_h2:2.3.232",
         "//blazerod:blazerod_without_jij": "blazerod:=",
@@ -231,7 +186,10 @@ merge_jij(
 generate_remap_classpath(
     name = "remap_classpath",
     prefix = "../../../../../../",
-    deps = [":remapped_deps", "//game:remapped_client_intermediary"],
+    deps = [
+        ":remapped_deps",
+        "//game:remapped_client_intermediary",
+    ],
 )
 
 copy_file(
@@ -246,32 +204,12 @@ java_binary(
     data = [
         ":remap_classpath",
         "@minecraft_assets//:assets_%s" % game_version,
-        "//blazerod/model/model-gltf:test_models",
         ":makeup_ultra_fast",
+        "//blazerod/model/model-gltf:test_models",
     ],
     env = {
         "LANG": "en_US.UTF8",
     },
-    runtime_deps = [
-        "//rule/dev_launch_wrapper",
-        "@minecraft//:%s_client_libraries" % game_version,
-        ":mod_unmapped",
-        "//game:remapped_client_named",
-        ":remapped_deps",
-        ":remapped_sodium",
-        ":remapped_iris",
-        "//blazerod:blazerod_without_jij",
-        "@maven//:net_fabricmc_fabric_language_kotlin",
-        "@maven//:net_fabricmc_fabric_loader",
-        "@maven//:net_fabricmc_sponge_mixin",
-        "@maven//:io_github_llamalad7_mixinextras_fabric",
-        "@maven//:com_h2database_h2",
-        "@maven//:net_fabricmc_yarn_v2",
-        "@maven//:org_antlr_antlr4_runtime",
-        "@maven//:io_github_douira_glsl_transformer",
-        "@maven//:org_anarres_jcpp",
-    ],
-    main_class = "top.fifthlight.fabazel.devlaunchwrapper.DevLaunchWrapper",
     jvm_flags = [
         "-Dkotlinx.coroutines.debug=on",
         "-Dfabric.development=true",
@@ -290,25 +228,32 @@ java_binary(
         "-Darmorstand.debug.gui=false",
         "-Xmx4G",
     ],
+    main_class = "top.fifthlight.fabazel.devlaunchwrapper.DevLaunchWrapper",
+    runtime_deps = [
+        "//rule/dev_launch_wrapper",
+        "@minecraft//:%s_client_libraries" % game_version,
+        ":mod_unmapped",
+        ":remapped_deps",
+        "//blazerod:blazerod_without_jij",
+        "//game:remapped_client_named",
+        "//game:remapped_iris",
+        "//game:remapped_sodium",
+        "@maven//:com_h2database_h2",
+        "@maven//:io_github_douira_glsl_transformer",
+        "@maven//:io_github_llamalad7_mixinextras_fabric",
+        "@maven//:net_fabricmc_fabric_language_kotlin",
+        "@maven//:net_fabricmc_fabric_loader",
+        "@maven//:net_fabricmc_sponge_mixin",
+        "@maven//:net_fabricmc_yarn_v2",
+        "@maven//:org_anarres_jcpp",
+        "@maven//:org_antlr_antlr4_runtime",
+    ],
 )
 
 java_binary(
     name = "server",
     srcs = [],
     data = [":remap_classpath"],
-    runtime_deps = [
-        "//rule/dev_launch_wrapper",
-        "@minecraft//:%s_server_libraries" % game_version,
-        ":mod_unmapped",
-        "//game:remapped_server_named",
-        ":remapped_deps",
-        "@maven//:net_fabricmc_fabric_language_kotlin",
-        "@maven//:net_fabricmc_fabric_loader",
-        "@maven//:net_fabricmc_sponge_mixin",
-        "@maven//:io_github_llamalad7_mixinextras_fabric",
-        "@maven//:net_fabricmc_yarn_v2",
-    ],
-    main_class = "top.fifthlight.fabazel.devlaunchwrapper.DevLaunchWrapper",
     jvm_flags = [
         "-Dfabric.development=true",
         "-Dfabric.log.disableAnsi=false",
@@ -317,5 +262,18 @@ java_binary(
         "-Ddev.launch.type=server",
         "-Ddev.launch.mainClass=net.fabricmc.loader.impl.launch.knot.KnotServer",
         "-Xmx4G",
+    ],
+    main_class = "top.fifthlight.fabazel.devlaunchwrapper.DevLaunchWrapper",
+    runtime_deps = [
+        "//rule/dev_launch_wrapper",
+        "@minecraft//:%s_server_libraries" % game_version,
+        ":mod_unmapped",
+        ":remapped_deps",
+        "//game:remapped_server_named",
+        "@maven//:io_github_llamalad7_mixinextras_fabric",
+        "@maven//:net_fabricmc_fabric_language_kotlin",
+        "@maven//:net_fabricmc_fabric_loader",
+        "@maven//:net_fabricmc_sponge_mixin",
+        "@maven//:net_fabricmc_yarn_v2",
     ],
 )

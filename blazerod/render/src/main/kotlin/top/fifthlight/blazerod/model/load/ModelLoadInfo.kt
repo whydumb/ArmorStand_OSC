@@ -1,5 +1,6 @@
 package top.fifthlight.blazerod.model.load
 
+import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.vertex.VertexFormat
 import kotlinx.coroutines.Deferred
 import net.minecraft.client.texture.NativeImage
@@ -132,6 +133,11 @@ data class NodeLoadInfo(
     }
 }
 
+data class GpuLoadVertexData(
+    val gpuBuffer: RefCountedGpuBuffer?,
+    val cpuBuffer: ByteBuffer?,
+)
+
 data class ModelLoadInfo<Texture : Any?, Index : Any, Vertex : Any, Morph : Any>(
     val textures: List<Deferred<Texture>>,
     val indexBuffers: List<Deferred<Index>>,
@@ -146,4 +152,4 @@ data class ModelLoadInfo<Texture : Any?, Index : Any, Vertex : Any, Morph : Any>
 )
 
 typealias PreProcessModelLoadInfo = ModelLoadInfo<TextureLoadData?, IndexBufferLoadData, ByteBuffer, MorphTargetsLoadData<MorphTargetsLoadData.TargetInfo>>
-typealias GpuLoadModelLoadInfo = ModelLoadInfo<RenderTexture?, GpuIndexBuffer, RefCountedGpuBuffer, MorphTargetsLoadData<RenderPrimitive.Target>>
+typealias GpuLoadModelLoadInfo = ModelLoadInfo<RenderTexture?, GpuIndexBuffer, GpuLoadVertexData, MorphTargetsLoadData<RenderPrimitive.Target>>

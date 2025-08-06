@@ -66,6 +66,8 @@ class MorphTargetBuffer private constructor(
     interface WeightChannel {
         fun uploadIndices()
         operator fun set(index: Int, weight: Float)
+        fun keySet(): IntSet
+        operator fun get(index: Int): Float
     }
 
     private inner class WeightChannelImpl private constructor(
@@ -118,7 +120,9 @@ class MorphTargetBuffer private constructor(
             }
         }
 
-        private operator fun get(index: Int) = weightsBuffer.getFloat(weightByteOffset + index * 4)
+        override fun keySet() = enabledIndices
+
+        override operator fun get(index: Int) = weightsBuffer.getFloat(weightByteOffset + index * 4)
 
         fun copyTo(target: WeightChannelImpl) {
             enabledIndices.forEach {

@@ -10,7 +10,9 @@ import net.minecraft.client.util.math.MatrixStack
 import org.joml.Matrix4f
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.state.ModelInstanceManager
+import top.fifthlight.armorstand.util.RendererManager
 import top.fifthlight.blazerod.model.TaskMap
+import top.fifthlight.blazerod.model.renderer.InstancedRenderer
 import top.fifthlight.blazerod.model.resource.CameraTransform
 import top.fifthlight.blazerod.model.resource.RenderCamera
 import java.lang.ref.WeakReference
@@ -18,7 +20,6 @@ import java.util.*
 
 object PlayerRenderer {
     private var renderingWorld = false
-    private val taskMap = TaskMap()
 
     private var prevModelItem = WeakReference<ModelInstanceManager.ModelInstanceItem.Model?>(null)
     val selectedCameraIndex = MutableStateFlow<Int?>(null)
@@ -89,13 +90,21 @@ object PlayerRenderer {
             matrix.set(matrixStack.peek().positionMatrix)
             matrix.scale(ConfigHolder.config.value.modelScale)
             matrix.mulLocal(RenderSystem.getModelViewStack())
-            if (renderingWorld) {
-                taskMap.addTask(instance.schedule(matrix, light))
+            val currentRenderer = RendererManager.currentRenderer
+            val task = instance.createRenderTask(matrix, light)
+            if (currentRenderer is InstancedRenderer<*, *> && renderingWorld) {
+                currentRenderer.schedule(task)
             } else {
                 val mainTarget = MinecraftClient.getInstance().framebuffer
                 val colorFrameBuffer = RenderSystem.outputColorTextureOverride ?: mainTarget.colorAttachmentView!!
                 val depthFrameBuffer = RenderSystem.outputDepthTextureOverride ?: mainTarget.depthAttachmentView
-                instance.render(matrix, light, colorFrameBuffer, depthFrameBuffer)
+                currentRenderer.render(
+                    colorFrameBuffer = colorFrameBuffer,
+                    depthFrameBuffer = depthFrameBuffer,
+                    scene = instance.scene,
+                    task = task,
+                )
+                task.release()
             }
         }
 
@@ -111,9 +120,11 @@ object PlayerRenderer {
     fun executeDraw() {
         renderingWorld = false
         val mainTarget = MinecraftClient.getInstance().framebuffer
-        val colorFrameBuffer = RenderSystem.outputColorTextureOverride ?: mainTarget.colorAttachmentView!!
-        val depthFrameBuffer = RenderSystem.outputDepthTextureOverride ?: mainTarget.depthAttachmentView
-        taskMap.executeTasks(colorFrameBuffer, depthFrameBuffer)
+        RendererManager.currentRendererInstanced?.let { renderer ->
+            val colorFrameBuffer = RenderSystem.outputColorTextureOverride ?: mainTarget.colorAttachmentView!!
+            val depthFrameBuffer = RenderSystem.outputDepthTextureOverride ?: mainTarget.depthAttachmentView
+            renderer.executeTasks(colorFrameBuffer, depthFrameBuffer)
+        }
     }
 
     fun endFrame() {

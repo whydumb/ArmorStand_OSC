@@ -7,7 +7,6 @@ import com.mojang.blaze3d.vertex.VertexFormatElement
 import kotlinx.coroutines.*
 import top.fifthlight.blazerod.extension.NativeImageExt
 import top.fifthlight.blazerod.extension.TextureFormatExt
-import top.fifthlight.blazerod.extension.supportSsboInVertexShader
 import top.fifthlight.blazerod.model.*
 import top.fifthlight.blazerod.model.resource.MorphTargetGroup
 import top.fifthlight.blazerod.model.resource.RenderExpression
@@ -287,23 +286,15 @@ class ModelPreprocessor private constructor(
     ) {
         companion object {
             fun of(
-                useSsbo: Boolean,
                 textureFormat: TextureFormat,
-                ssboStride: Int,
                 itemCount: Int,
                 targetsCount: Int,
-            ) = if (useSsbo) {
-                ssboStride
-            } else {
-                textureFormat.pixelSize()
-            }.let { itemStride ->
-                BuildingTarget(
-                    buffer = ByteBuffer.allocateDirect(itemStride * itemCount * targetsCount)
-                        .order(ByteOrder.nativeOrder()),
-                    itemStride = itemStride,
-                    targetsCount = targetsCount,
-                )
-            }
+            ) = BuildingTarget(
+                buffer = ByteBuffer.allocateDirect(textureFormat.pixelSize() * itemCount * targetsCount)
+                    .order(ByteOrder.nativeOrder()),
+                itemStride = textureFormat.pixelSize(),
+                targetsCount = targetsCount,
+            )
         }
 
         fun toLoadData(): MorphTargetsLoadData.TargetInfo {
@@ -324,25 +315,18 @@ class ModelPreprocessor private constructor(
         val verticesCount = primitive.attributes.position.count
         val targets = primitive.targets
         val loadedTargets = coroutineScope.async(dispatcher) {
-            val useSsbo = RenderSystem.getDevice().supportSsboInVertexShader
             val positionTarget = BuildingTarget.of(
-                useSsbo = useSsbo,
-                textureFormat = TextureFormatExt.RGB32F,
-                ssboStride = 16,
+                textureFormat = TextureFormatExt.RGBA32F,
                 itemCount = verticesCount,
                 targetsCount = targets.count { it.position != null },
             )
             val colorTarget = BuildingTarget.of(
-                useSsbo = useSsbo,
                 textureFormat = TextureFormatExt.RGBA32F,
-                ssboStride = 16,
                 itemCount = verticesCount,
                 targetsCount = targets.count { it.colors.isNotEmpty() },
             )
             val texCoordTarget = BuildingTarget.of(
-                useSsbo = useSsbo,
                 textureFormat = TextureFormatExt.RG32F,
-                ssboStride = 8,
                 itemCount = verticesCount,
                 targetsCount = targets.count { it.texcoords.isNotEmpty() },
             )
@@ -354,7 +338,7 @@ class ModelPreprocessor private constructor(
             for ((index, target) in targets.withIndex()) {
                 val position = target.position?.let { position ->
                     position.read { input ->
-                        positionTarget.buffer.position(posElements * positionTarget.itemStride)
+                        positionTarget.buffer.position(posElements * 16)
                         positionTarget.buffer.put(input)
                         posElements++
                     }
@@ -445,7 +429,6 @@ class ModelPreprocessor private constructor(
         if (morphedPrimitiveIndex != null) {
             meshToMorphedPrimitiveMap.getOrPut(mesh.id) { mutableListOf() }.add(morphedPrimitiveIndex)
             nodeToMorphedPrimitiveMap.getOrPut(node.id) { mutableListOf() }.add(morphedPrimitiveIndex)
-            morphedPrimitiveIndex
         }
         return PrimitiveLoadInfo(
             vertices = primitive.attributes.position.count,

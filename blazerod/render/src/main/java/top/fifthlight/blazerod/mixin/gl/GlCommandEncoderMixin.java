@@ -12,6 +12,7 @@ import net.minecraft.client.gl.*;
 import org.lwjgl.opengl.ARBShaderStorageBufferObject;
 import org.lwjgl.opengl.ARBTextureBufferRange;
 import org.lwjgl.opengl.GL32;
+import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -40,6 +41,10 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExt {
 
     @Shadow
     public abstract void writeToBuffer(GpuBufferSlice gpuBufferSlice, ByteBuffer byteBuffer);
+
+    @Shadow
+    @Final
+    private static Logger LOGGER;
 
     @WrapOperation(method = "drawObjectWithRenderPass", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderPipeline;getVertexFormatMode()Lcom/mojang/blaze3d/vertex/VertexFormat$DrawMode;"))
     private VertexFormat.DrawMode onDrawObjectWithRenderPassGetVertexMode(RenderPipeline instance, Operation<VertexFormat.DrawMode> original, RenderPassImpl pass) {
@@ -77,9 +82,9 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExt {
         if (original != UniformType.TEXEL_BUFFER) {
             return original;
         }
-        if (!((GpuDeviceExt) backend).blazerod$getShaderDataPool().getSupportSlicing()) {
+        if (!((GpuDeviceExt) backend).blazerod$supportTextureBufferSlice()) {
             if (gpuBufferSlice.offset() != 0 || gpuBufferSlice.length() != gpuBufferSlice.buffer().size()) {
-                System.err.println("BAD UNIFORM " + uniformDescription.name() + " (BAD SLICE)");
+                LOGGER.error("Unsupported uniform slice {}", uniformDescription.name());
             }
             return original;
         }

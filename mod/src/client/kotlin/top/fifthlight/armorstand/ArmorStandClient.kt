@@ -23,7 +23,9 @@ import top.fifthlight.armorstand.state.NetworkModelSyncer
 import top.fifthlight.armorstand.ui.screen.AnimationScreen
 import top.fifthlight.armorstand.ui.screen.ConfigScreen
 import top.fifthlight.armorstand.ui.screen.ModelSwitchScreen
+import top.fifthlight.armorstand.util.RendererManager
 import top.fifthlight.armorstand.util.ThreadExecutorDispatcher
+import top.fifthlight.blazerod.event.RenderEvents
 import javax.swing.SwingUtilities
 
 object ArmorStandClient : ArmorStand(), ClientModInitializer {
@@ -80,6 +82,9 @@ object ArmorStandClient : ArmorStand(), ClientModInitializer {
         }
         WorldRenderEvents.END.register { context ->
             PlayerRenderer.endFrame()
+        }
+        RenderEvents.FLIP_FRAME.register {
+            RendererManager.rotate()
         }
 
         ScreenEvents.UNLOCK_CURSOR.register { screen ->

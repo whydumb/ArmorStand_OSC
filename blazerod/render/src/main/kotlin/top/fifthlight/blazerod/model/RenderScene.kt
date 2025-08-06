@@ -113,58 +113,6 @@ class RenderScene(
         executePhase(instance, UpdatePhase.RenderDataUpdate)
     }
 
-    fun render(
-        modelViewMatrix: Matrix4fc,
-        light: Int,
-        modelMatricesBuffer: ModelMatricesBuffer,
-        skinBuffer: List<RenderSkinBuffer>?,
-        morphTargetBuffer: List<MorphTargetBuffer>?,
-        colorFrameBuffer: GpuTextureView,
-        depthFrameBuffer: GpuTextureView?,
-    ) {
-        if (primitiveComponents.isEmpty()) {
-            return
-        }
-        for (primitiveComponent in primitiveComponents) {
-            primitiveComponent.render(
-                scene = this,
-                modelViewMatrix = modelViewMatrix,
-                light = light,
-                modelMatricesBuffer = modelMatricesBuffer,
-                skinBuffer = skinBuffer,
-                morphTargetBuffer = morphTargetBuffer,
-                colorFrameBuffer = colorFrameBuffer,
-                depthFrameBuffer = depthFrameBuffer,
-            )
-        }
-    }
-
-    fun renderInstanced(
-        tasks: List<RenderTask>,
-        colorFrameBuffer: GpuTextureView,
-        depthFrameBuffer: GpuTextureView?,
-    ) {
-        when (tasks.size) {
-            0 -> return
-            1 -> {
-                val task = tasks.first()
-                render(
-                    modelViewMatrix = task.modelViewMatrix,
-                    light = task.light,
-                    modelMatricesBuffer = task.modelMatricesBuffer.content,
-                    skinBuffer = CowBufferList(task.skinBuffer),
-                    morphTargetBuffer = CowBufferList(task.morphTargetBuffer),
-                    colorFrameBuffer = colorFrameBuffer,
-                    depthFrameBuffer = depthFrameBuffer,
-                )
-            }
-
-            else -> for (primitiveComponent in primitiveComponents) {
-                primitiveComponent.renderInstanced(tasks)
-            }
-        }
-    }
-
     override fun onClosed() {
         rootNode.decreaseReferenceCount()
     }

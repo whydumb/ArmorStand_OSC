@@ -8,26 +8,35 @@ import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap
 import net.minecraft.util.Identifier
 import top.fifthlight.blazerod.extension.GpuBufferExt
 import top.fifthlight.blazerod.extension.createBuffer
+import top.fifthlight.blazerod.extension.ssboOffsetAlignment
+import top.fifthlight.blazerod.extension.supportTextureBufferSlice
+import top.fifthlight.blazerod.extension.textureBufferOffsetAlignment
 import java.nio.ByteBuffer
 import java.util.TreeSet
 import kotlin.collections.ArrayDeque
 
 sealed class GpuShaderDataPool(
-    val useSsbo: Boolean,
+    protected val usage: Int,
+    protected val extraUsage: Int,
 ) : AutoCloseable {
     companion object {
         @JvmStatic
         fun create(
-            useSsbo: Boolean,
+            usage: Int,
+            extraUsage: Int,
             alignment: Int,
             supportSlicing: Boolean,
         ) = if (supportSlicing) {
             Sliced(
-                useSsbo = useSsbo,
+                usage = usage,
+                extraUsage = extraUsage,
                 alignment = alignment,
             )
         } else {
-            Pooled(useSsbo = useSsbo)
+            Pooled(
+                usage = usage,
+                extraUsage = extraUsage,
+            )
         }
     }
 
@@ -37,10 +46,11 @@ sealed class GpuShaderDataPool(
     abstract fun rotate()
 
     class Sliced(
-        useSsbo: Boolean,
+        usage: Int,
+        extraUsage: Int,
         initialCapacity: Int = 512 * 1024,
         private val alignment: Int,
-    ) : GpuShaderDataPool(useSsbo) {
+    ) : GpuShaderDataPool(usage, extraUsage) {
         override val supportSlicing: Boolean
             get() = true
 
@@ -53,16 +63,8 @@ sealed class GpuShaderDataPool(
             val buffer = buffer ?: error("Gpu shader data pool not initialized")
             val newBuffer = SlicedMappableRingBuffer(
                 nameSupplier = { "Sliced GPU buffer pool" },
-                usage = if (useSsbo) {
-                    GpuBuffer.USAGE_MAP_WRITE
-                } else {
-                    GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER or GpuBuffer.USAGE_MAP_WRITE
-                },
-                extraUsage = if (useSsbo) {
-                    GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER
-                } else {
-                    0
-                },
+                usage = usage or GpuBuffer.USAGE_MAP_WRITE,
+                extraUsage = extraUsage,
                 size = newCapacity,
                 alignment = alignment,
             )
@@ -79,16 +81,8 @@ sealed class GpuShaderDataPool(
                 capacity = maxOf(capacity, size)
                 SlicedMappableRingBuffer(
                     nameSupplier = { "Sliced GPU buffer pool" },
-                    usage = if (useSsbo) {
-                        GpuBuffer.USAGE_MAP_WRITE
-                    } else {
-                        GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER or GpuBuffer.USAGE_MAP_WRITE
-                    },
-                    extraUsage = if (useSsbo) {
-                        GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER
-                    } else {
-                        0
-                    },
+                    usage = usage or GpuBuffer.USAGE_MAP_WRITE,
+                    extraUsage = extraUsage,
                     size = capacity,
                     alignment = alignment,
                 ).also {
@@ -125,7 +119,13 @@ sealed class GpuShaderDataPool(
         }
     }
 
-    class Pooled(useSsbo: Boolean) : GpuShaderDataPool(useSsbo) {
+    class Pooled(
+        usage: Int,
+        extraUsage: Int,
+    ) : GpuShaderDataPool(
+        usage = usage,
+        extraUsage = extraUsage,
+    ) {
         override val supportSlicing: Boolean
             get() = false
 
@@ -219,16 +219,8 @@ sealed class GpuShaderDataPool(
                 BufferItem.acquire(
                     buffer = RenderSystem.getDevice().createBuffer(
                         labelGetter = { "Pooled GPU buffer" },
-                        usage = if (useSsbo) {
-                            GpuBuffer.USAGE_MAP_WRITE
-                        } else {
-                            GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER or GpuBuffer.USAGE_MAP_WRITE
-                        },
-                        extraUsage = if (useSsbo) {
-                            GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER
-                        } else {
-                            0
-                        },
+                        usage = usage or GpuBuffer.USAGE_MAP_WRITE,
+                        extraUsage = extraUsage,
                         size = size,
                     ),
                     lastUsedFrame = currentFrame,
@@ -281,6 +273,26 @@ sealed class GpuShaderDataPool(
             availableBuffers.clear()
         }
     }
+}
+
+fun GpuShaderDataPool.Companion.ofSsbo() = GpuShaderDataPool.create(
+    usage = 0,
+    extraUsage = GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER,
+    alignment = RenderSystem.getDevice().ssboOffsetAlignment,
+    supportSlicing = true
+)
+
+fun GpuShaderDataPool.Companion.ofTbo() = RenderSystem.getDevice().let {
+    GpuShaderDataPool.create(
+        usage = GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER,
+        extraUsage = 0,
+        alignment = if (it.supportTextureBufferSlice) {
+            lcm(it.textureBufferOffsetAlignment, it.uniformOffsetAlignment)
+        } else {
+            it.uniformOffsetAlignment
+        },
+        supportSlicing = it.supportTextureBufferSlice
+    )
 }
 
 fun GpuShaderDataPool.write(size: Int, block: ByteBuffer.() -> Unit) = allocate(size).also {
