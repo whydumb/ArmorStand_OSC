@@ -136,7 +136,7 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
     }
 
     private val modelGrid by lazy {
-        GridLayout(
+        AutoHeightGridLayout(
             cellWidth = 64,
             cellHeightRange = 60..80,
             padding = Insets(horizonal = 8),
@@ -238,6 +238,10 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
         },
     )
 
+    private val rendererSelectButton = ButtonWidget.builder(Text.translatable("armorstand.config.renderer_select")) {
+        currentClient.setScreen(RendererSelectScreen(this))
+    }.build()
+
     private val previewTab = LayoutScreenTab(
         title = Text.translatable("armorstand.config.tab.preview"),
         padding = Insets(8),
@@ -287,6 +291,7 @@ class ConfigScreen(parent: Screen? = null) : ArmorStandScreen<ConfigScreen, Conf
                     gap = 8,
                 ).apply {
                     listOf(
+                        rendererSelectButton,
                         sendModelDataButton,
                         showOtherPlayersButton,
                         hidePlayerShadowButton,

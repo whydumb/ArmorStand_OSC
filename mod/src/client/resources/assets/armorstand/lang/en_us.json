@@ -7,6 +7,7 @@
   "armorstand.config.third_person_distance_scale": "Third person distance scale: %s",
   "armorstand.config.invert_head_direction": "Invert head direction",
   "armorstand.config.open_model_directory": "Open Model Folder",
+  "armorstand.config.renderer_select": "Select renderer",
   "armorstand.config.sort.name.asc": "Sort: A-Z",
   "armorstand.config.sort.name.desc": "Sort: Z-A",
   "armorstand.config.sort.last_changed.asc": "Sort: First changed",
@@ -78,5 +79,17 @@
   "armorstand.metadata.modification_permission.allow_modification_redistribution": "Modification Permission: Allow modification & redistribution",
   "armorstand.metadata.permission_url": "Permission URL: %s",
   "armorstand.model_switch.empty": "No favorite model.",
-  "armorstand.model_switch.no_selection": "No model selected"
+  "armorstand.model_switch.no_selection": "No model selected",
+  "armorstand.renderer": "Renderer",
+  "armorstand.renderer.name": "Renderer",
+  "armorstand.renderer.vertex_shader_transform": "Vertex shader",
+  "armorstand.renderer.cpu_transform": "CPU transform",
+  "armorstand.renderer.compute_shader_transform": "Compute shader",
+  "armorstand.renderer.speed": "Speed",
+  "armorstand.renderer.speed.slow": "Slow",
+  "armorstand.renderer.speed.medium": "Medium",
+  "armorstand.renderer.speed.fast": "Fast",
+  "armorstand.renderer.shader_compatible": "Shader compatible",
+  "armorstand.renderer.is_available": "Available",
+  "armorstand.renderer.is_current": "Current"
 }

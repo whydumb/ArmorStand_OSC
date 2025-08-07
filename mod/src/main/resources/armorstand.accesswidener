@@ -6,3 +6,8 @@ accessible field net/minecraft/client/gui/widget/TabNavigationWidget tabButtons 
 accessible field net/minecraft/client/gui/widget/CheckboxWidget checked Z
 accessible field net/minecraft/client/Mouse cursorDeltaX D
 accessible field net/minecraft/client/Mouse cursorDeltaY D
+accessible field net/minecraft/client/gui/widget/CheckboxWidget SELECTED_HIGHLIGHTED_TEXTURE Lnet/minecraft/util/Identifier;
+accessible field net/minecraft/client/gui/widget/CheckboxWidget SELECTED_TEXTURE Lnet/minecraft/util/Identifier;
+accessible field net/minecraft/client/gui/widget/CheckboxWidget HIGHLIGHTED_TEXTURE Lnet/minecraft/util/Identifier;
+accessible field net/minecraft/client/gui/widget/CheckboxWidget TEXTURE Lnet/minecraft/util/Identifier;
+

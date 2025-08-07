@@ -1,19 +1,34 @@
 package top.fifthlight.armorstand.util
 
+import kotlinx.coroutines.launch
+import top.fifthlight.armorstand.ArmorStand
 import top.fifthlight.armorstand.config.ConfigHolder
 import top.fifthlight.armorstand.config.GlobalConfig
 import top.fifthlight.armorstand.state.ModelInstanceManager
 import top.fifthlight.blazerod.model.renderer.*
 
 object RendererManager : AutoCloseable {
+    init {
+        ArmorStand.instance.scope.launch {
+            ConfigHolder.config.collect { newConfig ->
+                if (closed) {
+                    return@collect
+                }
+                if (newConfig.renderer.type != currentRenderer.type) {
+                    changeRenderer(newConfig.renderer.type)
+                }
+            }
+        }
+    }
+
     private var closed = false
 
     private fun requireNotClosed() = check(!closed) { "RendererManager is closed" }
 
     private fun getConfigRendererType() = when (ConfigHolder.config.value.renderer) {
-        GlobalConfig.Renderer.VERTEX_SHADER_TRANSFORM -> VertexShaderTransformRenderer.Type
-        GlobalConfig.Renderer.CPU_TRANSFORM -> CpuTransformRenderer.Type
-        GlobalConfig.Renderer.COMPUTE_SHADER_TRANSFORM -> ComputeShaderTransformRenderer.Type
+        GlobalConfig.RendererKey.VERTEX_SHADER_TRANSFORM -> VertexShaderTransformRenderer.Type
+        GlobalConfig.RendererKey.CPU_TRANSFORM -> CpuTransformRenderer.Type
+        GlobalConfig.RendererKey.COMPUTE_SHADER_TRANSFORM -> ComputeShaderTransformRenderer.Type
     }
 
     private var _currentRenderer: Renderer<*, *>? = null
@@ -34,6 +49,7 @@ object RendererManager : AutoCloseable {
         }
 
     private fun changeRenderer(type: Renderer.Type<*, *>): Renderer<*, *> {
+        requireNotClosed()
         val renderer = type.create()
         if (_currentRenderer != null) {
             ModelInstanceManager.cleanAll()

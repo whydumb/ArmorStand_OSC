@@ -11,6 +11,10 @@ import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.encodeToStream
 import net.fabricmc.loader.api.FabricLoader
 import org.slf4j.LoggerFactory
+import top.fifthlight.blazerod.model.renderer.ComputeShaderTransformRenderer
+import top.fifthlight.blazerod.model.renderer.CpuTransformRenderer
+import top.fifthlight.blazerod.model.renderer.Renderer
+import top.fifthlight.blazerod.model.renderer.VertexShaderTransformRenderer
 import java.nio.file.InvalidPathException
 import kotlin.io.path.Path
 import kotlin.io.path.createDirectories
@@ -26,22 +30,34 @@ data class GlobalConfig(
     val modelScale: Float = 1f,
     val thirdPersonDistanceScale: Float = 1f,
     val invertHeadDirection: Boolean = false,
-    val renderer: Renderer = Renderer.VERTEX_SHADER_TRANSFORM,
+    val renderer: RendererKey = RendererKey.VERTEX_SHADER_TRANSFORM,
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(GlobalConfig::class.java)
     }
 
     @Serializable
-    enum class Renderer {
+    enum class RendererKey(
+        val nameKey: String,
+        val type: Renderer.Type<*, *>,
+    ) {
         @SerialName("vertex")
-        VERTEX_SHADER_TRANSFORM,
+        VERTEX_SHADER_TRANSFORM(
+            nameKey = "armorstand.renderer.vertex_shader_transform",
+            type = VertexShaderTransformRenderer.Type,
+        ),
 
         @SerialName("cpu")
-        CPU_TRANSFORM,
+        CPU_TRANSFORM(
+            nameKey = "armorstand.renderer.cpu_transform",
+            type = CpuTransformRenderer.Type,
+        ),
 
         @SerialName("compute")
-        COMPUTE_SHADER_TRANSFORM,
+        COMPUTE_SHADER_TRANSFORM(
+            nameKey = "armorstand.renderer.compute_shader_transform",
+            type = ComputeShaderTransformRenderer.Type,
+        ),
     }
 
     val modelPath by lazy {
