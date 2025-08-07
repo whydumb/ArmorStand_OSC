@@ -23,6 +23,7 @@ import top.fifthlight.blazerod.model.data.MorphTargetBuffer
 import top.fifthlight.blazerod.model.data.RenderSkinBuffer
 import top.fifthlight.blazerod.model.resource.RenderMaterial
 import top.fifthlight.blazerod.model.resource.RenderPrimitive
+import top.fifthlight.blazerod.model.toVector4f
 import top.fifthlight.blazerod.model.uniform.ComputeDataUniformBuffer
 import top.fifthlight.blazerod.model.uniform.MorphDataUniformBuffer
 import top.fifthlight.blazerod.model.uniform.SkinModelIndicesUniformBuffer
@@ -285,6 +286,7 @@ class ComputeShaderTransformRenderer private constructor() :
     }
 
     private val modelMatrix = Matrix4f()
+    private val baseColor = Vector4f()
     override fun render(
         colorFrameBuffer: GpuTextureView,
         depthFrameBuffer: GpuTextureView?,
@@ -325,7 +327,7 @@ class ComputeShaderTransformRenderer private constructor() :
         modelMatrix.mulLocal(task.modelViewMatrix)
         val dynamicUniforms = RenderSystem.getDynamicUniforms().write(
             modelMatrix,
-            Vector4f(1.0F, 1.0F, 1.0F, 1.0F),
+            material.baseColor.toVector4f(baseColor),
             RenderSystem.getModelOffset(),
             RenderSystem.getTextureMatrix(),
             RenderSystem.getShaderLineWidth()
