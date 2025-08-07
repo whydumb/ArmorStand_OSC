@@ -61,6 +61,9 @@ class VmdBezierChannelComponent(
     val values: ByteList,
     val frames: Int,
     val channels: Int,
+    // Normal motion order: x0, x1, y0, y1
+    // Camera order: x0, y0, x1, y1
+    val cameraOrder: Boolean,
 ) : AnimationChannelComponent<VmdBezierChannelComponent, VmdBezierChannelComponent.VmdBezierChannelComponentType> {
     init {
         require(values.size == frames * 4 * channels) { "Invalid VMD bezier value size: expect ${frames * 4 * channels} bytes, but got ${values.size} bytes" }
@@ -88,10 +91,18 @@ class VmdBezierChannelComponent(
         require(frame in 0 until frames) { "Invalid frame index" }
         require(channel in 0 until channels) { "Invalid channel index" }
         val dataOffset = frame * channels * 4 + channel * 4
-        val p1X = values.getByte(dataOffset).toUByte()
-        val p1Y = values.getByte(dataOffset + 1).toUByte()
-        val p2X = values.getByte(dataOffset + 2).toUByte()
-        val p2Y = values.getByte(dataOffset + 3).toUByte()
-        return VmdBezierResolver.resolve(p1X, p1Y, p2X, p2Y, delta)
+        return if (cameraOrder) {
+            val p1X = values.getByte(dataOffset).toUByte()
+            val p2X = values.getByte(dataOffset + 1).toUByte()
+            val p1Y = values.getByte(dataOffset + 2).toUByte()
+            val p2Y = values.getByte(dataOffset + 3).toUByte()
+            VmdBezierResolver.resolve(p1X, p1Y, p2X, p2Y, delta)
+        } else {
+            val p1X = values.getByte(dataOffset).toUByte()
+            val p1Y = values.getByte(dataOffset + 1).toUByte()
+            val p2X = values.getByte(dataOffset + 2).toUByte()
+            val p2Y = values.getByte(dataOffset + 3).toUByte()
+            VmdBezierResolver.resolve(p1X, p1Y, p2X, p2Y, delta)
+        }
     }
 }

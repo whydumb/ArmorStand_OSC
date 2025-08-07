@@ -140,8 +140,18 @@ class VmdLoader : ModelFileLoader {
                 frameIndexer = ListAnimationKeyFrameIndexer(sortedTimeList),
                 translation = AnimationKeyFrameData.ofVector3f(sortedTranslationList, 1),
                 rotation = AnimationKeyFrameData.ofQuaternionf(sortedRotationList, 1),
-                translationCurve = VmdBezierChannelComponent(sortedTranslationCurveList, sortedTimeList.size, 3),
-                rotationCurve = VmdBezierChannelComponent(sortedRotationCurveList, sortedTimeList.size, 1),
+                translationCurve = VmdBezierChannelComponent(
+                    values = sortedTranslationCurveList,
+                    frames = sortedTimeList.size,
+                    channels = 3,
+                    cameraOrder = false,
+                ),
+                rotationCurve = VmdBezierChannelComponent(
+                    values = sortedRotationCurveList,
+                    frames = sortedTimeList.size,
+                    channels = 1,
+                    cameraOrder = false,
+                ),
             )
         }
     }
@@ -360,7 +370,12 @@ class VmdLoader : ModelFileLoader {
                 indexer = ListAnimationKeyFrameIndexer(sortedTimeList),
                 keyframeData = AnimationKeyFrameData.ofFloat(sortedDistanceList, 1),
                 components = listOf(
-                    VmdBezierChannelComponent(sortedDistanceCurveData, sortedTimeList.size, 1),
+                    VmdBezierChannelComponent(
+                        values = sortedDistanceCurveData,
+                        frames = sortedTimeList.size,
+                        channels = 1,
+                        cameraOrder = true,
+                    ),
                 ),
                 interpolation = VmdBezierInterpolation,
                 interpolator = VmdBezierFloatInterpolator(),
@@ -372,7 +387,12 @@ class VmdLoader : ModelFileLoader {
                 indexer = ListAnimationKeyFrameIndexer(sortedTimeList),
                 keyframeData = AnimationKeyFrameData.ofVector3f(sortedPositionList, 1),
                 components = listOf(
-                    VmdBezierChannelComponent(sortedPositionCurveData, sortedTimeList.size, 3),
+                    VmdBezierChannelComponent(
+                        values = sortedPositionCurveData,
+                        frames = sortedTimeList.size,
+                        channels = 3,
+                        cameraOrder = true,
+                    ),
                 ),
                 interpolation = VmdBezierInterpolation,
                 interpolator = VmdBezierVector3fInterpolator(),
@@ -384,7 +404,12 @@ class VmdLoader : ModelFileLoader {
                 indexer = ListAnimationKeyFrameIndexer(sortedTimeList),
                 keyframeData = AnimationKeyFrameData.ofVector3f(sortedRotationList, 1),
                 components = listOf(
-                    VmdBezierChannelComponent(sortedRotationCurveData, sortedTimeList.size, 1),
+                    VmdBezierChannelComponent(
+                        values = sortedRotationCurveData,
+                        frames = sortedTimeList.size,
+                        channels = 1,
+                        cameraOrder = true,
+                    ),
                 ),
                 interpolation = VmdBezierInterpolation,
                 interpolator = VmdBezierSimpleVector3fInterpolator(),
@@ -396,7 +421,12 @@ class VmdLoader : ModelFileLoader {
                 indexer = ListAnimationKeyFrameIndexer(sortedTimeList),
                 keyframeData = AnimationKeyFrameData.ofFloat(sortedFovList, 1),
                 components = listOf(
-                    VmdBezierChannelComponent(sortedFovCurveData, sortedTimeList.size, 1),
+                    VmdBezierChannelComponent(
+                        values = sortedFovCurveData,
+                        frames = sortedTimeList.size,
+                        channels = 1,
+                        cameraOrder = true,
+                    ),
                 ),
                 interpolation = VmdBezierInterpolation,
                 interpolator = VmdBezierFloatInterpolator(),
