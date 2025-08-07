@@ -98,7 +98,7 @@ class VmdBezierSimpleVector3fInterpolator : VmdBezierInterpolator<Vector3f>() {
         val delta = component.getDelta(startFrame, 0, delta)
         val start = startValue[0]
         val end = endValue[0]
-        start.lerp(end, delta)
+        start.lerp(end, delta, result)
     }
 }
 

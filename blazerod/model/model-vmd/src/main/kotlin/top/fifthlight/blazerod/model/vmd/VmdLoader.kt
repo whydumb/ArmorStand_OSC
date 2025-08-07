@@ -286,14 +286,14 @@ class VmdLoader : ModelFileLoader {
             frameList.add(buffer.getInt())
             distanceList.add(buffer.getFloat() * MMD_SCALE)
 
-            // XYZ, invert Z
-            positionList.add(buffer.getFloat() * MMD_SCALE)
+            // XYZ, invert X and Z
+            positionList.add(-buffer.getFloat() * MMD_SCALE)
             positionList.add(buffer.getFloat() * MMD_SCALE)
             positionList.add(-buffer.getFloat() * MMD_SCALE)
 
-            // Invert X and Y
-            rotationList.add(-buffer.getFloat())
-            rotationList.add(-buffer.getFloat())
+            // Invert X
+            rotationList.add(buffer.getFloat())
+            rotationList.add(Math.PI.toFloat() + buffer.getFloat())
             rotationList.add(buffer.getFloat())
 
             repeat(4) {
