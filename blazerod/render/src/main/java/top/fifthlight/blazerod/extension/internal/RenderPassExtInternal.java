@@ -10,6 +10,9 @@ import java.util.Map;
 
 public interface RenderPassExtInternal extends RenderPassExt {
     @Nullable
+    VertexFormat blazerod$getVertexFormat();
+
+    @Nullable
     VertexFormat.DrawMode blazerod$getVertexFormatMode();
 
     @NotNull

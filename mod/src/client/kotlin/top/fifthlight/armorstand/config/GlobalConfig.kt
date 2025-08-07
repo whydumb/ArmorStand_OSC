@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
@@ -25,10 +26,22 @@ data class GlobalConfig(
     val modelScale: Float = 1f,
     val thirdPersonDistanceScale: Float = 1f,
     val invertHeadDirection: Boolean = false,
-    val useCpuRenderer: Boolean = false,
+    val renderer: Renderer = Renderer.VERTEX_SHADER_TRANSFORM,
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(GlobalConfig::class.java)
+    }
+
+    @Serializable
+    enum class Renderer {
+        @SerialName("vertex")
+        VERTEX_SHADER_TRANSFORM,
+
+        @SerialName("cpu")
+        CPU_TRANSFORM,
+
+        @SerialName("compute")
+        COMPUTE_SHADER_TRANSFORM,
     }
 
     val modelPath by lazy {

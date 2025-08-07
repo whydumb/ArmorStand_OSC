@@ -24,6 +24,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import top.fifthlight.blazerod.extension.CommandEncoderExt;
 import top.fifthlight.blazerod.extension.GpuBufferExt;
 import top.fifthlight.blazerod.extension.GpuDeviceExt;
 import top.fifthlight.blazerod.extension.internal.CommandEncoderExtInternal;
@@ -59,6 +60,16 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExtInternal
     @Shadow
     @Nullable
     private ShaderProgram currentProgram;
+
+    @WrapOperation(method = "drawObjectWithRenderPass", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderPipeline;getVertexFormat()Lcom/mojang/blaze3d/vertex/VertexFormat;"))
+    private VertexFormat onDrawObjectWithRenderPassGetVertexFormat(RenderPipeline instance, Operation<VertexFormat> original, RenderPassImpl pass) {
+        var vertexFormat = ((RenderPassExtInternal) pass).blazerod$getVertexFormat();
+        if (vertexFormat != null) {
+            return vertexFormat;
+        } else {
+            return original.call(instance);
+        }
+    }
 
     @WrapOperation(method = "drawObjectWithRenderPass", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderPipeline;getVertexFormatMode()Lcom/mojang/blaze3d/vertex/VertexFormat$DrawMode;"))
     private VertexFormat.DrawMode onDrawObjectWithRenderPassGetVertexMode(RenderPipeline instance, Operation<VertexFormat.DrawMode> original, RenderPassImpl pass) {
@@ -171,7 +182,7 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExtInternal
     }
 
     @Override
-    public ComputePass blazerod$createComputePass(Supplier<String> supplier) {
+    public ComputePass blazerod$createComputePass(Supplier<String> label) {
         if (!((GpuDeviceExt) backend).blazerod$supportComputeShader()) {
             throw new IllegalStateException("Compute shader is not supported");
         }
@@ -180,7 +191,7 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExtInternal
         }
 
         renderPassOpen = true;
-        backend.getDebugLabelManager().pushDebugGroup(supplier);
+        backend.getDebugLabelManager().pushDebugGroup(label);
         return new ComputePassImpl((GlCommandEncoder) (Object) this);
     }
 
@@ -359,6 +370,44 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExtInternal
         if (!setupComputePass(pass, Collections.emptyList())) {
             return;
         }
-        GL43.glDispatchCompute(x, y, z);
+        if (RenderPassImpl.IS_DEVELOPMENT) {
+            if (x <= 0) {
+                throw new IllegalArgumentException("work group x must be positive");
+            }
+            if (y <= 0) {
+                throw new IllegalArgumentException("work group y must be positive");
+            }
+            if (z <= 0) {
+                throw new IllegalArgumentException("work group z must be positive");
+            }
+        }
+        ARBComputeShader.glDispatchCompute(x, y, z);
+    }
+
+    @Override
+    public void blazerod$memoryBarrier(int barriers) {
+        if (!((GpuDeviceExt) backend).blazerod$supportMemoryBarrier()) {
+            throw new IllegalStateException("Memory barrier is not supported");
+        }
+        var bits = 0;
+        if ((barriers & CommandEncoderExt.BARRIER_STORAGE_BUFFER_BIT) != 0) {
+            if (!((GpuDeviceExt) backend).blazerod$supportSsbo()) {
+                throw new IllegalStateException("Shader storage buffer is not supported");
+            }
+            bits |= ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BARRIER_BIT;
+        }
+        if ((barriers & CommandEncoderExt.BARRIER_VERTEX_BUFFER_BIT) != 0) {
+            bits |= ARBShaderImageLoadStore.GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT;
+        }
+        if ((barriers & CommandEncoderExt.BARRIER_INDEX_BUFFER_BIT) != 0) {
+            bits |= ARBShaderImageLoadStore.GL_ELEMENT_ARRAY_BARRIER_BIT;
+        }
+        if ((barriers & CommandEncoderExt.BARRIER_TEXTURE_FETCH_BIT) != 0) {
+            bits |= ARBShaderImageLoadStore.GL_TEXTURE_FETCH_BARRIER_BIT;
+        }
+        if ((barriers & CommandEncoderExt.BARRIER_UNIFORM_BIT) != 0) {
+            bits |= ARBShaderImageLoadStore.GL_UNIFORM_BARRIER_BIT;
+        }
+        ARBShaderImageLoadStore.glMemoryBarrier(bits);
     }
 }

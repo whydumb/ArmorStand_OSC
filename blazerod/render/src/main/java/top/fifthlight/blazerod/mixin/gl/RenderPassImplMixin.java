@@ -31,7 +31,21 @@ public abstract class RenderPassImplMixin implements RenderPassExtInternal {
     private HashMap<String, GpuBufferSlice> storageBuffers;
 
     @Unique
+    private VertexFormat vertexFormat;
+
+    @Unique
     private VertexFormat.DrawMode vertexFormatMode;
+
+    @Override
+    public void blazerod$setVertexFormat(VertexFormat vertexFormat) {
+        this.vertexFormat = vertexFormat;
+    }
+
+    @Override
+    @Nullable
+    public VertexFormat blazerod$getVertexFormat() {
+        return vertexFormat;
+    }
 
     @Override
     public void blazerod$setVertexFormatMode(VertexFormat.DrawMode vertexFormatMode) {
@@ -65,7 +79,7 @@ public abstract class RenderPassImplMixin implements RenderPassExtInternal {
         if (this.closed) {
             throw new IllegalStateException("Can't use a closed render pass");
         } else {
-            this.resourceManager.drawBoundObjectWithRenderPass((RenderPassImpl) (Object) this, baseVertex, firstIndex, count, (VertexFormat.IndexType) null, instanceCount);
+            this.resourceManager.drawBoundObjectWithRenderPass((RenderPassImpl) (Object) this, baseVertex, firstIndex, count, null, instanceCount);
         }
     }
 }

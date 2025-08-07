@@ -20,6 +20,7 @@ object BlazeRod: ClientModInitializer {
 
     const val INSTANCE_SIZE = 256
     const val MAX_ENABLED_MORPH_TARGETS = 32
+    const val COMPUTE_LOCAL_SIZE = 256
 
     lateinit var mainDispatcher: CoroutineDispatcher
     var debug = false

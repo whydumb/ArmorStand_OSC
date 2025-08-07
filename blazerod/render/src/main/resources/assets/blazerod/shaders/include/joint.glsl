@@ -23,12 +23,13 @@ mat4 getJointMatrix(int index) {
     #endif// SUPPORT_SSBO
 }
 
-mat4 getSkinMatrix(vec4 weight, ivec4 joint_indices) {
+vec4 skinTransform(vec4 position, vec4 weight, ivec4 joint_indices) {
     if (weight == vec4(0.0)) {
-        return mat4(1.0);
+        return position;
     }
-    return weight.x * getJointMatrix(joint_indices.x) +
-    weight.y * getJointMatrix(joint_indices.y) +
-    weight.z * getJointMatrix(joint_indices.z) +
-    weight.w * getJointMatrix(joint_indices.w);
+    vec4 posX = getJointMatrix(joint_indices.x) * position;
+    vec4 posY = getJointMatrix(joint_indices.y) * position;
+    vec4 posZ = getJointMatrix(joint_indices.z) * position;
+    vec4 posW = getJointMatrix(joint_indices.w) * position;
+    return posX * weight.x + posY * weight.y + posZ * weight.z + posW * weight.w;
 }

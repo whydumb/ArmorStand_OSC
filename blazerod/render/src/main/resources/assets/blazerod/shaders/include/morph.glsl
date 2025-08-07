@@ -72,6 +72,12 @@ uniform isamplerBuffer MorphTargetIndices;
 #define MORPH_INSTANCE_ID 0
 #endif// INSTANCED
 
+#ifdef COMPUTE_SHADER
+#define MORPH_VERTEX_ID gl_GlobalInvocationID.x
+#else
+#define MORPH_VERTEX_ID gl_VertexID
+#endif
+
 #ifdef SUPPORT_SSBO
 // @formatter:off
 #define MACRO_MORPH_FUNCTION(RETURN_TYPE, FUNCTION_NAME, BASE_VAR_TYPE, BASE_VAR_ACCESSOR, MORPH_DATA_BUFFER_VAR, OFFSET, COUNT_NAME, INDEX_NAME, WEIGHT_OFFSET) \
@@ -86,7 +92,7 @@ RETURN_TYPE FUNCTION_NAME(BASE_VAR_TYPE baseVar) {                              
         }                                                                                                                                                        \
         int targetIndex = MorphTargetIndices[modelIndex].indices[i].INDEX_NAME;                                                                                  \
         float weight = MorphWeights[modelIndex * TotalTargets + WEIGHT_OFFSET + targetIndex];                                                                    \
-        delta += MORPH_DATA_BUFFER_VAR[gl_VertexID + targetIndex * TotalVertices] * weight;                                                                      \
+        delta += MORPH_DATA_BUFFER_VAR[MORPH_VERTEX_ID + targetIndex * TotalVertices] * weight;                                                                  \
     }                                                                                                                                                            \
     return baseVar + delta;                                                                                                                                      \
 }
@@ -106,7 +112,7 @@ RETURN_TYPE FUNCTION_NAME(BASE_VAR_TYPE baseVar) {                              
         }                                                                                                                                                        \
         int targetIndex = texelFetch(MorphTargetIndices, baseModelItemOffset + 3 + 3 * i + OFFSET).x;                                                            \
         float weight = texelFetch(MorphWeights, modelIndex * TotalTargets + WEIGHT_OFFSET + targetIndex).x;                                                      \
-        delta += texelFetch(MORPH_DATA_BUFFER_VAR, gl_VertexID + targetIndex * TotalVertices).BASE_VAR_ACCESSOR * weight;                                        \
+        delta += texelFetch(MORPH_DATA_BUFFER_VAR, MORPH_VERTEX_ID + targetIndex * TotalVertices).BASE_VAR_ACCESSOR * weight;                                    \
     }                                                                                                                                                            \
     return baseVar + delta;                                                                                                                                      \
 }

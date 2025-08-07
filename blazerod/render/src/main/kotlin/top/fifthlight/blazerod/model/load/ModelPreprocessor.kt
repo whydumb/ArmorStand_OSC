@@ -183,7 +183,7 @@ class ModelPreprocessor private constructor(
         skinned: Boolean,
         attributes: Primitive.Attributes.Primitive,
     ): Int {
-        val vertexFormat = material?.getVertexFormat(skinned) ?: BlazerodVertexFormats.POSITION_TEXTURE_COLOR
+        val vertexFormat = material?.getVertexFormat(skinned) ?: BlazerodVertexFormats.POSITION_COLOR_TEXTURE
         val vertexBuffer = coroutineScope.async(dispatcher) {
             val vertices = attributes.position.count
             val stride = vertexFormat.vertexSize

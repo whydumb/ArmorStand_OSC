@@ -77,7 +77,7 @@ object ModelResourceLoader {
             val buffer = RefCountedGpuBuffer(
                 device.createBuffer(
                     null,
-                    GpuBuffer.USAGE_MAP_WRITE or GpuBuffer.USAGE_INDEX,
+                    GpuBuffer.USAGE_INDEX,
                     indexData.buffer,
                 )
             )
@@ -91,9 +91,10 @@ object ModelResourceLoader {
             val device = RenderSystem.getDevice()
             val buffer = RefCountedGpuBuffer(
                 device.createBuffer(
-                    null,
-                    GpuBuffer.USAGE_MAP_WRITE or GpuBuffer.USAGE_VERTEX,
-                    it
+                    labelGetter = null,
+                    usage = GpuBuffer.USAGE_VERTEX,
+                    extraUsage = GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER,
+                    data = it,
                 )
             )
             GpuLoadVertexData(
@@ -112,7 +113,7 @@ object ModelResourceLoader {
                 val device = RenderSystem.getDevice()
                 val gpuBuffer = device.createBuffer(
                     labelGetter = { "Morph target buffer" },
-                    usage = GpuBuffer.USAGE_MAP_WRITE or GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER,
+                    usage = GpuBuffer.USAGE_UNIFORM_TEXEL_BUFFER,
                     extraUsage = GpuBufferExt.EXTRA_USAGE_STORAGE_BUFFER,
                     data = targetBuffer,
                 )

@@ -23,6 +23,7 @@ public abstract class AddressModeMixin {
     private static void onInitialize(CallbackInfo ci) {
         var newValues = new AddressMode[$VALUES.length + 1];
         var nextOrdinal = $VALUES.length;
+        System.arraycopy($VALUES, 0, newValues, 0, $VALUES.length);
 
         var MIRRORED_REPEAT = blazerod$invokeInit("MIRRORED_REPEAT", nextOrdinal);
         AddressModeExt.MIRRORED_REPEAT = MIRRORED_REPEAT;

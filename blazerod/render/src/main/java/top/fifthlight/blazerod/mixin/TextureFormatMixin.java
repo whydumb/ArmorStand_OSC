@@ -24,6 +24,7 @@ public abstract class TextureFormatMixin {
     private static void onInitialize(CallbackInfo ci) {
         var newValues = new TextureFormat[$VALUES.length + 5];
         var nextOrdinal = $VALUES.length;
+        System.arraycopy($VALUES, 0, newValues, 0, $VALUES.length);
 
         var RGBA32F = blazerod$invokeInit("RGBA32F", nextOrdinal, 16);
         TextureFormatExt.RGBA32F = RGBA32F;

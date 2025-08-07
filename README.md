@@ -13,6 +13,7 @@
 - 导入 VMD 格式的动画文件
 - 支持实例化渲染，从而提升多个模型渲染时的性能
 - 支持多人游戏（可以同步显示模型，但是不能也不会支持同步模型文件）
+- 支持光影（目前需要手动在 `config/armorstand.json` 里添加 `"renderer": "compute"` 以启用计算着色器模式）
 
 如果发现了任何问题，或者有任何想法，欢迎在 [issue 区](https://github.com/fifth-light/ArmorStand/issues) 和 [discussion 区](https://github.com/fifth-light/ArmorStand/discussions) 提出。
 
@@ -75,6 +76,7 @@ Currently, the mod is in early development, and supports the following features:
 - Import VMD format animation files
 - Support instance rendering, improving performance when rendering multiple models
 - Support multiplayer (can synchronize model display, but won't support synchronizing model files)
+- Shader support (You should put `"renderer": "compute"` in `config/armorstand.json` manually to enable compute shader mode currently)
 
 If you encounter any problems or have any ideas, please feel free to open an issue or discussion in the [issue area](https://github.com/fifth-light/ArmorStand/issues) and [discussion area](https://github.com/fifth-light/ArmorStand/discussions).
 

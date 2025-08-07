@@ -49,6 +49,8 @@ public abstract class GlBackendMixin implements GpuDeviceExtInternal {
     private static final boolean allowSsboInFragmentShader = true;
     @Unique
     private static final boolean allowGlComputeShader = true;
+    @Unique
+    private static final boolean allowGlShaderImageLoadStore = true;
 
     @Shadow
     @Final
@@ -77,6 +79,8 @@ public abstract class GlBackendMixin implements GpuDeviceExtInternal {
     @Unique
     private boolean supportComputeShader;
     @Unique
+    private boolean supportShaderImageLoadStore;
+    @Unique
     private int maxSsboBindings;
     @Unique
     private int maxSsboInVertexShader;
@@ -98,8 +102,8 @@ public abstract class GlBackendMixin implements GpuDeviceExtInternal {
 
     @Inject(method = "<init>", at = @At("TAIL"))
     private void onInit(long contextId, int debugVerbosity, boolean sync, BiFunction<Identifier, ShaderType, String> shaderSourceGetter, boolean renderDebugLabels, CallbackInfo ci, @Local(ordinal = 0) GLCapabilities glCapabilities) {
-        if (glCapabilities.GL_ARB_texture_buffer_range && allowGlTextureBufferRange) {
-            usedGlCapabilities.add("ARB_texture_buffer_range");
+        if (allowGlTextureBufferRange && glCapabilities.GL_ARB_texture_buffer_range) {
+            usedGlCapabilities.add("GL_ARB_texture_buffer_range");
             supportTextureBufferSlice = true;
         } else {
             supportTextureBufferSlice = false;
@@ -111,18 +115,25 @@ public abstract class GlBackendMixin implements GpuDeviceExtInternal {
                 // OpenGL spec says GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS must be at least 8, but we check it
                 // just in case some drivers don't follow the spec
                 && GL11.glGetInteger(GL43C.GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS) > 8) {
-            usedGlCapabilities.add("ARB_shader_storage_buffer_object");
-            usedGlCapabilities.add("ARB_program_interface_query");
+            usedGlCapabilities.add("GL_ARB_shader_storage_buffer_object");
+            usedGlCapabilities.add("GL_ARB_program_interface_query");
             supportSsbo = true;
         } else {
             supportSsbo = false;
         }
 
         if (allowGlComputeShader && glCapabilities.GL_ARB_compute_shader) {
-            usedGlCapabilities.add("ARB_compute_shader");
+            usedGlCapabilities.add("GL_ARB_compute_shader");
             supportComputeShader = true;
         } else {
             supportComputeShader = false;
+        }
+
+        if (allowGlShaderImageLoadStore && glCapabilities.GL_ARB_shader_image_load_store) {
+            usedGlCapabilities.add("GL_ARB_shader_image_load_store");
+            supportShaderImageLoadStore = true;
+        } else {
+            supportShaderImageLoadStore = false;
         }
 
         if (supportSsbo && allowSsboInVertexShader) {
@@ -202,6 +213,12 @@ public abstract class GlBackendMixin implements GpuDeviceExtInternal {
     }
 
     @Override
+    public boolean blazerod$supportMemoryBarrier() {
+        // glMemoryBarrier is defined in ARB_shader_image_load_store
+        return supportShaderImageLoadStore;
+    }
+
+    @Override
     public int blazerod$getMaxSsboBindings() {
         if (!supportSsbo) {
             throw new IllegalStateException("SSBO is not supported");
@@ -243,11 +260,11 @@ public abstract class GlBackendMixin implements GpuDeviceExtInternal {
 
     @Override
     public CompiledComputePipeline blazerod$compilePipelineCached(ComputePipeline pipeline) {
-        return this.computePipelineCompileCache.computeIfAbsent(pipeline, p -> this.compileRenderPipeline(pipeline, defaultShaderSourceGetter));
+        return this.computePipelineCompileCache.computeIfAbsent(pipeline, p -> this.compileComputePipeline(pipeline, defaultShaderSourceGetter));
     }
 
     @Unique
-    private CompiledComputePipeline compileRenderPipeline(ComputePipeline pipeline, BiFunction<Identifier, ShaderType, String> sourceRetriever) {
+    private CompiledComputePipeline compileComputePipeline(ComputePipeline pipeline, BiFunction<Identifier, ShaderType, String> sourceRetriever) {
         var compiledShader = compileShader(pipeline.getComputeShader(), ShaderTypeExt.COMPUTE, pipeline.getShaderDefines(), sourceRetriever);
         if (compiledShader == CompiledShader.INVALID_SHADER) {
             LOGGER.error("Couldn't compile pipeline {}: compute shader {} was invalid", pipeline.getLocation(), pipeline.getComputeShader());
@@ -262,6 +279,7 @@ public abstract class GlBackendMixin implements GpuDeviceExtInternal {
             }
 
             shaderProgram.set(pipeline.getUniforms(), pipeline.getSamplers());
+            ((ShaderProgramExtInternal) shaderProgram).blazerod$setStorageBuffers(pipeline.getStorageBuffers());
             debugLabelManager.labelShaderProgram(shaderProgram);
             return new CompiledComputePipeline(pipeline, shaderProgram);
         }

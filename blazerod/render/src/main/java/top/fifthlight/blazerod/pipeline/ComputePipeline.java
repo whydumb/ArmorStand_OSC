@@ -6,10 +6,7 @@ import net.minecraft.client.gl.Defines;
 import net.minecraft.client.gl.UniformType;
 import net.minecraft.util.Identifier;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 public class ComputePipeline {
     private final Identifier location;
@@ -17,7 +14,7 @@ public class ComputePipeline {
     private final Defines shaderDefines;
     private final List<String> samplers;
     private final List<RenderPipeline.UniformDescription> uniforms;
-    private final List<String> storageBuffers;
+    private final Set<String> storageBuffers;
 
     protected ComputePipeline(
             Identifier location,
@@ -25,7 +22,7 @@ public class ComputePipeline {
             Defines shaderdefines,
             List<String> samplers,
             List<RenderPipeline.UniformDescription> uniforms,
-            List<String> storageBuffers
+            Set<String> storageBuffers
     ) {
         this.location = location;
         this.computeShader = computeShader;
@@ -70,7 +67,7 @@ public class ComputePipeline {
         return this.uniforms;
     }
 
-    public List<String> getStorageBuffers() {
+    public Set<String> getStorageBuffers() {
         return this.storageBuffers;
     }
 
@@ -81,7 +78,7 @@ public class ComputePipeline {
         private Optional<Defines.Builder> definesBuilder = Optional.empty();
         private Optional<List<String>> samplers = Optional.empty();
         private Optional<List<RenderPipeline.UniformDescription>> uniforms = Optional.empty();
-        private Optional<List<String>> storageBuffers = Optional.empty();
+        private Optional<Set<String>> storageBuffers = Optional.empty();
 
         private Builder() {
         }
@@ -160,7 +157,7 @@ public class ComputePipeline {
 
         public ComputePipeline.Builder withStorageBuffer(String name) {
             if (this.storageBuffers.isEmpty()) {
-                this.storageBuffers = Optional.of(new ArrayList<>());
+                this.storageBuffers = Optional.of(new HashSet<>());
             }
 
             this.storageBuffers.get().add(name);
@@ -206,7 +203,7 @@ public class ComputePipeline {
                 if (this.storageBuffers.isPresent()) {
                     this.storageBuffers.get().addAll(list);
                 } else {
-                    this.storageBuffers = Optional.of(new ArrayList<>(list));
+                    this.storageBuffers = Optional.of(new HashSet<>(list));
                 }
             });
         }
@@ -217,7 +214,7 @@ public class ComputePipeline {
                     this.definesBuilder.map(Defines.Builder::build),
                     this.samplers.map(Collections::unmodifiableList),
                     this.uniforms.map(Collections::unmodifiableList),
-                    this.storageBuffers.map(Collections::unmodifiableList)
+                    this.storageBuffers.map(Collections::unmodifiableSet)
             );
         }
 
@@ -233,7 +230,7 @@ public class ComputePipeline {
                         this.definesBuilder.orElse(Defines.builder()).build(),
                         List.copyOf(this.samplers.orElse(new ArrayList<>())),
                         this.uniforms.orElse(Collections.emptyList()),
-                        List.copyOf(this.storageBuffers.orElse(new ArrayList<>()))
+                        Set.copyOf(this.storageBuffers.orElse(new HashSet<>()))
                 );
             }
         }
@@ -244,7 +241,7 @@ public class ComputePipeline {
             Optional<Defines> shaderDefines,
             Optional<List<String>> samplers,
             Optional<List<RenderPipeline.UniformDescription>> uniforms,
-            Optional<List<String>> storageBuffers
+            Optional<Set<String>> storageBuffers
     ) {
     }
 }

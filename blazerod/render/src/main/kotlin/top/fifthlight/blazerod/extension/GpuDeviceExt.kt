@@ -35,6 +35,12 @@ val GpuDevice.supportTextureBufferSlice: Boolean
 val GpuDevice.supportSsbo: Boolean
     get() = (this as GpuDeviceExt).`blazerod$supportSsbo`()
 
+val GpuDevice.supportComputeShader: Boolean
+    get() = (this as GpuDeviceExt).`blazerod$supportComputeShader`()
+
+val GpuDevice.supportMemoryBarrier: Boolean
+    get() = (this as GpuDeviceExt).`blazerod$supportMemoryBarrier`()
+
 val GpuDevice.maxSsboBindings: Int
     get() = (this as GpuDeviceExt).`blazerod$getMaxSsboBindings`()
 

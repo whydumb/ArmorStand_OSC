@@ -4,6 +4,9 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice
 import com.mojang.blaze3d.systems.RenderPass
 import com.mojang.blaze3d.vertex.VertexFormat
 
+fun RenderPass.setVertexFormat(mode: VertexFormat) =
+    (this as RenderPassExt).`blazerod$setVertexFormat`(mode)
+
 fun RenderPass.setVertexFormatMode(mode: VertexFormat.DrawMode) =
     (this as RenderPassExt).`blazerod$setVertexFormatMode`(mode)
 

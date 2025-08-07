@@ -35,9 +35,9 @@ sealed class MaterialLoadInfo {
     abstract val morphed: Boolean
 
     open fun getVertexFormat(skinned: Boolean): VertexFormat = if (skinned) {
-        BlazerodVertexFormats.POSITION_TEXTURE_COLOR_JOINT_WEIGHT
+        BlazerodVertexFormats.POSITION_COLOR_TEXTURE_JOINT_WEIGHT
     } else {
-        BlazerodVertexFormats.POSITION_TEXTURE_COLOR
+        BlazerodVertexFormats.POSITION_COLOR_TEXTURE
     }
 
     data class TextureInfo(

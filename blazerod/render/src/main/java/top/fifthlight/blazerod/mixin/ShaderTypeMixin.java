@@ -18,16 +18,23 @@ public class ShaderTypeMixin {
     @Mutable
     private static ShaderType[] $VALUES;
 
+    @Shadow
+    @Final
+    @Mutable
+    private static ShaderType[] TYPES;
+
     @Inject(method = "<clinit>", at = @At("TAIL"))
     private static void onInitialize(CallbackInfo ci) {
         var newValues = new ShaderType[$VALUES.length + 1];
         var nextOrdinal = $VALUES.length;
+        System.arraycopy($VALUES, 0, newValues, 0, $VALUES.length);
 
         var COMPUTE = blazerod$invokeInit("COMPUTE", nextOrdinal, "compute", ".comp");
         ShaderTypeExt.COMPUTE = COMPUTE;
         newValues[nextOrdinal] = COMPUTE;
 
         $VALUES = newValues;
+        TYPES = newValues;
     }
 
     @Invoker("<init>")

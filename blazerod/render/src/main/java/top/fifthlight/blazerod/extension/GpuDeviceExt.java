@@ -18,6 +18,8 @@ public interface GpuDeviceExt {
     boolean blazerod$supportSsbo();
     boolean blazerod$supportComputeShader();
 
+    boolean blazerod$supportMemoryBarrier();
+
     int blazerod$getMaxSsboBindings();
     int blazerod$getMaxSsboInVertexShader();
     int blazerod$getMaxSsboInFragmentShader();

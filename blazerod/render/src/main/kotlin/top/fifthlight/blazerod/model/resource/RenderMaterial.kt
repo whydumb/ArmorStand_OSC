@@ -32,6 +32,7 @@ sealed class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCount
     abstract val descriptor: Desc
 
     abstract class Descriptor(
+        val id: Int,
         val name: String,
         val supportMorphing: Boolean = false,
     ) {
@@ -84,7 +85,10 @@ sealed class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCount
             emissiveTexture.decreaseReferenceCount()
         }
 
-        companion object Descriptor : RenderMaterial.Descriptor("pbr")
+        companion object Descriptor : RenderMaterial.Descriptor(
+            id = 1,
+            name = "pbr",
+        )
     }
 
     class Unlit(
@@ -106,9 +110,9 @@ sealed class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCount
 
         override val vertexFormat: VertexFormat
             get() = if (skinned) {
-                BlazerodVertexFormats.POSITION_TEXTURE_COLOR_JOINT_WEIGHT
+                BlazerodVertexFormats.POSITION_COLOR_TEXTURE_JOINT_WEIGHT
             } else {
-                BlazerodVertexFormats.POSITION_TEXTURE_COLOR
+                BlazerodVertexFormats.POSITION_COLOR_TEXTURE
             }
 
         override fun onClosed() {
@@ -116,6 +120,7 @@ sealed class RenderMaterial<Desc : RenderMaterial.Descriptor> : AbstractRefCount
         }
 
         companion object Descriptor : RenderMaterial.Descriptor(
+            id = 0,
             name = "unlit",
             supportMorphing = true,
         )
