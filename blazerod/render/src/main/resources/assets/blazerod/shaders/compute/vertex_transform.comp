@@ -1,5 +1,6 @@
 #blazerod_version version(<4.3) ? 150 : 430
 #blazerod_extension version(<4.3); GL_ARB_shader_storage_buffer_object : require
+#blazerod_extension version(<4.3); GL_ARB_compute_shader: require
 
 #moj_import <blazerod:joint.glsl>
 #moj_import <blazerod:morph.glsl>
