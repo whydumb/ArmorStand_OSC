@@ -29,14 +29,11 @@ import top.fifthlight.blazerod.extension.GpuBufferExt;
 import top.fifthlight.blazerod.extension.GpuDeviceExt;
 import top.fifthlight.blazerod.extension.internal.CommandEncoderExtInternal;
 import top.fifthlight.blazerod.extension.internal.RenderPassExtInternal;
-import top.fifthlight.blazerod.extension.internal.gl.BufferManagerExtInternal;
 import top.fifthlight.blazerod.extension.internal.gl.ShaderProgramExtInternal;
-import top.fifthlight.blazerod.render.gl.BufferClearer;
 import top.fifthlight.blazerod.render.gl.ComputePassImpl;
 import top.fifthlight.blazerod.systems.ComputePass;
 
 import javax.annotation.Nullable;
-import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.function.Supplier;
@@ -46,9 +43,6 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExtInternal
     @Shadow
     @Final
     private GlBackend backend;
-
-    @Shadow
-    public abstract void writeToBuffer(GpuBufferSlice gpuBufferSlice, ByteBuffer byteBuffer);
 
     @Shadow
     @Final
@@ -157,22 +151,6 @@ public abstract class GlCommandEncoderMixin implements CommandEncoderExtInternal
             var slice = entry.getValue();
             var glBuffer = (GlGpuBuffer) slice.buffer();
             GL32.glBindBufferRange(ARBShaderStorageBufferObject.GL_SHADER_STORAGE_BUFFER, info.binding(), glBuffer.id, slice.offset(), slice.length());
-        }
-    }
-
-    @Override
-    public void blazerod$clearBuffer(GpuBufferSlice slice, ClearType clearType) {
-        var buffer = (GlGpuBuffer) slice.buffer();
-        var bufferManager = (BufferManagerExtInternal) this.backend.getBufferManager();
-        if ((buffer.usage() & GpuBuffer.USAGE_COPY_DST) == 0) {
-            throw new IllegalArgumentException("Buffer to be cleared should have USAGE_COPY_DST bit set");
-        }
-        if (bufferManager.blazerod$isGlClearBufferObjectEnabled()) {
-            bufferManager.blazerod$clearBufferData(buffer.id, slice.offset(), slice.length(), clearType);
-        } else {
-            var byteBuffer = ByteBuffer.allocateDirect(slice.length());
-            BufferClearer.clear(clearType, byteBuffer);
-            writeToBuffer(slice, byteBuffer);
         }
     }
 
