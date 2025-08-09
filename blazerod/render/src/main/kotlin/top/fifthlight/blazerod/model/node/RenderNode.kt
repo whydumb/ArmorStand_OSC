@@ -64,10 +64,10 @@ class RenderNode(
     fun hasComponentOfType(type: RenderNodeComponent.Type<*>): Boolean = type in typeComponents.keys
 
     fun update(phase: UpdatePhase, node: RenderNode, instance: ModelInstance) {
-        phaseComponents[phase.type]?.forEach { component ->
-            component.update(phase, node, instance)
-        }
         if (phase == UpdatePhase.GlobalTransformPropagation) {
+            if (!instance.isNodeTransformDirty(node)) {
+                return
+            }
             val parent = parent
             val transformMap = instance.getTransformMap(this)
             val worldTransform = instance.getWorldTransform(this)
@@ -76,6 +76,11 @@ class RenderNode(
                 instance.getWorldTransform(parent).mul(currentLocalTransform, worldTransform)
             } else {
                 worldTransform.set(currentLocalTransform)
+            }
+            instance.cleanNodeTransformDirty(node)
+        } else {
+            phaseComponents[phase.type]?.forEach { component ->
+                component.update(phase, node, instance)
             }
         }
     }
@@ -94,3 +99,21 @@ fun RenderNode.forEach(action: (RenderNode) -> Unit) {
 
 fun ModelInstance.getTransformMap(node: RenderNode) = modelData.transformMaps[node.nodeIndex]
 fun ModelInstance.getWorldTransform(node: RenderNode) = modelData.worldTransforms[node.nodeIndex]
+private fun ModelInstance.isNodeTransformDirty(node: RenderNode) = modelData.transformDirty[node.nodeIndex]
+fun ModelInstance.markNodeTransformDirty(node: RenderNode) {
+    if (!modelData.transformDirty[node.nodeIndex]) {
+        modelData.transformDirty[node.nodeIndex] = true
+        modelData.undirtyNodeCount--
+        for (children in node.children) {
+            markNodeTransformDirty(children)
+        }
+    }
+}
+
+private fun ModelInstance.cleanNodeTransformDirty(node: RenderNode) {
+    if (modelData.transformDirty[node.nodeIndex]) {
+        modelData.transformDirty[node.nodeIndex] = false
+        modelData.undirtyNodeCount++
+    }
+}
+

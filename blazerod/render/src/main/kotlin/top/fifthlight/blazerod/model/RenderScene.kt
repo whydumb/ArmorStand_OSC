@@ -86,6 +86,9 @@ class RenderScene(
         if (cameras.isEmpty()) {
             return
         }
+        if (instance.modelData.undirtyNodeCount == nodes.size) {
+            return
+        }
         executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
         executePhase(instance, UpdatePhase.GlobalTransformPropagation)
         executePhase(instance, UpdatePhase.CameraUpdate)
@@ -95,14 +98,19 @@ class RenderScene(
         if (debugRenderNodes.isEmpty()) {
             return
         }
-        executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
-        executePhase(instance, UpdatePhase.GlobalTransformPropagation)
+        if (instance.modelData.undirtyNodeCount != nodes.size) {
+            executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
+            executePhase(instance, UpdatePhase.GlobalTransformPropagation)
+        }
         UpdatePhase.DebugRender.acquire(viewProjectionMatrix, consumers).use {
             executePhase(instance, it)
         }
     }
 
     fun updateRenderData(instance: ModelInstance) {
+        if (instance.modelData.undirtyNodeCount == nodes.size) {
+            return
+        }
         executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
         executePhase(instance, UpdatePhase.GlobalTransformPropagation)
         executePhase(instance, UpdatePhase.RenderDataUpdate)

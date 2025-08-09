@@ -8,6 +8,7 @@ import top.fifthlight.blazerod.model.data.ModelMatricesBuffer
 import top.fifthlight.blazerod.model.data.MorphTargetBuffer
 import top.fifthlight.blazerod.model.data.RenderSkinBuffer
 import top.fifthlight.blazerod.model.node.TransformMap
+import top.fifthlight.blazerod.model.node.markNodeTransformDirty
 import top.fifthlight.blazerod.model.resource.CameraTransform
 import top.fifthlight.blazerod.util.AbstractRefCount
 import top.fifthlight.blazerod.util.CowBuffer
@@ -30,9 +31,13 @@ class ModelInstance(val scene: RenderScene) : AbstractRefCount() {
     }
 
     class ModelData(scene: RenderScene) : AutoCloseable {
+        var undirtyNodeCount = 0
+
         val transformMaps = scene.nodes.mapToArray { node ->
             TransformMap(node.absoluteTransform)
         }
+
+        val transformDirty = Array(scene.nodes.size) { true }
 
         val worldTransforms = Array(scene.nodes.size) { Matrix4f() }
 
@@ -74,26 +79,31 @@ class ModelInstance(val scene: RenderScene) : AbstractRefCount() {
     }
 
     fun clearTransform() {
-        for (transformMap in modelData.transformMaps) {
-            transformMap.clearFrom(TransformId.ABSOLUTE)
+        modelData.undirtyNodeCount = 0
+        for (i in scene.nodes.indices) {
+            modelData.transformMaps[i].clearFrom(TransformId.ABSOLUTE)
+            modelData.transformDirty[i] = true
         }
     }
 
     fun setTransformMatrix(nodeIndex: Int, transformId: TransformId, matrix: Matrix4f) {
+        markNodeTransformDirty(scene.nodes[nodeIndex])
         val transform = modelData.transformMaps[nodeIndex]
         transform.setMatrix(transformId, matrix)
     }
 
     fun setTransformDecomposed(nodeIndex: Int, transformId: TransformId, decomposed: NodeTransformView.Decomposed) {
+        markNodeTransformDirty(scene.nodes[nodeIndex])
         val transform = modelData.transformMaps[nodeIndex]
         transform.setMatrix(transformId, decomposed)
     }
 
-    fun setTransformDecomposed(index: Int, transformId: TransformId, updater: Consumer<NodeTransform.Decomposed>) =
-        setTransformDecomposed(index, transformId) { updater.accept(this) }
+    fun setTransformDecomposed(nodeIndex: Int, transformId: TransformId, updater: Consumer<NodeTransform.Decomposed>) =
+        setTransformDecomposed(nodeIndex, transformId) { updater.accept(this) }
 
-    fun setTransformDecomposed(index: Int, transformId: TransformId, updater: NodeTransform.Decomposed.() -> Unit) {
-        val transform = modelData.transformMaps[index]
+    fun setTransformDecomposed(nodeIndex: Int, transformId: TransformId, updater: NodeTransform.Decomposed.() -> Unit) {
+        markNodeTransformDirty(scene.nodes[nodeIndex])
+        val transform = modelData.transformMaps[nodeIndex]
         transform.updateDecomposed(transformId, updater)
     }
 
