@@ -19,11 +19,10 @@ layout(std140) uniform SkinModelIndices {
     int skinJoints;
 };
 
-#define GET_SKINNED_VERTEX_POSITION(model_view_proj_mat, position)                                          \
-    ((model_view_proj_mat) * skinTransform(position, Weight, Joint + ivec4(skinJoints * SKIN_INSTANCE_ID))) \
+#define GET_SKINNED_VERTEX_POSITION(position) (skinTransform(position, Weight, Joint + ivec4(skinJoints * SKIN_INSTANCE_ID)))
 
 #else // SKINNED
 
-#define GET_SKINNED_VERTEX_POSITION(model_view_proj_mat, position) ((model_view_proj_mat) * vec4(position, 1.0))
+#define GET_SKINNED_VERTEX_POSITION(position) (position)
 
 #endif // SKINNED

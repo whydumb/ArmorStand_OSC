@@ -8,7 +8,12 @@ import net.minecraft.client.render.VertexFormats
 object BlazerodVertexFormats {
     val POSITION: VertexFormat = VertexFormats.POSITION
 
-    val POSITION_COLOR_TEXTURE: VertexFormat = VertexFormats.POSITION_TEXTURE_COLOR
+    val POSITION_COLOR_TEXTURE: VertexFormat = VertexFormat.builder()
+        .add("Position", VertexFormatElement.POSITION)
+        .add("Color", VertexFormatElement.COLOR)
+        .add("UV0", VertexFormatElement.UV0)
+        .padding(8)
+        .build()
 
     val POSITION_COLOR_TEXTURE_JOINT_WEIGHT: VertexFormat = VertexFormat.builder()
         .add("Position", VertexFormatElement.POSITION)

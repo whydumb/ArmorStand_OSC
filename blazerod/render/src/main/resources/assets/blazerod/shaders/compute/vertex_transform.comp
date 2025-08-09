@@ -10,6 +10,7 @@
 #endif// COMPUTE_LOCAL_SIZE
 
 #if INPUT_MATERIAL == 0
+#ifdef SKINNED
 struct SourceVertex {
     vec3 position;
     uint color;// vec4 of ubyte
@@ -17,6 +18,13 @@ struct SourceVertex {
     uvec2 joint;// vec4 of ushort
     vec4 weight;
 };
+#else// SKINNED
+struct SourceVertex {
+    vec3 position;
+    uint color;// vec4 of ubyte
+    vec2 uv0;
+};
+#endif
 #elif INPUT_MATERIAL == 1
 #error PBR material is not supported
 #else// INPUT_MATERIAL
