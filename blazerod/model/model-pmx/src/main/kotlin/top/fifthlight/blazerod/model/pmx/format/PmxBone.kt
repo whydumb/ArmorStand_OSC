@@ -68,6 +68,7 @@ data class PmxBone(
     }
 
     data class IkData(
+        val effectorIndex: Int,
         val targetIndex: Int,
         val loopCount: Int,
         val limitRadian: Float,

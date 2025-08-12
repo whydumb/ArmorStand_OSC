@@ -7,7 +7,9 @@ import org.joml.Matrix4fc
 import top.fifthlight.blazerod.model.data.ModelMatricesBuffer
 import top.fifthlight.blazerod.model.data.MorphTargetBuffer
 import top.fifthlight.blazerod.model.data.RenderSkinBuffer
+import top.fifthlight.blazerod.model.node.RenderNode
 import top.fifthlight.blazerod.model.node.TransformMap
+import top.fifthlight.blazerod.model.node.UpdatePhase
 import top.fifthlight.blazerod.model.node.markNodeTransformDirty
 import top.fifthlight.blazerod.model.resource.CameraTransform
 import top.fifthlight.blazerod.util.AbstractRefCount
@@ -131,6 +133,21 @@ class ModelInstance(val scene: RenderScene) : AbstractRefCount() {
 
     fun updateRenderData() {
         scene.updateRenderData(this)
+    }
+
+    internal fun updateNodeTransform(nodeIndex: Int) {
+        val node = scene.nodes[nodeIndex]
+        updateNodeTransform(node)
+    }
+
+    internal fun updateNodeTransform(node: RenderNode) {
+        if (modelData.undirtyNodeCount == scene.nodes.size) {
+            return
+        }
+        node.update(UpdatePhase.GlobalTransformPropagation, node, this)
+        for (child in node.children) {
+            updateNodeTransform(child)
+        }
     }
 
     fun createRenderTask(

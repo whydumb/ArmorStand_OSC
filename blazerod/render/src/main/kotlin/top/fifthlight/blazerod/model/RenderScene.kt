@@ -53,7 +53,7 @@ class RenderScene(
             if (node.hasPhase(UpdatePhase.Type.DEBUG_RENDER)) {
                 debugRenderNodes.add(node)
             }
-            node.getComponentsOfType(RenderNodeComponent.Type.Primitive)?.let { components ->
+            node.getComponentsOfType(RenderNodeComponent.Type.Primitive).let { components ->
                 primitiveComponents.addAll(components)
                 for (component in components) {
                     component.morphedPrimitiveIndex?.let { index ->
@@ -89,6 +89,8 @@ class RenderScene(
         if (instance.modelData.undirtyNodeCount == nodes.size) {
             return
         }
+        executePhase(instance, UpdatePhase.GlobalTransformPropagation)
+        executePhase(instance, UpdatePhase.IkUpdate)
         executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
         executePhase(instance, UpdatePhase.GlobalTransformPropagation)
         executePhase(instance, UpdatePhase.CameraUpdate)
@@ -99,6 +101,8 @@ class RenderScene(
             return
         }
         if (instance.modelData.undirtyNodeCount != nodes.size) {
+            executePhase(instance, UpdatePhase.GlobalTransformPropagation)
+            executePhase(instance, UpdatePhase.IkUpdate)
             executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
             executePhase(instance, UpdatePhase.GlobalTransformPropagation)
         }
@@ -111,6 +115,8 @@ class RenderScene(
         if (instance.modelData.undirtyNodeCount == nodes.size) {
             return
         }
+        executePhase(instance, UpdatePhase.GlobalTransformPropagation)
+        executePhase(instance, UpdatePhase.IkUpdate)
         executePhase(instance, UpdatePhase.InfluenceTransformUpdate)
         executePhase(instance, UpdatePhase.GlobalTransformPropagation)
         executePhase(instance, UpdatePhase.RenderDataUpdate)

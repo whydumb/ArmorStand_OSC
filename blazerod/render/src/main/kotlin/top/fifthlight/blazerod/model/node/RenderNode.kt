@@ -59,7 +59,7 @@ class RenderNode(
     private val phases = components.flatMap { it.updatePhases }.toSet()
     fun hasPhase(phase: UpdatePhase.Type) = phase in phases
     @Suppress("UNCHECKED_CAST")
-    fun <T : RenderNodeComponent<T>> getComponentsOfType(type: RenderNodeComponent.Type<T>): List<T>? =
+    fun <T : RenderNodeComponent<T>> getComponentsOfType(type: RenderNodeComponent.Type<T>): List<T> =
         typeComponents[type] as? List<T> ?: listOf()
     fun hasComponentOfType(type: RenderNodeComponent.Type<*>): Boolean = type in typeComponents.keys
 
@@ -99,6 +99,8 @@ fun RenderNode.forEach(action: (RenderNode) -> Unit) {
 
 fun ModelInstance.getTransformMap(node: RenderNode) = modelData.transformMaps[node.nodeIndex]
 fun ModelInstance.getWorldTransform(node: RenderNode) = modelData.worldTransforms[node.nodeIndex]
+fun ModelInstance.getTransformMap(nodeIndex: Int) = modelData.transformMaps[nodeIndex]
+fun ModelInstance.getWorldTransform(nodeIndex: Int) = modelData.worldTransforms[nodeIndex]
 private fun ModelInstance.isNodeTransformDirty(node: RenderNode) = modelData.transformDirty[node.nodeIndex]
 fun ModelInstance.markNodeTransformDirty(node: RenderNode) {
     if (!modelData.transformDirty[node.nodeIndex]) {

@@ -8,10 +8,17 @@ import top.fifthlight.blazerod.model.node.RenderNodeComponent.*
 import top.fifthlight.blazerod.model.resource.RenderCamera
 import top.fifthlight.blazerod.model.resource.RenderMaterial
 import top.fifthlight.blazerod.model.resource.RenderPrimitive
+import top.fifthlight.blazerod.model.resource.RenderPrimitive.Targets
 import top.fifthlight.blazerod.model.resource.RenderTexture
 import top.fifthlight.blazerod.util.checkInUse
 
 class SceneReconstructor private constructor(private val info: GpuLoadModelLoadInfo) {
+    private val nodeIdToIndexMap = buildMap {
+        info.nodes.forEachIndexed { index, node ->
+            node.nodeId?.let { put(it, index) }
+        }
+    }
+
     private suspend fun loadTexture(
         textureInfo: MaterialLoadInfo.TextureInfo?,
         fallback: RenderTexture = RenderTexture.WHITE_RGBA_TEXTURE,
@@ -81,7 +88,7 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
                             indexBuffer = indexBuffer,
                             material = material,
                             targets = targets?.let {
-                                RenderPrimitive.Targets(
+                                Targets(
                                     position = it.position,
                                     color = it.color,
                                     texCoord = it.texCoord,
@@ -115,8 +122,7 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
                 is NodeLoadInfo.Component.InfluenceTarget -> {
                     val influence = component.influence
                     InfluenceTarget(
-                        sourceNodeIndex = info.nodes.indexOfFirst { it.nodeId == influence.source }.takeIf { it >= 0 }
-                            ?: return@mapNotNull null,
+                        sourceNodeIndex = nodeIdToIndexMap[component.influence.source] ?: return@mapNotNull null,
                         influence = influence.influence,
                         influenceRotation = influence.influenceRotation,
                         influenceTranslation = influence.influenceTranslation,
@@ -124,7 +130,21 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
                     )
                 }
 
-                else -> null
+                is NodeLoadInfo.Component.IkTarget -> {
+                    IkTarget(
+                        limitRadian = component.ikTarget.limitRadian,
+                        loopCount = component.ikTarget.loopCount,
+                        transformId = component.transformId,
+                        effectorNodeIndex = nodeIdToIndexMap[component.ikTarget.effectorNodeId]
+                            ?: return@mapNotNull null,
+                        chains = component.ikTarget.joints.map {
+                            IkTarget.Chain(
+                                nodeIndex = nodeIdToIndexMap[it.nodeId] ?: return@mapNotNull null,
+                                limit = it.limit,
+                            )
+                        }
+                    )
+                }
             }
         },
     )

@@ -17,7 +17,7 @@ sealed class NodeComponent {
             requireMesh = false,
             singleInstanceOnly = false,
         ),
-        IK_TARGET(
+        IK_EFFECTOR(
             requireMesh = false,
             singleInstanceOnly = false,
         ),
@@ -54,7 +54,7 @@ sealed class NodeComponent {
         val transformId: TransformId,
     ): NodeComponent() {
         override val type: Type
-            get() = Type.IK_TARGET
+            get() = Type.IK_EFFECTOR
     }
 
     data class InfluenceTargetComponent(
