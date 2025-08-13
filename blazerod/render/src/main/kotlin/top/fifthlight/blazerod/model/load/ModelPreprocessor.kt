@@ -508,9 +508,9 @@ class ModelPreprocessor private constructor(
                             )
                         }
 
-                        is NodeComponent.InfluenceTargetComponent -> {
+                        is NodeComponent.InfluenceSourceComponent -> {
                             add(
-                                NodeLoadInfo.Component.InfluenceTarget(
+                                NodeLoadInfo.Component.InfluenceSource(
                                     influence = component.influence,
                                     transformId = component.transformId,
                                 )

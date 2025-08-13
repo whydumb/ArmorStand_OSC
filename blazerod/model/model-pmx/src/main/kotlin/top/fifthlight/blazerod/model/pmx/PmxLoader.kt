@@ -72,6 +72,7 @@ class PmxLoader : ModelFileLoader {
         private lateinit var materials: List<PmxMaterial>
         private lateinit var bones: List<PmxBone>
         private val targetToIkDataMap = mutableMapOf<Int, MutableList<PmxBone.IkData>>()
+        private val sourceToInheritMap = mutableMapOf<Int, MutableList<PmxBone.InheritData>>()
         private lateinit var morphTargets: List<PmxMorph>
         private lateinit var morphTargetGroups: List<PmxMorphGroup>
         private val childBoneMap = mutableMapOf<Int, MutableList<Int>>()
@@ -693,6 +694,7 @@ class PmxLoader : ModelFileLoader {
                     null
                 }
                 return PmxBone(
+                    index = index,
                     nameLocal = nameLocal,
                     nameUniversal = nameUniversal,
                     position = position,
@@ -706,7 +708,11 @@ class PmxLoader : ModelFileLoader {
                     localCoordinate = localCoordinate,
                     externalParentIndex = externalParentIndex,
                     ikData = ikData,
-                )
+                ).also {
+                    it.inheritData?.let {
+                        sourceToInheritMap.getOrPut(it.sourceIndex) { mutableListOf() }.add(it)
+                    }
+                }
             }
 
             bones = (0 until boneCount).map { index ->
@@ -855,40 +861,41 @@ class PmxLoader : ModelFileLoader {
                 } ?: listOf()
 
                 val components = buildList {
-                    val ikData = targetToIkDataMap[index]
-                    if (ikData != null) {
-                        for (data in ikData) {
-                            add(
-                                NodeComponent.IkTargetComponent(
-                                    ikTarget = IkTarget(
-                                        limitRadian = data.limitRadian,
-                                        loopCount = data.loopCount,
-                                        joints = data.links.map { link ->
-                                            IkTarget.IkJoint(
-                                                nodeId = NodeId(modelId, link.index),
-                                                limit = link.limits?.let {
-                                                    IkTarget.IkJoint.Limits(
-                                                        min = it.limitMax.negate(Vector3f()),
-                                                        max = it.limitMin.negate(Vector3f()),
-                                                    )
-                                                }
-                                            )
-                                        },
-                                        effectorNodeId = NodeId(modelId, data.effectorIndex),
-                                    ),
-                                    transformId = TransformId.IK,
-                                )
+                    val ikData = targetToIkDataMap[index]?.forEach { data ->
+                        add(
+                            NodeComponent.IkTargetComponent(
+                                ikTarget = IkTarget(
+                                    limitRadian = data.limitRadian,
+                                    loopCount = data.loopCount,
+                                    joints = data.links.map { link ->
+                                        IkTarget.IkJoint(
+                                            nodeId = NodeId(modelId, link.index),
+                                            limit = link.limits?.let {
+                                                IkTarget.IkJoint.Limits(
+                                                    min = it.limitMax.negate(Vector3f()),
+                                                    max = it.limitMin.negate(Vector3f()),
+                                                )
+                                            }
+                                        )
+                                    },
+                                    effectorNodeId = NodeId(modelId, data.effectorIndex),
+                                ),
+                                transformId = TransformId.IK,
                             )
-                        }
-                    }
-                    if (bone.flags.inheritRotation || bone.flags.inheritTranslation) {
-                        val influence = Influence(
-                            source = NodeId(modelId, bone.inheritParentIndex!!),
-                            influence = bone.inheritParentInfluence!!,
-                            influenceRotation = bone.flags.inheritRotation,
-                            influenceTranslation = bone.flags.inheritTranslation,
                         )
-                        add(NodeComponent.InfluenceTargetComponent(influence, TransformId.INFLUENCE))
+                    }
+                    sourceToInheritMap[index]?.forEach { data ->
+                        add(
+                            NodeComponent.InfluenceSourceComponent(
+                                influence = Influence(
+                                    target = NodeId(modelId, data.targetIndex),
+                                    influence = data.influence,
+                                    influenceRotation = data.inheritRotation,
+                                    influenceTranslation = data.inheritTranslation,
+                                ),
+                                transformId = TransformId.INFLUENCE,
+                            )
+                        )
                     }
                 }
 

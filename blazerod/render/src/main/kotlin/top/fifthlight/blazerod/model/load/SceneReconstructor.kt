@@ -119,10 +119,10 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
                     Camera(cameraIndex)
                 }
 
-                is NodeLoadInfo.Component.InfluenceTarget -> {
+                is NodeLoadInfo.Component.InfluenceSource -> {
                     val influence = component.influence
-                    InfluenceTarget(
-                        sourceNodeIndex = nodeIdToIndexMap[component.influence.source] ?: return@mapNotNull null,
+                    InfluenceSource(
+                        targetNodeIndex = nodeIdToIndexMap[component.influence.target] ?: return@mapNotNull null,
                         influence = influence.influence,
                         influenceRotation = influence.influenceRotation,
                         influenceTranslation = influence.influenceTranslation,

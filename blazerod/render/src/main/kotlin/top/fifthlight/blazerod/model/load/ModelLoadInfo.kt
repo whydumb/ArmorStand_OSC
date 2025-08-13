@@ -125,7 +125,7 @@ data class NodeLoadInfo(
             val transformId: TransformId,
         ) : Component()
 
-        data class InfluenceTarget(
+        data class InfluenceSource(
             val influence: Influence,
             val transformId: TransformId,
         ) : Component()

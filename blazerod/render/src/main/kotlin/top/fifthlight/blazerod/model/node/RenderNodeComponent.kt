@@ -39,7 +39,7 @@ sealed class RenderNodeComponent<C : RenderNodeComponent<C>> : AbstractRefCount(
     sealed class Type<C : RenderNodeComponent<C>> {
         object Primitive : Type<RenderNodeComponent.Primitive>()
         object Joint : Type<RenderNodeComponent.Joint>()
-        object InfluenceTarget : Type<RenderNodeComponent.InfluenceTarget>()
+        object InfluenceSource : Type<RenderNodeComponent.InfluenceSource>()
         object Camera : Type<RenderNodeComponent.Camera>()
         object IkTarget : Type<RenderNodeComponent.IkTarget>()
     }
@@ -123,7 +123,7 @@ sealed class RenderNodeComponent<C : RenderNodeComponent<C>> : AbstractRefCount(
                 }
 
                 is UpdatePhase.DebugRender -> {
-                    if (node.hasComponentOfType(Type.InfluenceTarget)) {
+                    if (node.hasComponentOfType(Type.InfluenceSource)) {
                         return
                     }
                     val consumers = phase.vertexConsumerProvider
@@ -165,17 +165,17 @@ sealed class RenderNodeComponent<C : RenderNodeComponent<C>> : AbstractRefCount(
         }
     }
 
-    class InfluenceTarget(
+    class InfluenceSource(
         val target: TransformId,
-        val sourceNodeIndex: Int,
+        val targetNodeIndex: Int,
         val influence: Float,
         val influenceRotation: Boolean = false,
         val influenceTranslation: Boolean = false,
-    ) : RenderNodeComponent<InfluenceTarget>() {
+    ) : RenderNodeComponent<InfluenceSource>() {
         override fun onClosed() {}
 
-        override val type: Type<InfluenceTarget>
-            get() = Type.InfluenceTarget
+        override val type: Type<InfluenceSource>
+            get() = Type.InfluenceSource
 
         companion object {
             private val updatePhases =
@@ -187,10 +187,9 @@ sealed class RenderNodeComponent<C : RenderNodeComponent<C>> : AbstractRefCount(
 
         override fun update(phase: UpdatePhase, node: RenderNode, instance: ModelInstance) {
             if (phase is UpdatePhase.InfluenceTransformUpdate) {
-                val transformMap = instance.getTransformMap(node)
-                val sourceTransformMap = instance.modelData.transformMaps[sourceNodeIndex]
-                val sourceTransform = sourceTransformMap.getSum(TransformId.RELATIVE_ANIMATION)
-                transformMap.updateDecomposed(target) {
+                val sourceTransformMap = instance.modelData.transformMaps[node.nodeIndex]
+                val sourceTransform = sourceTransformMap.getSum(TransformId.LAST)
+                instance.setTransformDecomposed(targetNodeIndex, target) {
                     if (influenceRotation) {
                         sourceTransform.getUnnormalizedRotation(rotation)
                         rotation.mul(influence)
