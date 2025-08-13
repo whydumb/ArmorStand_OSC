@@ -126,6 +126,7 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
                         influence = influence.influence,
                         influenceRotation = influence.influenceRotation,
                         influenceTranslation = influence.influenceTranslation,
+                        appendLocal = influence.appendLocal,
                         target = TransformId.INFLUENCE,
                     )
                 }

@@ -171,6 +171,7 @@ sealed class RenderNodeComponent<C : RenderNodeComponent<C>> : AbstractRefCount(
         val influence: Float,
         val influenceRotation: Boolean = false,
         val influenceTranslation: Boolean = false,
+        val appendLocal: Boolean = false,
     ) : RenderNodeComponent<InfluenceSource>() {
         override fun onClosed() {}
 
@@ -180,22 +181,41 @@ sealed class RenderNodeComponent<C : RenderNodeComponent<C>> : AbstractRefCount(
         companion object {
             private val updatePhases =
                 listOf(UpdatePhase.Type.INFLUENCE_TRANSFORM_UPDATE)
+
+            private val identity: Quaternionfc = Quaternionf()
         }
 
         override val updatePhases
             get() = Companion.updatePhases
 
+        private val sourceIkRotation = Quaternionf()
         override fun update(phase: UpdatePhase, node: RenderNode, instance: ModelInstance) {
             if (phase is UpdatePhase.InfluenceTransformUpdate) {
                 val sourceTransformMap = instance.modelData.transformMaps[node.nodeIndex]
-                val sourceTransform = sourceTransformMap.getSum(TransformId.LAST)
                 instance.setTransformDecomposed(targetNodeIndex, target) {
                     if (influenceRotation) {
-                        sourceTransform.getUnnormalizedRotation(rotation)
-                        rotation.mul(influence)
+                        val nestedAppend = sourceTransformMap.get(target)
+                        if (appendLocal || nestedAppend == null) {
+                            sourceTransformMap.get(TransformId.RELATIVE_ANIMATION)?.getRotation(rotation)
+                                ?: rotation.identity()
+                        } else {
+                            nestedAppend.getRotation(rotation)
+                        }
+                        val sourceIk = sourceTransformMap.get(TransformId.IK)
+                        if (sourceIk != null) {
+                            sourceIk.getRotation(sourceIkRotation)
+                            rotation.mul(sourceIkRotation)
+                        }
+                        identity.slerp(rotation, influence, rotation)
                     }
                     if (influenceTranslation) {
-                        sourceTransform.getTranslation(translation)
+                        val nestedAppend = sourceTransformMap.get(target)
+                        if (appendLocal || nestedAppend == null) {
+                            sourceTransformMap.get(TransformId.RELATIVE_ANIMATION)?.getTranslation(translation)
+                                ?: translation.set(0f)
+                        } else {
+                            nestedAppend.getTranslation(translation)
+                        }
                         translation.mul(influence)
                     }
                 }

@@ -5,4 +5,5 @@ data class Influence(
     val influence: Float,
     val influenceRotation: Boolean,
     val influenceTranslation: Boolean,
+    val appendLocal: Boolean,
 )

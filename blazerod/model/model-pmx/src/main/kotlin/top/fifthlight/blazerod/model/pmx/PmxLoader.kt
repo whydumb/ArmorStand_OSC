@@ -620,6 +620,7 @@ class PmxLoader : ModelFileLoader {
                     isVisible = loadBitfield(3),
                     enabled = loadBitfield(4),
                     ik = loadBitfield(5),
+                    inheritLocal = loadBitfield(7),
                     inheritRotation = loadBitfield(8),
                     inheritTranslation = loadBitfield(9),
                     fixedAxis = loadBitfield(10),
@@ -892,6 +893,7 @@ class PmxLoader : ModelFileLoader {
                                     influence = data.influence,
                                     influenceRotation = data.inheritRotation,
                                     influenceTranslation = data.inheritTranslation,
+                                    appendLocal = data.inheritLocal,
                                 ),
                                 transformId = TransformId.INFLUENCE,
                             )

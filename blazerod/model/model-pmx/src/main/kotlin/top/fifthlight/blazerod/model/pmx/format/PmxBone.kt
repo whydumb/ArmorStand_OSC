@@ -41,6 +41,7 @@ data class PmxBone(
         val isVisible: Boolean,
         val enabled: Boolean,
         val ik: Boolean,
+        val inheritLocal: Boolean,
         val inheritRotation: Boolean,
         val inheritTranslation: Boolean,
         val fixedAxis: Boolean,
@@ -82,6 +83,7 @@ data class PmxBone(
         val influence: Float,
         val inheritRotation: Boolean,
         val inheritTranslation: Boolean,
+        val inheritLocal: Boolean,
     )
 
     val inheritData = if (flags.inheritRotation || flags.inheritTranslation) {
@@ -91,6 +93,7 @@ data class PmxBone(
             influence = inheritParentInfluence!!,
             inheritRotation = flags.inheritRotation,
             inheritTranslation = flags.inheritTranslation,
+            inheritLocal = flags.inheritLocal,
         )
     } else {
         null
