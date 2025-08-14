@@ -2,6 +2,7 @@ package top.fifthlight.blazerod.model.node
 
 import net.minecraft.util.Identifier
 import top.fifthlight.blazerod.model.*
+import top.fifthlight.blazerod.model.node.component.RenderNodeComponent
 import top.fifthlight.blazerod.util.AbstractRefCount
 
 class RenderNode(
@@ -40,6 +41,7 @@ class RenderNode(
     init {
         for (component in components) {
             component.increaseReferenceCount()
+            component.node = this
         }
     }
 

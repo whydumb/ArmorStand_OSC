@@ -461,6 +461,7 @@ class ModelPreprocessor private constructor(
         NodeLoadInfo.Component.Primitive(index)
     }
 
+    private var ikCount = 0
     private val nodes = mutableListOf<NodeLoadInfo>()
     private fun loadNode(node: Node): Int {
         val skinJointData = skinJointsData[node.id]
@@ -502,6 +503,7 @@ class ModelPreprocessor private constructor(
                         is NodeComponent.IkTargetComponent -> {
                             add(
                                 NodeLoadInfo.Component.IkTarget(
+                                    ikIndex = ikCount++,
                                     ikTarget = component.ikTarget,
                                     transformId = component.transformId,
                                 )

@@ -4,7 +4,7 @@ import net.minecraft.client.gl.RenderPassImpl
 import top.fifthlight.blazerod.model.RenderScene
 import top.fifthlight.blazerod.model.TransformId
 import top.fifthlight.blazerod.model.node.RenderNode
-import top.fifthlight.blazerod.model.node.RenderNodeComponent.*
+import top.fifthlight.blazerod.model.node.component.*
 import top.fifthlight.blazerod.model.resource.RenderCamera
 import top.fifthlight.blazerod.model.resource.RenderMaterial
 import top.fifthlight.blazerod.model.resource.RenderPrimitive
@@ -133,6 +133,7 @@ class SceneReconstructor private constructor(private val info: GpuLoadModelLoadI
 
                 is NodeLoadInfo.Component.IkTarget -> {
                     IkTarget(
+                        ikIndex = component.ikIndex,
                         limitRadian = component.ikTarget.limitRadian,
                         loopCount = component.ikTarget.loopCount,
                         transformId = component.transformId,

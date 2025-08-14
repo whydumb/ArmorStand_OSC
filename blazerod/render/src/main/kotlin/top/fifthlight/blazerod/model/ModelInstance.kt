@@ -73,6 +73,8 @@ class ModelInstance(val scene: RenderScene) : AbstractRefCount() {
 
         val cameraTransforms = scene.cameras.map { CameraTransform.of(it.camera) }
 
+        val ikEnabled = Array(scene.ikTargetComponents.size) { true }
+
         override fun close() {
             modelMatricesBuffer.decreaseReferenceCount()
             skinBuffers.forEach { it.decreaseReferenceCount() }
@@ -83,7 +85,7 @@ class ModelInstance(val scene: RenderScene) : AbstractRefCount() {
     fun clearTransform() {
         modelData.undirtyNodeCount = 0
         for (i in scene.nodes.indices) {
-            modelData.transformMaps[i].clearFrom(TransformId.ABSOLUTE)
+            modelData.transformMaps[i].clearFrom(TransformId.ABSOLUTE.next)
             modelData.transformDirty[i] = true
         }
     }
@@ -107,6 +109,19 @@ class ModelInstance(val scene: RenderScene) : AbstractRefCount() {
         markNodeTransformDirty(scene.nodes[nodeIndex])
         val transform = modelData.transformMaps[nodeIndex]
         transform.updateDecomposed(transformId, updater)
+    }
+
+    fun setIkEnabled(index: Int, enabled: Boolean) {
+        val prevEnabled = modelData.ikEnabled[index]
+        modelData.ikEnabled[index] = enabled
+        if (prevEnabled && !enabled) {
+            val component = scene.ikTargetComponents[index]
+            for (chain in component.chains) {
+                markNodeTransformDirty(scene.nodes[chain.nodeIndex])
+                val transform = modelData.transformMaps[chain.nodeIndex]
+                transform.clearFrom(component.transformId)
+            }
+        }
     }
 
     fun setGroupWeight(morphedPrimitiveIndex: Int, targetGroupIndex: Int, weight: Float) {

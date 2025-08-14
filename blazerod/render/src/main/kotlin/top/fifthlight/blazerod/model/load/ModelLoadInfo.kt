@@ -121,6 +121,7 @@ data class NodeLoadInfo(
         ) : Component()
 
         data class IkTarget(
+            val ikIndex: Int,
             val ikTarget: ModelIkTarget,
             val transformId: TransformId,
         ) : Component()
