@@ -592,7 +592,7 @@ class ModelPreprocessor private constructor(
         return Pair(expressions, expressionGroups)
     }
 
-    private fun loadScene(scene: Scene, expressions: List<Expression>): PreProcessModelLoadInfo? {
+    private fun loadScene(scene: Scene, expressions: List<Expression>): PreProcessModelLoadInfo {
         val rootNode = NodeLoadInfo(
             nodeId = null,
             nodeName = "Root node",
