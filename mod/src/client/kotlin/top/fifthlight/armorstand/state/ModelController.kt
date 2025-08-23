@@ -347,6 +347,12 @@ sealed class ModelController {
 
         override fun apply(instance: ModelInstance) {
             val state = VmcMarionetteManager.getState() ?: return
+            state.rootTransform?.let {
+                instance.setTransformDecomposed(scene.rootNode.nodeIndex, TransformId.ABSOLUTE) {
+                    translation.set(it.position)
+                    rotation.set(it.rotation)
+                }
+            }
             state.boneTransforms.forEach { (bone, value) ->
                 val item = bones.getOrPut(bone) { Optional.ofNullable(scene.getBone(bone)) }
                 item.ifPresent {
