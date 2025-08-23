@@ -157,5 +157,6 @@ class VmcMarionetteStateHolder {
 
     fun write(block: VmcMarionetteStateWriter.() -> Unit) = writeLock.withLock {
         block(writeBuffer)
+        readBuffer.set(writeBuffer.snapshot())
     }
 }
