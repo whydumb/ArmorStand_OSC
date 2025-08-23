@@ -115,7 +115,7 @@ sealed class ModelController {
         private var blinkProgress: Float = 0f
 
         constructor(scene: RenderScene) : this(
-            center = scene.getBone(HumanoidTag.CENTER),
+            center = scene.getBone(HumanoidTag.HIPS),
             head = scene.getBone(HumanoidTag.HEAD),
             blinkExpression = scene.getExpression(Expression.Tag.BLINK),
         )
