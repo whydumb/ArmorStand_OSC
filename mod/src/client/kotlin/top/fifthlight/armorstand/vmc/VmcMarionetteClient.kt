@@ -4,6 +4,7 @@ import com.illposed.osc.OSCBundle
 import com.illposed.osc.OSCMessage
 import com.illposed.osc.OSCPacket
 import com.illposed.osc.transport.Transport
+import com.illposed.osc.transport.udp.UDPTransport
 import kotlinx.coroutines.*
 import net.minecraft.client.MinecraftClient
 import org.slf4j.LoggerFactory
@@ -91,7 +92,9 @@ class VmcMarionetteClient(
     }
 
     init {
-        transport.connect()
+        if (transport !is UDPTransport) {
+            transport.connect()
+        }
         require(transport.isBlocking) { "Require blocking transport" }
         scope.launch(Dispatchers.IO) {
             try {
@@ -110,7 +113,9 @@ class VmcMarionetteClient(
                     ensureActive()
                 }
             } finally {
-                transport.disconnect()
+                if (transport !is UDPTransport) {
+                    transport.disconnect()
+                }
                 transport.close()
             }
         }

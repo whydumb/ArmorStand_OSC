@@ -4,7 +4,7 @@ import com.illposed.osc.transport.udp.UDPTransport
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.slf4j.LoggerFactory
-import java.net.Inet4Address
+import java.net.InetAddress
 import java.net.InetSocketAddress
 
 object VmcMarionetteManager {
@@ -34,8 +34,8 @@ object VmcMarionetteManager {
             require(port in 0..65535) { "Invalid UDP port number: $port" }
             // We never send message
             val transport = UDPTransport(
-                InetSocketAddress(Inet4Address.getLoopbackAddress(), port),
-                InetSocketAddress(Inet4Address.getLoopbackAddress(), port),
+                InetSocketAddress(InetAddress.getByAddress(byteArrayOf(0, 0, 0, 0)), port),
+                InetSocketAddress(InetAddress.getByAddress(byteArrayOf(0, 0, 0, 0)), 0),
             )
             val client = VmcMarionetteClient(transport)
             this.client = client
