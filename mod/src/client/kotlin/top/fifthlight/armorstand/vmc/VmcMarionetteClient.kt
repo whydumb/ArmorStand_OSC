@@ -91,20 +91,27 @@ class VmcMarionetteClient(
     }
 
     init {
+        transport.connect()
+        require(transport.isBlocking) { "Require blocking transport" }
         scope.launch(Dispatchers.IO) {
-            while (true) {
-                val message = try {
-                    transport.receive()
-                } catch (ex: Exception) {
-                    if (!scope.isActive) {
-                        // throw CancellationException
-                        ensureActive()
+            try {
+                while (true) {
+                    val message = try {
+                        transport.receive()
+                    } catch (ex: Exception) {
+                        if (!scope.isActive) {
+                            // throw CancellationException
+                            ensureActive()
+                        }
+                        logger.warn("Failed to receive OSC message", ex)
+                        continue
                     }
-                    logger.warn("Failed to receive OSC message", ex)
-                    continue
+                    handlePacket(message)
+                    ensureActive()
                 }
-                handlePacket(message)
-                ensureActive()
+            } finally {
+                transport.disconnect()
+                transport.close()
             }
         }
     }
@@ -115,6 +122,5 @@ class VmcMarionetteClient(
         }
         closed = true
         scope.cancel()
-        transport.close()
     }
 }
