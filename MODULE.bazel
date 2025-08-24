@@ -48,6 +48,7 @@ maven.install(
         "org.antlr:antlr4-runtime:4.13.1",
         "io.github.douira:glsl-transformer:2.0.1",
         "org.anarres:jcpp:1.4.14",
+        "com.illposed.osc:javaosc-core:0.9",
 
         # test dependencies
         "org.jetbrains.kotlin:kotlin-test-junit5:2.1.10",
