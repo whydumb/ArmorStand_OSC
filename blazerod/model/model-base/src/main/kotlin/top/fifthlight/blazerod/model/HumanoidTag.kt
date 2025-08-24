@@ -16,8 +16,10 @@ enum class HumanoidTag(
 
     // Head
     HEAD(vrmName = "head", pmxEnglish = "Head", pmxJapanese = "頭"),
-    LEFT_EYE(vrmName = "leftEye", pmxEnglish = "LeftEye", pmxJapanese = "左目"),
-    RIGHT_EYE(vrmName = "rightEye", pmxEnglish = "RightEye", pmxJapanese = "右目"),
+
+    // Disable them because we have no correct VRM gaze control
+    // LEFT_EYE(vrmName = "leftEye", pmxEnglish = "LeftEye", pmxJapanese = "左目"),
+    // RIGHT_EYE(vrmName = "rightEye", pmxEnglish = "RightEye", pmxJapanese = "右目"),
     JAW(vrmName = "jaw"),
 
     // Leg
