@@ -79,48 +79,40 @@ object PlayerRenderer {
         controller.apply(instance)
         instance.updateRenderData()
 
-        // 현재 행렬 상태를 백업
         val backupItem = matrixStack.peek().copy()
         matrixStack.pop()
-        
-        try {
-            // 새로운 행렬 스택 프레임 시작
-            matrixStack.push()
+        matrixStack.push()
 
-            if (ArmorStandClient.debugBone) {
-                instance.debugRender(matrixStack.peek().positionMatrix, consumers)
+        if (ArmorStandClient.debugBone) {
+            instance.debugRender(matrixStack.peek().positionMatrix, consumers)
+        } else {
+            matrix.set(matrixStack.peek().positionMatrix)
+            matrix.scale(ConfigHolder.config.value.modelScale)
+            matrix.mulLocal(RenderSystem.getModelViewStack())
+            val currentRenderer = RendererManager.currentRenderer
+            val task = instance.createRenderTask(matrix, light)
+            if (currentRenderer is InstancedRenderer<*, *> && renderingWorld) {
+                currentRenderer.schedule(task)
             } else {
-                matrix.set(matrixStack.peek().positionMatrix)
-                matrix.scale(ConfigHolder.config.value.modelScale)
-                matrix.mulLocal(RenderSystem.getModelViewStack())
-                val currentRenderer = RendererManager.currentRenderer
-                val task = instance.createRenderTask(matrix, light)
-                if (currentRenderer is InstancedRenderer<*, *> && renderingWorld) {
-                    currentRenderer.schedule(task)
-                } else {
-                    val mainTarget = MinecraftClient.getInstance().framebuffer
-                    val colorFrameBuffer = RenderSystem.outputColorTextureOverride ?: mainTarget.colorAttachmentView!!
-                    val depthFrameBuffer = RenderSystem.outputDepthTextureOverride ?: mainTarget.depthAttachmentView
-                    currentRenderer.render(
-                        colorFrameBuffer = colorFrameBuffer,
-                        depthFrameBuffer = depthFrameBuffer,
-                        scene = instance.scene,
-                        task = task,
-                    )
-                    task.release()
-                }
-            }
-        } finally {
-            // 행렬 스택을 안전하게 복원
-            // 예외가 발생하더라도 반드시 실행되어 스택 상태를 보장
-            matrixStack.pop()
-            matrixStack.push()
-            matrixStack.peek().apply {
-                positionMatrix.set(backupItem.positionMatrix)
-                normalMatrix.set(backupItem.normalMatrix)
+                val mainTarget = MinecraftClient.getInstance().framebuffer
+                val colorFrameBuffer = RenderSystem.outputColorTextureOverride ?: mainTarget.colorAttachmentView!!
+                val depthFrameBuffer = RenderSystem.outputDepthTextureOverride ?: mainTarget.depthAttachmentView
+                currentRenderer.render(
+                    colorFrameBuffer = colorFrameBuffer,
+                    depthFrameBuffer = depthFrameBuffer,
+                    scene = instance.scene,
+                    task = task,
+                )
+                task.release()
             }
         }
-        
+
+        matrixStack.pop()
+        matrixStack.push()
+        matrixStack.peek().apply {
+            positionMatrix.set(backupItem.positionMatrix)
+            normalMatrix.set(backupItem.normalMatrix)
+        }
         return true
     }
 
