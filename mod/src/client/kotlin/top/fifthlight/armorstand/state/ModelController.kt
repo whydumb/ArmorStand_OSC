@@ -347,21 +347,28 @@ sealed class ModelController {
 
         override fun apply(instance: ModelInstance) {
             val state = VmcMarionetteManager.getState() ?: return
+            
+            // 루트 변환은 절대 좌표 유지 (캐릭터 전체 위치/회전)
             state.rootTransform?.let {
                 instance.setTransformDecomposed(scene.rootNode.nodeIndex, TransformId.ABSOLUTE) {
                     translation.set(it.position)
                     rotation.set(it.rotation)
                 }
             }
+            
+            // 본 변환은 상대 좌표로 변경 (부모 본에 대한 상대적 위치/회전)
             state.boneTransforms.forEach { (bone, value) ->
                 val item = bones.getOrPut(bone) { Optional.ofNullable(scene.getBone(bone)) }
                 item.ifPresent {
-                    it.updateAbsolute(instance) {
+                    // updateAbsolute 대신 update 사용 (상대 변환)
+                    it.update(instance) {
                         translation.set(value.position)
                         rotation.set(value.rotation)
                     }
                 }
             }
+            
+            // BlendShape 적용은 그대로 유지
             state.blendShapes.forEach { (tag, value) ->
                 val item = expressions.getOrPut(tag) { Optional.ofNullable(scene.getExpression(tag)) }
                 item.ifPresent {
