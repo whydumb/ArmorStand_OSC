@@ -1,6 +1,7 @@
 # 盔甲架
 
 盔甲架是一款 Minecraft 1.21.8 的玩家模型 mod，支持加载外部模型以替换原版的玩家模型。
+ok
 
 [![MC 百科](https://img.shields.io/badge/MC_%E7%99%BE%E7%A7%91-blue?style=for-the-badge)](https://www.mcmod.cn/class/20046.html)
 [![Modrinth](https://img.shields.io/modrinth/dt/armor-stand?style=for-the-badge&logo=modrinth)](https://modrinth.com/mod/armor-stand)
